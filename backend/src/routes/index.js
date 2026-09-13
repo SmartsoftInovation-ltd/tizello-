@@ -15,6 +15,13 @@ import {
 } from "../modules/project/project.routes.js";
 import memberRoutes from "../modules/member/member.routes.js";
 import projectPropertyRoutes from "../modules/project/project-property.routes.js";
+import {
+  projectRouter as taskProjectRoutes,
+  taskRouter as taskRoutes,
+} from "../modules/task/task.routes.js";
+import taskCommentRoutes from "../modules/task/task-comment.routes.js";
+import taskPropertyRoutes from "../modules/task/task-property.routes.js";
+import taskStatusRoutes from "../modules/task/task-status.routes.js";
 import uploadRoutes from "../modules/upload/upload.routes.js";
 import userRoutes from "../modules/user/user.routes.js";
 import workspaceRoutes from "../modules/workspace/workspace.routes.js";
@@ -38,6 +45,21 @@ router.use("/api/v1/invitations", invitationTokenRoutes);
 // membership from (userId, workspaceId); everything else is addressed by the
 // project's own globally unique id.
 router.use("/api/v1/projects", projectRoutes);
+// A project's task database: its rows and its per-project columns. Nested under
+// the project because both need `loadProject` to resolve the caller's roles —
+// on create there is no task yet to authorise against. These paths fall through
+// `projectRoutes` above, whose routes all match `/:projectId` exactly or name
+// their own sub-path (`/members`, `/archive`).
+router.use("/api/v1/projects/:projectId/task-properties", taskPropertyRoutes);
+// The project's workflow: its editable statuses, grouped To-do / In progress /
+// Complete. Project-scoped for the same `loadProject` reason as the two beside it.
+router.use("/api/v1/projects/:projectId/task-statuses", taskStatusRoutes);
+router.use("/api/v1/projects/:projectId/tasks", taskProjectRoutes);
+// Everything else about a task is addressed by the task's own id — same
+// two-scope split as projects. Comments are their own router so the task
+// routes file lists tasks and nothing else.
+router.use("/api/v1/tasks", taskRoutes);
+router.use("/api/v1/tasks/:taskId/comments", taskCommentRoutes);
 router.use("/api/v1/workspaces/:workspaceId/invitations", invitationWorkspaceRoutes);
 // The roster and its writes. Workspace-scoped because `permission.js` resolves
 // the caller's membership from (userId, workspaceId). The GET moved here from

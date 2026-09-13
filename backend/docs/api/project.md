@@ -26,11 +26,11 @@
 >    column, display reads the rows.** A `projectMember.role === 'OWNER'`
 >    check anywhere in this module is a bug.
 > 3. **`taskCounter` exists on the row and appears nowhere in this contract.**
->    Schema-only, added ahead of the Task module so `TIZ-1, TIZ-2, …` needs no
->    later migration. No endpoint below reads or writes it and the DTO does not
->    return it — exactly the arrangement `workspace.md` §*divergence 2* makes
->    for the billing columns. Treat it appearing in a future PR without a task
->    contract as a scope leak.
+>    It shipped ahead of the Task module so `TIZ-1, TIZ-2, …` needed no later
+>    migration, and it is now written by that module alone — incremented
+>    atomically inside task creation, see [task.md](./task.md) §*Numbering*.
+>    No endpoint below reads or writes it and the project DTO still does not
+>    return it; a task's number reaches clients as `task.number` / `task.key`.
 > 4. **Two route prefixes, one module.** Create and list need a workspace in
 >    the path for `loadMembership` to resolve a role against; everything else
 >    is addressed by the project's own globally unique id. Same split, same

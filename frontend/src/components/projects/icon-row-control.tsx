@@ -88,7 +88,7 @@ export function IconRowControl({
         <ShuffleIcon className="size-4" />
       </button>
 
-      {!icon && <span className="ml-0.5 text-xs text-text-subtle">Empty</span>}
+      {!icon && <span className="ml-0.5 text-xs text-text-subtle">No icon yet</span>}
     </div>
   );
 }

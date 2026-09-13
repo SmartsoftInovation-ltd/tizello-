@@ -13,7 +13,12 @@ export type PropertyIconKind =
   | "flag"
   | "people"
   | "emoji"
-  | "files";
+  | "files"
+  /* The task drawer's rows — Tags, Delay, Parent-task and Sprint. */
+  | "tag"
+  | "clock"
+  | "arrow"
+  | "sprint";
 
 export function PropertyIcon({ kind }: { kind: PropertyIconKind }) {
   const paths = {
@@ -58,6 +63,29 @@ export function PropertyIcon({ kind }: { kind: PropertyIconKind }) {
         <circle cx="8" cy="5.5" r="0.75" fill="currentColor" />
         <circle cx="5.5" cy="9" r="0.75" fill="currentColor" />
         <circle cx="10.5" cy="9" r="0.75" fill="currentColor" />
+      </>
+    ),
+    tag: (
+      <>
+        <path d="M2.5 2.5h5l6 6-5 5-6-6v-5z" />
+        <circle cx="5.25" cy="5.25" r="0.75" fill="currentColor" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle cx="8" cy="8" r="5.5" />
+        <path d="M8 5v3l2 1.5" />
+      </>
+    ),
+    arrow: <path d="M4.5 11.5l7-7M6 4.5h5.5V10" />,
+    sprint: (
+      <>
+        <circle cx="5.5" cy="4" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="10.5" cy="4" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="5.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="10.5" cy="8" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="5.5" cy="12" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="10.5" cy="12" r="0.9" fill="currentColor" stroke="none" />
       </>
     ),
   };

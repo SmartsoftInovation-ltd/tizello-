@@ -1,0 +1,107 @@
+/**
+ * Joi schemas for the task module — request SHAPE only. Whether the assignee
+ * is in the workspace, whether the parent is in the project, whether a value
+ * fits its property's type: all of those need a query, so all of them are the
+ * service's.
+ *
+ * Two things here look like omissions and are not:
+ *
+ * - `number` and `projectId` appear in no schema. The number is allocated by
+ *   the server from the project's counter (docs/api/task.md §Numbering), and a
+ *   task never moves project — moving would renumber it, which breaks every
+ *   `TIZ-7` already written down somewhere.
+ * - `tags` is not `.unique()`. Duplicates that differ only in case ("API",
+ *   "api") are collapsed by the service instead, because rejecting a request
+ *   for a duplicate the user cannot see is a worse answer than folding it.
+ *
+ * `attachments` is `Joi.array()` with no item schema for the same reason
+ * `properties` values are `Joi.any()`: the exact rule is
+ * `PROPERTY_TYPES.FILES.check`, and a second, Joi-shaped copy of it here would
+ * be a second place for the upload shape to change.
+ *
+ * See .claude/skills/module-consistency/SKILL.md and docs/api/task.md
+ */
+
+import Joi from 'joi';
+
+const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+const TAGS_MAX = 20;
+const TAG_LENGTH_MAX = 40;
+
+const title = Joi.string().trim().min(1).max(200);
+const description = Joi.string().trim().max(5000).allow(null, '');
+// Same rules as the project's glyph pair (project.validator.js): one emoji
+// fits in 8 UTF-16 units even with a skin-tone or ZWJ sequence; colour is hex.
+const icon = Joi.string().trim().max(8).allow(null, '');
+const color = Joi.string()
+  .pattern(/^#[0-9a-fA-F]{6}$/)
+  .allow(null, '');
+// A `TaskStatusOption` id, not an enum value: statuses are per-project data
+// now (docs/api/task.md §Statuses), so whether the id belongs to THIS project
+// needs a query and is the service's check. Never null — every task has a
+// status; omitted on create means the project default.
+const statusId = Joi.string().trim().max(64);
+const priority = Joi.string()
+  .valid(...PRIORITIES)
+  .allow(null);
+const id = Joi.string().trim().max(64);
+const date = Joi.date().iso().allow(null);
+const tags = Joi.array().items(Joi.string().trim().min(1).max(TAG_LENGTH_MAX)).max(TAGS_MAX);
+const attachments = Joi.array();
+// A partial { [taskPropertyDefId]: value } map; `null` on a key deletes it.
+const properties = Joi.object().pattern(Joi.string(), Joi.any());
+
+const createTaskSchema = Joi.object({
+  title: title.required(),
+  description: description.optional(),
+  icon: icon.optional(),
+  color: color.optional(),
+  statusId: statusId.optional(),
+  priority: priority.optional(),
+  assigneeId: id.allow(null).optional(),
+  dueDate: date.optional(),
+  completedAt: date.optional(),
+  tags: tags.optional(),
+  attachments: attachments.optional(),
+  parentId: id.allow(null).optional(),
+  properties: properties.optional(),
+});
+
+// `.min(1)` rejects `{}` — an empty PATCH is a caller mistake, not a no-op
+// success. Same rule as every sibling module.
+const updateTaskSchema = Joi.object({
+  title: title.optional(),
+  description: description.optional(),
+  icon: icon.optional(),
+  color: color.optional(),
+  statusId: statusId.optional(),
+  priority: priority.optional(),
+  assigneeId: id.allow(null).optional(),
+  dueDate: date.optional(),
+  completedAt: date.optional(),
+  tags: tags.optional(),
+  attachments: attachments.optional(),
+  parentId: id.allow(null).optional(),
+  properties: properties.optional(),
+})
+  .min(1)
+  .messages({ 'object.min': 'Provide at least one field to update' });
+
+/*
+ * `limit` caps at 500, five times the project list's 100: a backlog is read
+ * whole and grouped client-side, and paging a list somebody is dragging tasks
+ * around in is a worse bug than a larger payload.
+ *
+ * `parentId` takes a task id, or the literal `none` for top-level tasks only —
+ * a query string has no null, and "no parent" is the question a backlog asks.
+ */
+const listTasksQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(500).default(200),
+  statusId: statusId.optional(),
+  q: Joi.string().trim().max(200).optional(),
+  parentId: id.optional(),
+});
+
+export { createTaskSchema, updateTaskSchema, listTasksQuerySchema };

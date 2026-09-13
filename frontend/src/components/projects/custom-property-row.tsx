@@ -31,7 +31,10 @@ export function CustomPropertyRow({
   onChange,
   onDeleteDefinition,
 }: {
-  definition: ProjectPropertyDef;
+  /* Only the four fields a row reads, so a project's TASK column
+     (`TaskPropertyDef`, scoped to a project rather than a workspace) draws
+     through the same row. */
+  definition: Pick<ProjectPropertyDef, "id" | "name" | "type" | "options">;
   value: PropertyValue | undefined;
   today: string;
   canManage: boolean;
@@ -59,7 +62,7 @@ export function CustomPropertyRow({
             <input
               inputMode="decimal"
               aria-label={definition.name}
-              placeholder="Empty"
+              placeholder="Add a number"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               /* Coerced once, on blur. An empty field is 0 rather than a

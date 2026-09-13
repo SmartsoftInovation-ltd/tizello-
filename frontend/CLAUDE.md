@@ -70,8 +70,24 @@ against demo data in `src/lib/`, never that a backend is wired.
       order returns on reload (`lib/project-board-order.ts`). Filter, sort and
       search in the toolbar are still `LockedControl`s. `Project` (workspace
       tile) and `ProjectRecord` (full record) are still two types.
-- [ ] **Backlog** — `/board/backlog` renders with a working card composer, but
-      it is one global backlog, not per-project.
+- [x] **Backlog** — `/board/backlog` (the sidebar's link; `?project=` picks the
+      project, defaulting to the first one) and
+      `/workspaces/[workspaceId]/projects/[projectId]/backlog` both render
+      `components/tasks/project-backlog.tsx` — real data (`lib/tasks.ts` →
+      `backend/docs/api/task.md`). The project page's "Open backlog" link goes
+      to `/board/backlog?project=<id>`. Top-level tasks
+      grouped Not started / In progress / Done; sub-tasks live under their
+      parent. A task opens in the SAME drawer/modal as a project
+      (`components/tasks/task-drawer.tsx`, same `project-surface` preference):
+      title, Assignee / Status / Due, then ID, Sprint (read-only — no Sprint
+      model yet), Priority, Tags, Description, Files & media, Completed on
+      (server-stamped on Done), Delay (derived, `lib/task-delay.ts`),
+      Parent-task, per-project custom columns ("+ Add a property", writers
+      only) and "Hide N empty properties". Relations (add/open sub-tasks) and
+      Comments write immediately; fields ride Save as a changed-fields-only
+      PATCH. Collaborators may edit tasks (`lib/task-roles.ts`); columns stay
+      with project writers. The sprint-planning and sprint-board screens are
+      still on the `types/backlog.ts` fixtures.
 - [ ] **Sprint** — `/workspaces/[workspaceId]/projects/[projectId]/sprints`
       lists five fixture sprints from `demo-sprints.ts`, grouped Active /
       Planning / Completed, with a create-and-edit dialog (`TextField

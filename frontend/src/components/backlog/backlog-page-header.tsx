@@ -19,7 +19,7 @@ export function BacklogPageHeader({
   return (
     <header>
       <Link
-        href={`/workspaces/${workspaceId}/projects`}
+        href={`/workspaces/${workspaceId}/projects/${project.id}`}
         className="inline-block rounded-xs text-2xs font-medium text-text-subtle transition-colors duration-100 ease-standard hover:text-text-muted"
       >
         ← {project.name}
@@ -30,8 +30,8 @@ export function BacklogPageHeader({
         Backlog
       </h1>
       <p className="mt-1 max-w-prose text-sm text-text-muted">
-        Everything {project.name} might do, highest priority first. Nothing here
-        is committed to a sprint yet &mdash; planning is what moves a task out.
+        Everything {project.name} might do, grouped by status. Nothing here is
+        committed to a sprint yet &mdash; planning is what moves a task out.
       </p>
     </header>
   );

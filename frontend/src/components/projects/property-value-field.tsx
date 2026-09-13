@@ -33,7 +33,8 @@ export function PropertyValueField({
   today,
   onChange,
 }: {
-  definition: ProjectPropertyDef;
+  /* Structural, not the full record — see `custom-property-row.tsx`. */
+  definition: Pick<ProjectPropertyDef, "id" | "name" | "type" | "options">;
   value: PropertyValue;
   today: string;
   onChange: (value: PropertyValue) => void;
@@ -62,6 +63,7 @@ export function PropertyValueField({
           label={definition.name}
           hideLabel
           ghost
+          placeholder="Pick a date"
           value={typeof value === "string" ? value : ""}
           today={today}
           onChange={(next) => onChange(next)}
@@ -77,7 +79,7 @@ export function PropertyValueField({
              one has been made — without it a SELECT can never go back to
              unset short of removing the whole row. */
           options={[
-            { value: "", label: "Empty" },
+            { value: "", label: "None" },
             ...options.map((option) => ({
               value: option.id,
               label: option.label,
@@ -151,7 +153,7 @@ export function PropertyValueField({
           name={definition.id}
           autoComplete="off"
           required={false}
-          placeholder="Empty"
+          placeholder="Add a value…"
           value={typeof value === "string" || typeof value === "number" ? String(value) : ""}
           onValueChange={(next) => onChange(next)}
         />

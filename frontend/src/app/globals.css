@@ -124,6 +124,11 @@
   --color-label-red: #f87168;
   --color-label-purple: #9f8fef;
   --color-label-blue: #579dff;
+  /* Task statuses offer Notion's nine colours; the six above cover seven of
+     them (gray is the neutral), so these two complete the set at the same
+     desaturation. */
+  --color-label-pink: #e774bb;
+  --color-label-brown: #b0876a;
 
   /* ----------------------------------------------------------------------
      PLUM — the fifth status hue, backing --accent in block 3.

@@ -57,6 +57,11 @@ model User {
   loginCodes          LoginCode[]
   registrationCodes   RegistrationCode[]
   verificationTokens  VerificationToken[]
+  // Tasks: who is doing it, who filed it, and what they said on it. All three
+  // are SetNull on the task side — removing a person must never delete the work.
+  assignedTasks       Task[]              @relation("TaskAssignee")
+  createdTasks        Task[]              @relation("TaskCreatedBy")
+  taskComments        TaskComment[]       @relation("TaskCommentAuthor")
 
   @@map("users")
 }
@@ -363,12 +368,12 @@ model Project {
   startDate   DateTime?
   endDate     DateTime?
 
-  // --- task numbering (future — the Task module). Nothing reads or writes
-  // this yet. It ships now so `TIZ-1, TIZ-2, …` needs no migration later, and
-  // it must be incremented by an atomic UPDATE inside the task-creation
-  // transaction — `count(tasks) + 1` is wrong under concurrency and wrong
-  // after any delete. Same schema-ahead-of-logic bargain as Workspace's
-  // billing columns. Plan §2.3.
+  // --- task numbering. Written by the task module (src/modules/task/) and by
+  // nothing else: incremented by an atomic UPDATE … RETURNING inside the
+  // task-creation transaction, and the value it returns becomes Task.number.
+  // `count(tasks) + 1` is wrong under concurrency and wrong after any delete —
+  // this counter only ever goes up, so a deleted TIZ-7 is never reissued.
+  // Plan §2.3, docs/api/task.md §Numbering.
   taskCounter Int @default(0)
 
   // Values for this workspace's user-defined properties: a { [defId]: value }
@@ -393,6 +398,11 @@ model Project {
   owner   User   @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   members ProjectMember[]
+
+  // The project's task database: its rows, and its per-project columns.
+  tasks            Task[]
+  taskPropertyDefs TaskPropertyDef[]
+  taskStatuses     TaskStatusOption[]
 
   // Archived is reversible (hidden from the default list); deletedAt is not.
   // Neither is `status` — three independent axes, three columns.
@@ -485,4 +495,142 @@ model ProjectMember {
   @@unique([projectId, userId])
   @@index([projectId])
   @@map("project_members")
+}
+
+// ---------------------------------------------------------------------------
+// Tasks — src/modules/task/, docs/api/task.md
+// ---------------------------------------------------------------------------
+
+// The three FIXED groups a project's editable statuses fall into, and the only
+// part of a status the backend reasons about: `completedAt` follows entering
+// and leaving COMPLETE. Declaration order IS display order — Postgres sorts an
+// enum by it, so the status list needs no CASE expression. Must stay in sync
+// with STATUS_GROUPS in src/shared/constants/taskStatus.js.
+enum TaskStatusGroup {
+  TODO
+  IN_PROGRESS
+  COMPLETE
+}
+
+// One status a project's tasks can be in — "Not Started", "Review", "QA passed".
+// Rows rather than an enum because a project names its own workflow; the three
+// groups above are what stay fixed. docs/api/task.md §Statuses.
+model TaskStatusOption {
+  id        String          @id @default(cuid())
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  // A palette TOKEN (gray, blue, …), never a hex — see STATUS_COLORS.
+  color     String
+  group     TaskStatusGroup
+  // Sparse (10, 20, 30) WITHIN its group. Reordering rewrites the whole list
+  // in one transaction (PUT /task-statuses/order), so gaps are for inserts.
+  position  Int
+  // Exactly one per project: where a new task lands, and where a deleted
+  // status's tasks move to. The service keeps it single.
+  isDefault Boolean         @default(false)
+  tasks     Task[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  // Two statuses called "Review" in one project would be two identical chips.
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("task_status_options")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // Allocated from Project.taskCounter by an atomic UPDATE … RETURNING inside
+  // the create transaction, never `count + 1`. Rendered as `${project.key}-${number}`.
+  number      Int
+  title       String
+  description String?
+  // The same glyph pair Project carries — one emoji and a `#rrggbb` swatch —
+  // so a task page and a project page open with the same kind of header.
+  icon        String?
+  color       String?
+  // Restrict, not Cascade: deleting a status must never delete work. The
+  // service moves a status's tasks to the project default before deleting it.
+  statusId    String
+  status      TaskStatusOption @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  // Nullable, unlike Project.priority: a task filed as a one-liner has no
+  // priority yet, and defaulting it to MEDIUM would be a claim nobody made.
+  priority    Priority?
+  assigneeId  String?
+  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  dueDate     DateTime?
+  // Stamped by the service when status becomes DONE and cleared when it
+  // leaves DONE — unless the request sets it explicitly. docs/api/task.md.
+  completedAt DateTime?
+  // Free-text labels. A text[] rather than a tag table: nothing lists "all
+  // tags in a project" yet, and a join per task read buys nothing until then.
+  tags        String[]   @default([])
+  // Array of upload metadata — the exact shape of a FILES property value,
+  // validated by the same check. The bytes live under UPLOAD_DIR.
+  attachments Json?
+  // Sub-tasks. SetNull, not Cascade: deleting a parent promotes its children
+  // to top-level rather than silently taking their work with it.
+  parentId    String?
+  parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks    Task[]     @relation("Subtasks")
+  // Values for the project's task properties: { [taskPropertyDefId]: value }.
+  // Same Json-values / row-definitions split as Project.properties.
+  properties  Json?
+  createdById String?
+  createdBy   User?      @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  comments    TaskComment[]
+  deletedAt   DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // The number is the task's human identity inside its project; two TIZ-7s
+  // would make every commit message that mentions one ambiguous.
+  @@unique([projectId, number])
+  @@index([projectId])
+  @@index([parentId])
+  @@index([assigneeId])
+  @@index([statusId])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // SetNull: a departed user's comments stay in the thread, unattributed.
+  authorId  String?
+  author    User?    @relation("TaskCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}
+
+// One user-defined column of a PROJECT's task database.
+//
+// Scoped to the project, unlike ProjectPropertyDef (workspace-scoped): each
+// project's backlog is its own database, and a "Tutorial minutes" column one
+// team needs should not appear on every other team's tasks.
+model TaskPropertyDef {
+  id        String       @id @default(cuid())
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  // Immutable after create, for the reason ProjectPropertyDef.type is.
+  type      PropertyType
+  // SELECT / MULTI_SELECT only: [{ id, label, color }].
+  options   Json?
+  // Sparse (10, 20, 30 …) so a reorder is one UPDATE.
+  position  Int
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("task_property_defs")
 }

@@ -60,6 +60,13 @@ export function ProjectDetailHeader({
             <ProjectStatusBadge status={project.status} />
             <ProjectPriorityBadge priority={project.priority} />
             {project.isArchived && <Badge variant="warning">Archived</Badge>}
+            {/* The one way into this project's tasks from the project itself. */}
+            <Link
+              href={`/board/backlog?project=${project.id}`}
+              className="ml-1 rounded-xs text-2xs font-medium text-text-brand transition-colors duration-100 ease-standard hover:underline"
+            >
+              Open backlog &rarr;
+            </Link>
           </div>
         </div>
       </div>
