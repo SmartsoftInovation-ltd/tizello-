@@ -1,56 +1,93 @@
 "use client";
 
+import { OpenIcon } from "@/components/projects/project-action-icons";
+import { ProjectGlyph } from "@/components/projects/project-glyph";
+import { STATUS_DOT } from "@/components/tasks/task-tone";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
+import { cn } from "@/lib/cn";
+import type { Task } from "@/types/task";
 
 const TRIGGER = buttonVariants({ variant: "ghost", size: "icon", className: "size-7" });
 
 /**
- * The per-row kebab. Icon-only, so both branches name the task they act on —
- * "More actions" alone is useless in a list of twelve identical buttons.
+ * The per-row ⋯ menu, laid out like `ProjectActionsList` so a task and a
+ * project offer their actions the same way: a header that names the record,
+ * then View, Edit and — past a separator — Delete, each with its icon.
+ *
+ * The header is the task, not a caption — glyph, title, key and status —
+ * because a menu opened from the ninth row has to say which task it is before
+ * it offers to delete it.
+ *
+ * View is for everyone who can see the row. Edit and Delete are ABSENT rather
+ * than disabled for someone who may not change tasks. There is no task page
+ * yet, so View and Edit both open the task drawer; View is the read, Edit the
+ * promise that the fields in it are yours to change.
  */
 export function BacklogRowMenu({
-  taskId,
-  title,
+  task,
+  onView,
   onEdit,
   onDelete,
 }: {
-  taskId: string;
-  title: string;
-  onEdit: () => void;
-  onDelete: () => void;
+  task: Task;
+  onView: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={`Actions for ${taskId}, ${title}`}
+        aria-label={`Actions for ${task.key}, ${task.title}`}
         className={TRIGGER}
       >
         <MoreIcon className="size-4" />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onEdit}>
-          <PencilIcon className="size-3.5" />
-          Edit task
+        <div className="flex items-start gap-2 px-2 pt-1.5 pb-2">
+          <ProjectGlyph icon={task.icon} color={task.color} className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-text">{task.title}</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-text-subtle">
+              <span className="font-mono">{task.key}</span>
+              <span aria-hidden="true">·</span>
+              <span
+                aria-hidden="true"
+                className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[task.status.color])}
+              />
+              {task.status.name}
+            </p>
+          </div>
+        </div>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem icon={<OpenIcon />} onSelect={onView}>
+          View task
         </DropdownMenuItem>
 
-        {/* Destructive, so it reads as destructive before it is clicked. The
-            colour sits on an inner span: `DropdownMenuItem` sets its own
-            hover/focus text colour, and two competing `hover:text-*` classes
-            would leave the stylesheet's order to decide the winner. */}
-        <DropdownMenuItem onSelect={onDelete}>
-          <span className="flex items-center gap-2 text-danger">
-            <TrashIcon className="size-3.5" />
-            Delete task
-          </span>
-        </DropdownMenuItem>
+        {onEdit && (
+          <DropdownMenuItem icon={<PencilIcon />} onSelect={onEdit}>
+            Edit task
+          </DropdownMenuItem>
+        )}
+
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="danger" icon={<TrashIcon />} onSelect={onDelete}>
+              Delete task
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CheckIcon, ChevronDownIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { useActiveWorkspaceId } from "@/components/workspace/use-active-workspace-id";
 import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar";
-import { workspaceIdFromPath } from "@/lib/nav-links";
 import type { Workspace } from "@/types/workspace";
 
 const BASE =
@@ -25,9 +24,9 @@ const COMPACT = "size-8 shrink-0 justify-center";
 /**
  * The sidebar's workspace switcher: identity disc, name, chevron, menu.
  *
- * The active workspace comes from the URL rather than from a prop. This is
- * already a client component — the menu needs state — and the alternative was
- * threading an id from a `layout.tsx` that has no `workspaceId` param to give.
+ * The active workspace comes from the URL, and from the last workspace opened
+ * when the URL has none (`/board/*`) — see `useActiveWorkspaceId`. Without the
+ * fallback, opening the backlog looked like it deselected the workspace.
  *
  * The workspaces are REAL (`GET /workspaces`, via `SidebarWorkspace`), so the
  * disc reads `icon` and `color` — the two fields someone actually picked —
@@ -37,9 +36,12 @@ const COMPACT = "size-8 shrink-0 justify-center";
  */
 export function WorkspaceSwitcher({
   workspaces,
+  storedWorkspaceId,
   compact = false,
 }: {
   workspaces: Workspace[];
+  /** The remembered workspace as the server read it from the cookie. */
+  storedWorkspaceId?: string;
   /**
    * The disc alone, for the collapsed sidebar.
    *
@@ -51,7 +53,7 @@ export function WorkspaceSwitcher({
    */
   compact?: boolean;
 }) {
-  const activeWorkspaceId = workspaceIdFromPath(usePathname());
+  const activeWorkspaceId = useActiveWorkspaceId(storedWorkspaceId);
   const active = workspaces.find(
     (workspace) => workspace.id === activeWorkspaceId,
   );

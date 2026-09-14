@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { TaskBacklogPanel } from "@/components/tasks/task-backlog-panel";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { canWriteProject } from "@/lib/project-roles";
@@ -29,10 +30,15 @@ export async function ProjectBacklog({
   workspace,
   project,
   userId,
+  leading,
+  actions,
 }: {
   workspace: Workspace;
   project: ProjectRecord;
   userId: string;
+  /** Toolbar slots, passed straight through — see `TaskBacklogToolbar`. */
+  leading?: ReactNode;
+  actions?: ReactNode;
 }) {
   const [tasks, definitions, statuses, members] = await Promise.all([
     getProjectTasks(project.id),
@@ -54,5 +60,13 @@ export async function ProjectBacklog({
     canContribute: canContributeToProject(workspace.role, project.viewerRole),
   };
 
-  return <TaskBacklogPanel key={project.id} tasks={tasks} scope={scope} />;
+  return (
+    <TaskBacklogPanel
+      key={project.id}
+      tasks={tasks}
+      scope={scope}
+      leading={leading}
+      actions={actions}
+    />
+  );
 }

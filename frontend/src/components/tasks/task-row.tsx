@@ -100,11 +100,12 @@ export function TaskRow({
               : undefined
           }
         />
-        {onDelete && (
-          <span className={ACTIONS}>
-            <BacklogRowMenu taskId={task.key} title={task.title} onEdit={onOpen} onDelete={onDelete} />
-          </span>
-        )}
+        {/* Always drawn: View is for everyone who can see the row. Edit and
+            Delete ride `onDelete`, which is only passed to someone who may
+            change tasks — see `BacklogRowMenu`. */}
+        <span className={ACTIONS}>
+          <BacklogRowMenu task={task} onView={onOpen} onEdit={onDelete && onOpen} onDelete={onDelete} />
+        </span>
       </div>
     </div>
   );

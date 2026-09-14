@@ -80,7 +80,7 @@ const PROJECT_VIEW_CHILDREN: readonly SidebarChildItem[] = PROJECT_VIEWS.map(
  * still reachable from the project itself. Putting it here made the group read
  * as "everything with the word sprint in it" instead of as one workflow.
  */
-const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
+export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
   { id: "current-sprint", label: "Current sprint", href: "/board/sprint" },
   {
     id: "sprint-planning",

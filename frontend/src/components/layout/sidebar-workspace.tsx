@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { SidebarWorkspaceSlot } from "@/components/layout/sidebar-workspace-slot";
+import { workspaceFromCookies } from "@/lib/active-workspace";
 import { getWorkspaces } from "@/lib/workspaces";
 
 /**
@@ -14,9 +16,14 @@ import { getWorkspaces } from "@/lib/workspaces";
  */
 export async function SidebarWorkspace() {
   const workspaces = await getWorkspaces();
+  /* Read here so the switcher renders the remembered workspace in the first
+     HTML on routes whose path names none — see `lib/active-workspace.ts`. */
+  const storedWorkspaceId = workspaceFromCookies((await cookies()).toString());
 
   /* The width and the compact flag both depend on whether the sidebar is
      railed, which only a client component can know — see
      `sidebar-workspace-slot.tsx`. */
-  return <SidebarWorkspaceSlot workspaces={workspaces} />;
+  return (
+    <SidebarWorkspaceSlot workspaces={workspaces} storedWorkspaceId={storedWorkspaceId} />
+  );
 }

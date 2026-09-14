@@ -5,6 +5,7 @@ import { BoardHeader } from "@/components/board/board-header";
 import { CardTile } from "@/components/board/card-tile";
 import { BoardPageHeader } from "@/components/sprint-board/board-page-header";
 import { SprintBoardPanel } from "@/components/sprint-board/sprint-board-panel";
+import { SprintWorkflowNav } from "@/components/sprint-board/sprint-workflow-nav";
 import { getSession } from "@/lib/auth";
 import { getBoard } from "@/lib/boards";
 import { getBoardAssignees, getSprintBoard } from "@/lib/demo-board";
@@ -62,6 +63,10 @@ export default async function BoardPage({ params }: PageProps<"/board/[boardId]"
 
     return (
       <main className="flex h-full flex-col bg-surface-sunken">
+        <div className="px-4 pt-4">
+          <SprintWorkflowNav current="current-sprint" />
+        </div>
+
         {/* The identity is static and stays on the server; everything that
             changes as a card is dragged lives in the panel below. */}
         <BoardPageHeader

@@ -3,7 +3,8 @@
 import { usePathname } from "next/navigation";
 import { SidebarItem } from "@/components/layout/sidebar-item";
 import { SidebarSection } from "@/components/layout/sidebar-section";
-import { resolveHref, workspaceIdFromPath } from "@/lib/nav-links";
+import { useActiveWorkspaceId } from "@/components/workspace/use-active-workspace-id";
+import { resolveHref } from "@/lib/nav-links";
 import type {
   SidebarItem as SidebarItemData,
   SidebarSection as SidebarSectionData,
@@ -26,7 +27,9 @@ export function SidebarNav({
   sections: readonly SidebarSectionData[];
 }) {
   const pathname = usePathname();
-  const workspaceId = workspaceIdFromPath(pathname);
+  /* The remembered workspace too, so Projects / Members from `/board/*` open
+     the workspace the switcher shows rather than the demo fallback. */
+  const workspaceId = useActiveWorkspaceId();
 
   return (
     <nav

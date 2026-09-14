@@ -19,17 +19,21 @@ import type { Task } from "@/types/task";
 
 /**
  * The task's own fields, in the order the Notion template lists them: ID,
- * Sprint, Priority, Tags, Description — then, from `task-schedule-rows.tsx`,
- * Files & media, Completed on, Delay and Parent-task.
+ * Priority, Tags, Description — then, from `task-schedule-rows.tsx`, Files &
+ * media, Completed on, Delay and Parent-task.
  *
  * A function returning rows, not a component, because `TaskPropertyList` needs
  * to know which rows are EMPTY before it decides which to draw. Nothing here
  * holds state; every control is fed from the draft.
  *
- * Two rows here are read-only, each for its own reason:
- * - **ID** is allocated by the server on create and never changes after.
- * - **Sprint** has no model behind it yet. A backlog task is by definition in
- *   no sprint (`.claude/rules/workflow.md`); planning is what will set it.
+ * **ID** is read-only — allocated by the server on create, never changes
+ * after.
+ *
+ * There is deliberately no Sprint row. It used to be a permanently read-only
+ * placeholder ("Not in a sprint") — no Sprint model exists yet, so it could
+ * never say anything else, and a task in the backlog is by definition in no
+ * sprint (`.claude/rules/workflow.md`). A field that can only ever show one
+ * value is not information. Add it back once planning can actually set it.
  */
 export type TaskRow = { key: string; empty: boolean; node: React.ReactNode };
 
@@ -65,15 +69,6 @@ export function taskBuiltinRows(input: {
           <p className="px-2.5 py-2 font-mono text-sm text-text-muted">
             {task?.key ?? "Assigned when created"}
           </p>
-        </PropertyRow>
-      ),
-    },
-    {
-      key: "sprint",
-      empty: true,
-      node: (
-        <PropertyRow label="Sprint" icon="sprint">
-          <p className="px-2.5 py-2 text-sm text-text-subtle">Not in a sprint</p>
         </PropertyRow>
       ),
     },

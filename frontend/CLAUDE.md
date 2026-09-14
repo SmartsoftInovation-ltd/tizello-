@@ -75,13 +75,14 @@ against demo data in `src/lib/`, never that a backend is wired.
       `/workspaces/[workspaceId]/projects/[projectId]/backlog` both render
       `components/tasks/project-backlog.tsx` — real data (`lib/tasks.ts` →
       `backend/docs/api/task.md`). The project page's "Open backlog" link goes
-      to `/board/backlog?project=<id>`. Top-level tasks
-      grouped Not started / In progress / Done; sub-tasks live under their
-      parent. A task opens in the SAME drawer/modal as a project
+      to `/board/backlog?project=<id>`. **Not-started work only** — the board
+      renders the project's TODO-group statuses, empty ones included as drop
+      targets; a task moved into an IN_PROGRESS or COMPLETE status drops off
+      this list (`task-backlog-board.tsx`). Sub-tasks live under their parent.
+      A task opens in the SAME drawer/modal as a project
       (`components/tasks/task-drawer.tsx`, same `project-surface` preference):
-      title, Assignee / Status / Due, then ID, Sprint (read-only — no Sprint
-      model yet), Priority, Tags, Description, Files & media, Completed on
-      (server-stamped on Done), Delay (derived, `lib/task-delay.ts`),
+      title, Assignee / Status / Due, then ID, Priority, Tags, Description,
+      Files & media, Delay (derived, `lib/task-delay.ts`),
       Parent-task, per-project custom columns ("+ Add a property", writers
       only) and "Hide N empty properties". Relations (add/open sub-tasks) and
       Comments write immediately; fields ride Save as a changed-fields-only

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { SprintWorkflowNav } from "@/components/sprint-board/sprint-workflow-nav";
 import { PlanningPageHeader } from "@/components/sprint-planning/planning-page-header";
 import { SprintPlanningPanel } from "@/components/sprint-planning/sprint-planning-panel";
 import { getProjectTasks } from "@/lib/demo-backlog";
@@ -50,6 +51,9 @@ export default async function SprintPlanningPage({
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">
+      <div className="mb-6">
+        <SprintWorkflowNav current="sprint-planning" />
+      </div>
       <PlanningPageHeader workspaceId={workspace.id} project={project} />
 
       {/* Everything below the header is interactive, so `SprintPlanningPanel`

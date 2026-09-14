@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BacklogEmpty } from "@/components/backlog/backlog-empty";
 import { TaskBacklogBoard } from "@/components/tasks/task-backlog-board";
 import { TaskBacklogToolbar } from "@/components/tasks/task-backlog-toolbar";
@@ -27,7 +27,18 @@ import type { Task } from "@/types/task";
  */
 type Editor = { mode: "create" } | { mode: "edit"; taskId: string };
 
-export function TaskBacklogPanel({ tasks, scope }: { tasks: Task[]; scope: TaskScope }) {
+export function TaskBacklogPanel({
+  tasks,
+  scope,
+  leading,
+  actions,
+}: {
+  tasks: Task[];
+  scope: TaskScope;
+  /** Toolbar slots — see `TaskBacklogToolbar`. */
+  leading?: ReactNode;
+  actions?: ReactNode;
+}) {
   const [editor, setEditor] = useState<Editor>({ mode: "create" });
   const [open, setOpen] = useState(false);
   const [commentsPromise, setCommentsPromise] =
@@ -56,20 +67,30 @@ export function TaskBacklogPanel({ tasks, scope }: { tasks: Task[]; scope: TaskS
     ? () => setStatusEditor((current) => ({ open: true, key: current.key + 1 }))
     : undefined;
 
-  const ids = new Set(tasks.map((task) => task.id));
-  const topLevelCount = tasks.filter((task) => !task.parentId || !ids.has(task.parentId)).length;
+  /* The toolbar count and the empty state both follow what the board actually
+     shows — TODO-group tasks only, see `TaskBacklogBoard`. A task sitting in
+     an IN_PROGRESS or COMPLETE status is on the sprint board, not counted
+     here, and its status is what moved it off this list. */
+  const todoStatusIds = new Set(
+    scope.statuses.filter((status) => status.group === "TODO").map((status) => status.id),
+  );
+  const todoTasks = tasks.filter((task) => todoStatusIds.has(task.statusId));
+  const ids = new Set(todoTasks.map((task) => task.id));
+  const topLevelCount = todoTasks.filter((task) => !task.parentId || !ids.has(task.parentId)).length;
 
   return (
     <section>
       <TaskBacklogToolbar
         count={topLevelCount}
-        subtaskCount={tasks.length - topLevelCount}
+        subtaskCount={todoTasks.length - topLevelCount}
         canCreate={scope.canContribute}
         onNewTask={openCreate}
         onEditStatuses={editStatuses}
+        leading={leading}
+        actions={actions}
       />
 
-      {tasks.length === 0 ? (
+      {todoTasks.length === 0 ? (
         <div className="mt-4">
           <BacklogEmpty />
         </div>

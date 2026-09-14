@@ -6,15 +6,17 @@ import type { TaskScope } from "@/components/tasks/task-draft";
 import { TaskRow } from "@/components/tasks/task-row";
 import { TaskStatusGroup } from "@/components/tasks/task-status-group";
 import { useTaskStatusDnd } from "@/components/tasks/use-task-status-dnd";
-import { TASK_STATUS_GROUPS, TASK_STATUS_GROUP_LABEL, type Task } from "@/types/task";
+import type { Task } from "@/types/task";
 
 /**
- * The backlog's body: every status of the project as a section, under its
- * group heading, inside one drag context.
+ * The backlog's body: every TODO-group status of the project as a section,
+ * inside one drag context.
  *
- * EVERY STATUS IS DRAWN, EMPTY ONES INCLUDED. A status with no tasks is still
- * somewhere a task can be dropped, and a section that only appears once it has
- * something in it is a target you cannot reach.
+ * NOT-STARTED WORK ONLY — see the note beside `todoStatuses` below for why.
+ *
+ * EVERY TODO STATUS IS DRAWN, EMPTY ONES INCLUDED. A status with no tasks is
+ * still somewhere a task can be dropped, and a section that only appears once
+ * it has something in it is a target you cannot reach.
  *
  * TOP-LEVEL TASKS ONLY. A sub-task is reached through its parent's Relations,
  * the way Notion nests them; a sub-task whose parent is gone is top-level.
@@ -42,8 +44,20 @@ export function TaskBacklogBoard({
   const dnd = useTaskStatusDnd({ tasks, scope });
   const [collapsed, setCollapsed] = useState<string[]>([]);
 
+  /*
+   * BACKLOG SHOWS NOT-STARTED WORK ONLY. Once a task moves into an
+   * IN_PROGRESS or COMPLETE status it is being worked, and the sprint board
+   * is where in-flight work lives (`.claude/rules/workflow.md`) — leaving it
+   * in the backlog too read as the backlog holding everything, which is what
+   * confused people. Moving a task's status off TODO is what retires it from
+   * this list; the row itself, comments and history are untouched.
+   */
+  const todoStatuses = scope.statuses.filter((status) => status.group === "TODO");
+  const todoStatusIds = new Set(todoStatuses.map((status) => status.id));
   const ids = new Set(dnd.tasks.map((task) => task.id));
-  const topLevel = dnd.tasks.filter((task) => !task.parentId || !ids.has(task.parentId));
+  const topLevel = dnd.tasks.filter(
+    (task) => todoStatusIds.has(task.statusId) && (!task.parentId || !ids.has(task.parentId)),
+  );
 
   const keyOf = (id: string | number) => tasks.find((task) => task.id === id)?.key ?? "Task";
   const statusName = (data?: Record<string, unknown>) =>
@@ -72,31 +86,24 @@ export function TaskBacklogBoard({
       {...dnd.dndContextProps}
       accessibility={{ announcements, screenReaderInstructions: INSTRUCTIONS }}
     >
-      {TASK_STATUS_GROUPS.map((group) => {
-        const statuses = scope.statuses.filter((status) => status.group === group);
-        if (statuses.length === 0) return null;
-
-        return (
-          <div key={group} className="mt-6 first:mt-4">
-            <h2 className="px-2 text-2xs font-semibold tracking-wide text-text-subtle uppercase">
-              {TASK_STATUS_GROUP_LABEL[group]}
-            </h2>
-            {statuses.map((status) => (
-              <TaskStatusGroup
-                key={status.id}
-                status={status}
-                tasks={topLevel.filter((task) => task.statusId === status.id)}
-                today={scope.today}
-                collapsed={collapsed.includes(status.id)}
-                canDrag={scope.canContribute}
-                onToggle={() => toggle(status.id)}
-                onOpen={onOpen}
-                onDelete={onDelete}
-              />
-            ))}
-          </div>
-        );
-      })}
+      {/* One group, not three — see the note above. No group heading either:
+          with only "To do" statuses ever drawn here, a heading that always
+          reads "To do" tells nobody anything. */}
+      <div className="mt-4">
+        {todoStatuses.map((status) => (
+          <TaskStatusGroup
+            key={status.id}
+            status={status}
+            tasks={topLevel.filter((task) => task.statusId === status.id)}
+            today={scope.today}
+            collapsed={collapsed.includes(status.id)}
+            canDrag={scope.canContribute}
+            onToggle={() => toggle(status.id)}
+            onOpen={onOpen}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
 
       <DragOverlay dropAnimation={null}>
         {dnd.activeTask ? (

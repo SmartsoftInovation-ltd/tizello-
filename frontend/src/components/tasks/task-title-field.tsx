@@ -34,24 +34,26 @@ export function TaskTitleField({
 }) {
   return (
     <div>
-      {icon || color ? (
-        <ProjectGlyph icon={icon} color={color} className="size-11 rounded-md text-2xl" label="Task icon" />
-      ) : (
-        <TaskPageIcon className="size-11 text-text-subtle" />
-      )}
+      <div className="flex items-center gap-3">
+        {icon || color ? (
+          <ProjectGlyph icon={icon} color={color} className="size-9 shrink-0 rounded-md text-xl" label="Task icon" />
+        ) : (
+          <TaskPageIcon className="size-9 shrink-0 text-text-subtle" />
+        )}
 
-      <input
-        name="title"
-        autoComplete="off"
-        autoFocus={autoFocus}
-        defaultValue={defaultValue}
-        maxLength={200}
-        placeholder="Untitled task"
-        aria-label="Task title"
-        aria-invalid={error ? true : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-3 w-full rounded-sm border-0 bg-transparent p-0 text-2xl leading-tight font-bold tracking-tight text-text placeholder:text-text-subtle/60 focus-visible:outline-none"
-      />
+        <input
+          name="title"
+          autoComplete="off"
+          autoFocus={autoFocus}
+          defaultValue={defaultValue}
+          maxLength={200}
+          placeholder="Untitled task"
+          aria-label="Task title"
+          aria-invalid={error ? true : undefined}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-w-0 flex-1 rounded-sm border-0 bg-transparent p-0 text-2xl leading-tight font-bold tracking-tight text-text placeholder:text-text-subtle/60 focus-visible:outline-none"
+        />
+      </div>
       {error && (
         <p role="alert" className="mt-1 text-2xs text-danger">
           {error}

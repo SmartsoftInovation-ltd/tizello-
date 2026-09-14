@@ -5,25 +5,28 @@ import { PropertyRow } from "@/components/projects/property-row";
 import type { TaskRow } from "@/components/tasks/task-builtin-rows";
 import type { TaskDraft, TaskScope } from "@/components/tasks/task-draft";
 import { TaskParentPicker } from "@/components/tasks/task-parent-picker";
-import { DateField } from "@/components/ui/date-field";
 import { cn } from "@/lib/cn";
 import { describeDelay, taskDelayDays } from "@/lib/task-delay";
 import type { UploadedFile } from "@/types/project-property";
 import type { Task } from "@/types/task";
 
 /**
- * The second half of the task's own fields: Files & media, Completed on, Delay
- * and Parent-task — what a task is attached to and when it was finished.
+ * The second half of the task's own fields: Files & media, Delay and
+ * Parent-task — what a task is attached to and how it stands against its due
+ * date.
  *
  * Split from `task-builtin-rows.tsx` for the 150-line cap, along the one seam
  * the list has: those rows describe the work, these describe its outcome and
  * its place in the tree.
  *
- * DELAY IS READ-ONLY. It is derived from Due and Completed on
- * (`lib/task-delay.ts`), so a field for it would be a third value that can
- * disagree with the other two. Late is `text-danger` here and amber on the
- * row: in the drawer it is the one number on the line, on the row it sits
- * beside chips that already carry colour.
+ * DELAY IS READ-ONLY, derived from Due and `completedAt`
+ * (`lib/task-delay.ts`). There is deliberately no Completed-on row to edit:
+ * the backlog only ever shows TODO-group tasks (`task-backlog-board.tsx`),
+ * and `completedAt` is cleared the moment a task leaves a COMPLETE status
+ * (`types/task.ts`) — so from here it is always null, the same
+ * always-one-value problem that got the Sprint row removed. `complete` still
+ * has to be read from the status, though: it is what tells `describeDelay`
+ * a task due today finished on time rather than reading as overdue.
  */
 export function taskScheduleRows({
   task,
@@ -60,30 +63,6 @@ export function taskScheduleRows({
           <FilesValueField
             value={draft.attachments}
             onChange={(value) => onChange({ attachments: value as UploadedFile[] })}
-          />
-        </PropertyRow>
-      ),
-    },
-    {
-      key: "completed",
-      empty: !draft.completedAt,
-      node: (
-        <PropertyRow label="Completed on" icon="calendar">
-          <DateField
-            label="Completed on"
-            hideLabel
-            ghost
-            value={draft.completedAt}
-            today={scope.today}
-            placeholder="Not completed yet"
-            /* The server stamps it on a move to Done; saying so stops someone
-               filling in a date the API is about to write for them. */
-            helper={
-              complete && !draft.completedAt
-                ? "Filled in when saved as complete"
-                : undefined
-            }
-            onChange={(completedAt) => onChange({ completedAt })}
           />
         </PropertyRow>
       ),

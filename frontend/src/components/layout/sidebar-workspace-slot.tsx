@@ -17,12 +17,22 @@ import type { Workspace } from "@/types/workspace";
  * `workspaces` crosses the boundary as plain serialisable data, which is what
  * keeps the `GET /workspaces` on the server.
  */
-export function SidebarWorkspaceSlot({ workspaces }: { workspaces: Workspace[] }) {
+export function SidebarWorkspaceSlot({
+  workspaces,
+  storedWorkspaceId,
+}: {
+  workspaces: Workspace[];
+  storedWorkspaceId?: string;
+}) {
   const collapsed = useSidebarCollapsed();
 
   return (
     <div className={collapsed ? "shrink-0" : "min-w-0 flex-1"}>
-      <WorkspaceSwitcher workspaces={workspaces} compact={collapsed} />
+      <WorkspaceSwitcher
+        workspaces={workspaces}
+        storedWorkspaceId={storedWorkspaceId}
+        compact={collapsed}
+      />
     </div>
   );
 }
