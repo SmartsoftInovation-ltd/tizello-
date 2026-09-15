@@ -5,11 +5,7 @@ import { TaskForm } from "@/components/tasks/task-form";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { Drawer } from "@/components/ui/drawer";
 import type { listTaskCommentsAction } from "@/lib/actions/task-actions";
-import {
-  getSurfaceServerSnapshot,
-  readStoredSurface,
-  subscribeToSurface,
-} from "@/lib/project-surface";
+import { subscribeToSurface, surfaceSnapshots, type SurfaceScope } from "@/lib/project-surface";
 import type { Task } from "@/types/task";
 
 /**
@@ -31,6 +27,7 @@ export function TaskDrawer({
   task,
   parentId,
   sprintId,
+  surfaceScope = "default",
   open,
   scope,
   tasks,
@@ -43,6 +40,8 @@ export function TaskDrawer({
   parentId?: string;
   /** Seeds Sprint when creating from a sprint box. */
   sprintId?: string;
+  /** Which side-panel/centred preference applies — sprint planning's defaults to centred. */
+  surfaceScope?: SurfaceScope;
   open: boolean;
   scope: TaskScope;
   /** Every task in the project — the parent picker and the sub-task list read it. */
@@ -51,11 +50,8 @@ export function TaskDrawer({
   onOpenChange: (open: boolean) => void;
   onOpenTask: (taskId: string) => void;
 }) {
-  const surface = useSyncExternalStore(
-    subscribeToSurface,
-    readStoredSurface,
-    getSurfaceServerSnapshot,
-  );
+  const snapshots = surfaceSnapshots(surfaceScope);
+  const surface = useSyncExternalStore(subscribeToSurface, snapshots.read, snapshots.server);
 
   return (
     <Drawer
@@ -71,6 +67,7 @@ export function TaskDrawer({
         sprintId={sprintId}
         scope={scope}
         surface={surface}
+        surfaceScope={surfaceScope}
         tasks={tasks}
         commentsPromise={commentsPromise}
         onClose={() => onOpenChange(false)}

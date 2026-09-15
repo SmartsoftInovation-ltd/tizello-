@@ -16,10 +16,12 @@ import type { Task } from "@/types/task";
  * the story-points picker on the right — the two things a planning session
  * reads and changes while deciding what fits.
  *
- * Sortable by its grip only, for the reason `draggable-task-row.tsx` gives: the
- * title opens the drawer, and a whole-row drag would turn an unsteady click into
- * a move. `data.sprintId` is what lets a drop ON this row resolve to this row's
- * container. Someone who may not change tasks gets a plain row with no grip.
+ * PICKED UP FROM ANYWHERE ON THE CARD: the pointer listeners sit on the whole
+ * row, and `RowPointerSensor` plus a 6px distance keep clicks working
+ * (`row-pointer-sensor.ts`). The grip stays as the visible affordance, the
+ * touch handle (the row itself must still scroll a phone), and the keyboard
+ * activator. `data.sprintId` is what lets a drop ON this row resolve to this
+ * row's container. Someone who may not change tasks gets a plain row.
  */
 export function PlanningTaskRow({
   task,
@@ -44,12 +46,16 @@ export function PlanningTaskRow({
   const canDrag = scope.canContribute;
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { sprintId }, disabled: !canDrag });
+  /* dnd-kit types its listeners as a bare `Function` map; this one is the
+     pointer activator, attached to the whole card. */
+  const onCardPointerDown = listeners?.onPointerDown as React.PointerEventHandler<HTMLDivElement> | undefined;
 
   return (
     <div
       ref={setNodeRef}
+      onPointerDown={canDrag ? onCardPointerDown : undefined}
       style={{ transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined, transition }}
-      className={cn(isDragging && "opacity-40")}
+      className={cn(canDrag && "cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}
     >
       <TaskRow
         task={task}

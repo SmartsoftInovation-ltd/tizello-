@@ -77,7 +77,7 @@ export function SprintDrawerForm({
         <p className="min-w-0 flex-1 truncate text-xs text-text-subtle">
           {sprint ? <span className="font-mono">{sprint.key}</span> : `New sprint in ${scope.projectName}`}
         </p>
-        <SurfaceMenu surface={surface} />
+        <SurfaceMenu surface={surface} scope="planning" />
         <DrawerCloseButton onClose={onClose} />
       </DrawerHeader>
 

@@ -7,14 +7,14 @@ import { TaskBulkBar } from "@/components/tasks/task-bulk-bar";
 import { TaskDeleteDialog } from "@/components/tasks/task-delete-dialog";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { TaskDrawer } from "@/components/tasks/task-drawer";
-import { TaskStatusEditor } from "@/components/tasks/task-status-editor";
 import type { Task } from "@/types/task";
 
 /**
  * Everything on the planning screen that opens ABOVE the boxes — the same set
  * the backlog has, so both screens behave alike: the task drawer (view, edit,
  * and create — seeded into a sprint when opened from one), the delete confirm,
- * the status editor, the bulk bar, and the sprint drawer and confirms.
+ * the bulk bar, and the sprint drawer and confirms. Not the status editor:
+ * workflow editing lives on the backlog screen (`planning-toolbar.tsx`).
  *
  * Its own component for the board's line cap, and because none of these draw
  * anything until their state says so.
@@ -44,6 +44,7 @@ export function PlanningOverlays({
         open={view.drawer.open && (creating || editing !== null)}
         task={editing}
         sprintId={creating ? view.drawer.sprintId : undefined}
+        surfaceScope="planning"
         scope={scope}
         tasks={tasks}
         commentsPromise={view.commentsPromise}
@@ -52,15 +53,6 @@ export function PlanningOverlays({
       />
 
       <TaskDeleteDialog task={view.pendingDeletion} scope={scope} onClose={() => view.setPendingDeletion(null)} />
-
-      {scope.canManageProperties && (
-        <TaskStatusEditor
-          key={view.statusEditor.key}
-          open={view.statusEditor.open}
-          scope={scope}
-          onOpenChange={view.setStatusesOpen}
-        />
-      )}
 
       <SprintDialogs dialog={dialogs.dialog} dialogKey={dialogs.key} tasks={tasks} scope={scope} onClose={dialogs.close} />
     </>

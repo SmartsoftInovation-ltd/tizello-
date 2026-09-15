@@ -15,7 +15,7 @@ import { useTaskForm } from "@/components/tasks/use-task-form";
 import { Button } from "@/components/ui/button";
 import { DrawerBody, DrawerFooter, DrawerForm, DrawerHeader } from "@/components/ui/drawer";
 import type { listTaskCommentsAction } from "@/lib/actions/task-actions";
-import type { ProjectSurface } from "@/lib/project-surface";
+import type { ProjectSurface, SurfaceScope } from "@/lib/project-surface";
 import type { Task } from "@/types/task";
 
 /**
@@ -36,6 +36,7 @@ export function TaskForm({
   sprintId,
   scope,
   surface,
+  surfaceScope,
   tasks,
   commentsPromise,
   onClose,
@@ -46,6 +47,7 @@ export function TaskForm({
   sprintId?: string;
   scope: TaskScope;
   surface: ProjectSurface;
+  surfaceScope: SurfaceScope;
   tasks: Task[];
   commentsPromise: ReturnType<typeof listTaskCommentsAction> | null;
   onClose: () => void;
@@ -61,10 +63,10 @@ export function TaskForm({
           {task ? (
             <span className="font-mono">{task.key}</span>
           ) : (
-            `New task in ${scope.sprints.find((sprint) => sprint.id === sprintId)?.name ?? scope.projectName}`
+            `New task in ${scope.sprints.find((sprint) => sprint.id === sprintId)?.name ?? "Backlog"}`
           )}
         </p>
-        <SurfaceMenu surface={surface} />
+        <SurfaceMenu surface={surface} scope={surfaceScope} />
         <DrawerCloseButton onClose={onClose} />
       </DrawerHeader>
 

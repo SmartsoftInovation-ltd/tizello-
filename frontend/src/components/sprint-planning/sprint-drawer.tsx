@@ -4,14 +4,14 @@ import { useSyncExternalStore } from "react";
 import { SprintDrawerForm } from "@/components/sprint-planning/sprint-drawer-form";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { Drawer } from "@/components/ui/drawer";
-import { getSurfaceServerSnapshot, readStoredSurface, subscribeToSurface } from "@/lib/project-surface";
+import { getPlanningSurfaceServerSnapshot, readPlanningSurface, subscribeToSurface } from "@/lib/project-surface";
 import type { PointsByGroup } from "@/lib/sprint-plan";
 import type { ProjectSprint } from "@/types/project-sprint";
 
 /**
- * A sprint, in the same panel a task and a project open in — side panel or
- * centred modal, ONE preference across the app (`lib/project-surface.ts`), so
- * someone who chose "Centred" for tasks gets sprints centred too.
+ * A sprint, in the same panel a task opens in — side panel or centred modal,
+ * sharing SPRINT PLANNING's preference (`lib/project-surface.ts`), which starts
+ * as centred. Switching it here switches the task drawer on this screen too.
  *
  * The shell stays mounted and the form is remounted by `formKey` on every open,
  * the arrangement `task-drawer.tsx` documents: the native `<dialog>` hands focus
@@ -34,7 +34,7 @@ export function SprintDrawer({
   scope: TaskScope;
   onClose: () => void;
 }) {
-  const surface = useSyncExternalStore(subscribeToSurface, readStoredSurface, getSurfaceServerSnapshot);
+  const surface = useSyncExternalStore(subscribeToSurface, readPlanningSurface, getPlanningSurfaceServerSnapshot);
 
   return (
     <Drawer open={open} surface={surface} onOpenChange={(next) => !next && onClose()} aria-label={sprint ? sprint.name : "New sprint"}>

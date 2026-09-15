@@ -7,8 +7,8 @@ import type { Task } from "@/types/task";
 
 /**
  * The planning screen's local view state: filters, the selection, which boxes
- * are collapsed, the one task drawer every row and "New task" opens, the task
- * pending deletion, and the status editor.
+ * are collapsed, the one task drawer every row and "New task" opens, and the
+ * task pending deletion.
  *
  * Separate from the board component for the line cap, and because none of it
  * is data — the task list stays a prop, refreshed by each action's revalidate.
@@ -25,7 +25,6 @@ export function usePlanningView() {
     key: 0,
   });
   const [pendingDeletion, setPendingDeletion] = useState<Task | null>(null);
-  const [statusEditor, setStatusEditor] = useState({ open: false, key: 0 });
   const [commentsPromise, setCommentsPromise] = useState<ReturnType<typeof listTaskCommentsAction> | null>(null);
 
   function openTask(taskId: string) {
@@ -65,9 +64,6 @@ export function usePlanningView() {
     openCreate,
     pendingDeletion,
     setPendingDeletion,
-    statusEditor,
-    openStatuses: () => setStatusEditor((current) => ({ open: true, key: current.key + 1 })),
-    setStatusesOpen: (open: boolean) => setStatusEditor((current) => ({ ...current, open })),
     setDrawerOpen: (open: boolean) => setDrawer((current) => ({ ...current, open })),
   };
 }

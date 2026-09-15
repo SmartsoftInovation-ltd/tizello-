@@ -8,7 +8,15 @@ import { createTaskAction } from "@/lib/actions/task-actions";
 import { taskErrorCopy } from "@/types/task";
 
 /**
- * "+ Add task" under a status: type a title, press Enter, it is in the backlog.
+ * "+ Add task to …" under a box: type a title, press Enter, it is there.
+ *
+ * THE DESTINATION IS IN THE LABEL, and the row is a brand-tinted dashed box.
+ * A bare "Add task" under every box read as the same button repeated — people
+ * could not tell it from the toolbar's New task, or which box it filed into.
+ * "Add task to Sprint 1" answers that before the click, and the dashed outline
+ * is the house signal for "there is room here" (the drop zones use it too).
+ * The brand hue is identical in both themes, and `text-text-brand` is the
+ * AA-safe brand ink on either surface (DESIGN-SYSTEM.md).
  *
  * The fast path the drawer is not. Getting ten thoughts out of someone's head
  * should be ten titles and ten Enters, not ten drawers — everything else about
@@ -46,11 +54,10 @@ export function TaskQuickAdd({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1 flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-text-subtle transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text"
+        className="mt-2 flex w-full items-center gap-1.5 rounded-md border border-dashed border-brand-500/50 px-3 py-2 text-left text-xs font-medium text-text-brand transition-colors duration-100 ease-standard hover:border-brand-500 hover:bg-success-subtle"
       >
         <PlusIcon className="size-3.5" />
-        Add task
-        <span className="sr-only"> to {where}</span>
+        Add task to {where}
       </button>
     );
   }

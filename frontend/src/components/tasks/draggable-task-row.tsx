@@ -9,10 +9,13 @@ import { cn } from "@/lib/cn";
  * A backlog row that can be dragged to a new rank in its status, or onto
  * another status.
  *
- * DRAGGED BY ITS GRIP ONLY. The title is a button that opens the drawer, and a
- * whole-row drag would turn every slightly unsteady click into a move. The grip
- * is a real `<button>` carrying dnd-kit's keyboard listeners, so Space picks
- * the task up and the arrow keys carry it — not a pointer-only affordance.
+ * PICKED UP FROM ANYWHERE ON THE CARD. The pointer listener sits on the whole
+ * row; `RowPointerSensor` and its 6px distance keep a click a click, so the
+ * title still opens the drawer (`row-pointer-sensor.ts`). The grip remains the
+ * visible affordance, the touch handle — the row itself must still scroll on a
+ * phone — and the keyboard activator: a real `<button>`, so Space picks the task
+ * up and the arrow keys carry it. A press on the grip is not counted twice: dnd-kit
+ * marks the event captured by the first activator it reaches.
  *
  * `useSortable`, not `useDraggable`: the order inside a status IS the backlog's
  * priority now (`position`, `backend/docs/api/task.md` §Ordering), so the rows
@@ -23,13 +26,17 @@ export function DraggableTaskRow(props: Omit<TaskRowProps, "handle">) {
   const { task } = props;
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, data: { statusId: task.statusId } });
+  /* dnd-kit types its listeners as a bare `Function` map; this one is the
+     pointer activator, attached to the whole card. */
+  const onCardPointerDown = listeners?.onPointerDown as React.PointerEventHandler<HTMLDivElement> | undefined;
 
   return (
     <div
       ref={setNodeRef}
+      onPointerDown={onCardPointerDown}
       /* Vertical only, as in `sortable-status-row.tsx` — the list is a column. */
       style={{ transform: transform ? `translate3d(0, ${transform.y}px, 0)` : undefined, transition }}
-      className={cn(isDragging && "opacity-40")}
+      className={cn("cursor-grab active:cursor-grabbing", isDragging && "opacity-40")}
     >
       <TaskRow
         {...props}

@@ -6,6 +6,7 @@ import { CheckIcon, Icon, type IconProps } from "@/components/ui/icons";
 import {
   setStoredSurface,
   type ProjectSurface,
+  type SurfaceScope,
 } from "@/lib/project-surface";
 import { cn } from "@/lib/cn";
 
@@ -30,7 +31,14 @@ const OPTIONS: { value: ProjectSurface; label: string; hint: string }[] = [
   { value: "modal", label: "Centred", hint: "The form, and nothing else" },
 ];
 
-export function SurfaceMenu({ surface }: { surface: ProjectSurface }) {
+export function SurfaceMenu({
+  surface,
+  scope = "default",
+}: {
+  surface: ProjectSurface;
+  /** Which preference this switch writes — sprint planning keeps its own. */
+  scope?: SurfaceScope;
+}) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -87,7 +95,7 @@ export function SurfaceMenu({ surface }: { surface: ProjectSurface }) {
               role="menuitemradio"
               aria-checked={option.value === surface}
               onClick={() => {
-                setStoredSurface(option.value);
+                setStoredSurface(option.value, scope);
                 setOpen(false);
                 triggerRef.current?.focus();
               }}

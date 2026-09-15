@@ -22,9 +22,9 @@ import type { Task } from "@/types/task";
  * them. Estimating (the points pill), creating, starting and completing sprints
  * all happen on this one screen.
  *
- * SAME SURFACES AS THE BACKLOG. New task, a row's ⋯ menu, the task drawer
- * (side panel or centred, one preference), the delete confirm, the status
- * editor and the bulk bar behave exactly as they do there (`planning-overlays.tsx`);
+ * SAME SURFACES AS THE BACKLOG. New task, a row's ⋯ menu, the task drawer, the
+ * delete confirm and the bulk bar behave exactly as they do there
+ * (`planning-overlays.tsx`) — the status editor deliberately stays on the backlog;
  * a sprint opens in that same drawer. What planning adds is "Move to" in the
  * row menu and the sprint boxes.
  *
@@ -65,7 +65,6 @@ export function SprintPlanningBoard({ tasks, scope }: { tasks: Task[]; scope: Ta
         waiting={backlog.length}
         canManage={scope.canManageProperties}
         canCreate={scope.canContribute}
-        onEditStatuses={view.openStatuses}
         onCreateSprint={dialogs.create}
         onNewTask={() => view.openCreate()}
       />

@@ -4,7 +4,6 @@ import { useOptimistic, useState, useTransition } from "react";
 import {
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
   pointerWithin,
   useSensor,
   useSensors,
@@ -14,6 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { toast } from "sonner";
+import { RowPointerSensor } from "@/components/tasks/row-pointer-sensor";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { moveTaskAction } from "@/lib/actions/task-bulk-actions";
 import { byRank } from "@/lib/task-filters";
@@ -71,7 +71,8 @@ export function usePlanningDnd({
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    /* Whole-card drag (`row-pointer-sensor.ts`); 6px of movement is what keeps a click a click. */
+    useSensor(RowPointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
