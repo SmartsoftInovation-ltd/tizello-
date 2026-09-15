@@ -63,8 +63,8 @@ export function PlanningContainer({
       ref={setNodeRef}
       aria-label={name}
       className={cn(
-        "rounded-lg border bg-surface-sunken p-2 transition-colors duration-100 ease-standard",
-        isOver ? "border-dashed border-border-strong bg-surface-hover" : "border-border",
+        "rounded-lg border bg-panel p-2 transition-colors duration-100 ease-standard",
+        isOver ? "border-dashed border-brand-500 bg-success-subtle" : "border-border",
       )}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
@@ -87,7 +87,7 @@ export function PlanningContainer({
         <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
           <ul className="space-y-1.5">
             {tasks.length === 0 ? (
-              <li className="rounded-md border border-dashed border-border bg-surface px-3 py-5 text-center text-xs text-text-subtle">
+              <li className="rounded-md border border-dashed border-border-strong bg-surface px-3 py-5 text-center text-xs text-text-muted">
                 {filtered ? "No matching tasks." : emptyText}
               </li>
             ) : (

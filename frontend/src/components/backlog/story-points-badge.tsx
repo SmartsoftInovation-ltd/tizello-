@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
  * second coloured chip would compete with it for the same glance. `tabular-nums`
  * keeps a column of them from twitching between 8 and 13.
  */
-const CHIP = "bg-surface-sunken text-text-muted tabular-nums";
+const CHIP = "bg-chip text-text-muted tabular-nums";
 
 export function StoryPointsBadge({ points }: { points?: number }) {
   /* Unestimated is not zero, and "0 pts" would claim it is. The row renders

@@ -57,7 +57,7 @@ export function SprintHeader({
 
   return (
     <>
-      <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-text-subtle">
+      <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-text-muted">
         {sprint.state === "ACTIVE" && (
           <span className="rounded-xs bg-brand-100 px-1.5 py-0.5 text-2xs font-semibold text-brand-800">Active</span>
         )}

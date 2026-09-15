@@ -54,7 +54,7 @@ export function TaskQuickAdd({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2 flex w-full items-center gap-1.5 rounded-md border border-dashed border-brand-500/50 px-3 py-2 text-left text-xs font-medium text-text-brand transition-colors duration-100 ease-standard hover:border-brand-500 hover:bg-success-subtle"
+        className="mt-2 flex w-full items-center gap-1.5 rounded-md border border-dashed border-brand-500/70 bg-surface px-3 py-2 text-left text-xs font-semibold text-text-brand transition-colors duration-100 ease-standard hover:border-brand-500 hover:bg-success-subtle"
       >
         <PlusIcon className="size-3.5" />
         Add task to {where}

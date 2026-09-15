@@ -212,6 +212,15 @@
   --surface: light-dark(var(--color-ink-0), var(--color-slate-200));
   --surface-sunken: light-dark(var(--color-ink-200), var(--color-slate-50));
   --surface-hover: light-dark(var(--color-ink-100), var(--color-slate-300));
+  /* A grouping box that holds white rows (a sprint, the backlog). Near-white in
+     light — `surface-sunken`'s ink-200 behind white cards read as a grey slab
+     with the rows pasted on; the border carries the grouping instead. Dark is
+     slate-50, exactly what those boxes already used there. */
+  --panel: light-dark(var(--color-ink-50), var(--color-slate-50));
+  /* Neutral chips on a card — tags, a gray status, points. ink-100 rather than
+     sunken's ink-200, which was heavy next to 11px text on white. Dark is
+     unchanged (slate-50). */
+  --chip: light-dark(var(--color-ink-100), var(--color-slate-50));
 
   --text: light-dark(var(--color-ink-900), var(--color-slate-950));
   --text-muted: light-dark(var(--color-ink-700), var(--color-slate-900));
@@ -308,6 +317,8 @@
   --color-surface: var(--surface);
   --color-surface-sunken: var(--surface-sunken);
   --color-surface-hover: var(--surface-hover);
+  --color-panel: var(--panel);
+  --color-chip: var(--chip);
 
   --color-text: var(--text);
   --color-text-muted: var(--text-muted);

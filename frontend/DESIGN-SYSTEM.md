@@ -118,6 +118,8 @@ These are the tokens components use. Each resolves per theme.
 | `surface` | `ink-0` | `slate-200` | cards, panels, menus |
 | `surface-sunken` | `ink-200` | `slate-50` | wells, empty drop zones |
 | `surface-hover` | `ink-100` | `slate-300` | hover on a surface |
+| `panel` | `ink-50` | `slate-50` | a grouping box that holds white cards (a sprint, the backlog) — near-white in light so the border, not a grey slab, does the grouping |
+| `chip` | `ink-100` | `slate-50` | neutral chips on a card — tags, a gray status, story points; lighter than `surface-sunken` next to 11px text |
 | `text` | `ink-900` | `slate-950` | body copy |
 | `text-muted` | `ink-700` | `slate-900` | secondary copy |
 | `text-subtle` | `ink-600` | `slate-800` | meta, timestamps, placeholders |

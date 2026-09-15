@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
    sanctioned tinted-surface pair from DESIGN-SYSTEM.md's contrast table; both
    are brand primitives, so the chip is identical in light and dark. */
 const VARIANT = {
-  default: "bg-surface-sunken text-text-muted",
+  default: "bg-chip text-text-muted",
   outline: "border border-border text-text-muted",
   brand: "bg-brand-100 text-brand-800",
   /* Amber fill, neutral ink — and the ink is neutral on purpose. Measured

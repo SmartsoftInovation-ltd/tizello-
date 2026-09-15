@@ -40,7 +40,7 @@ export function PlanningToolbar({
 }) {
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <p className="text-xs text-text-subtle">
+      <p className="text-xs text-text-muted">
         <span className="font-semibold text-text">{plural(planned, "task", "tasks")} planned</span>
         {" · "}
         {waiting} waiting in the backlog

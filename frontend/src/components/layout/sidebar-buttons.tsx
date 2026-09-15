@@ -14,7 +14,7 @@ import { setMobileSidebarOpen, setSidebarCollapsed } from "@/lib/sidebar";
  * the base would leave the stylesheet's order to pick the winner.
  */
 const ICON_BUTTON =
-  "size-7 shrink-0 items-center justify-center rounded-sm text-text-subtle transition-colors duration-100 ease-standard hover:bg-surface-sunken hover:text-text";
+  "size-7 shrink-0 items-center justify-center rounded-sm text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-sunken hover:text-text";
 
 /**
  * In the sidebar header, above `md`. A TOGGLE now, not a one-way collapse.

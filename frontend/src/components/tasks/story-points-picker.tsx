@@ -42,7 +42,7 @@ export function StoryPointsPicker({ task, scope }: { task: Task; scope: TaskScop
 
   if (!scope.canContribute) {
     return (
-      <span title="Story points" className="grid h-6 min-w-10 place-items-center rounded-full bg-surface-sunken px-2 text-2xs font-semibold text-text-muted tabular-nums">
+      <span title="Story points" className="grid h-6 min-w-10 place-items-center rounded-full bg-chip px-2 text-2xs font-semibold text-text-muted tabular-nums">
         {label}
       </span>
     );
@@ -72,7 +72,7 @@ export function StoryPointsPicker({ task, scope }: { task: Task; scope: TaskScop
           "grid h-6 min-w-10 place-items-center rounded-full px-2 text-2xs font-semibold tabular-nums transition-colors duration-100 ease-standard",
           points === null
             ? "border border-dashed border-border text-text-subtle hover:border-border-strong hover:text-text"
-            : "bg-surface-sunken text-text-muted hover:bg-surface-hover hover:text-text",
+            : "border border-border bg-chip text-text-muted hover:border-border-strong hover:text-text",
         )}
       >
         {label}

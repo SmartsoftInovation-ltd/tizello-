@@ -63,11 +63,12 @@ import type { SidebarItem as SidebarItemData } from "@/types/nav";
  */
 const ROW =
   "group/row flex w-full items-center gap-2 rounded-sm pr-1 pl-2 transition-colors duration-100 ease-standard";
-const ROW_IDLE = "text-text-muted hover:bg-surface-sunken";
-const ROW_ACTIVE = "bg-surface";
+/* Body ink for the label and a hairline ring when current — see `sidebar-item.tsx`. */
+const ROW_IDLE = "text-text hover:bg-surface-sunken";
+const ROW_ACTIVE = "bg-surface ring-1 ring-border";
 const LINK = "flex min-w-0 flex-1 items-center py-1.5 text-left text-sm";
 const ICON_BUTTON =
-  "size-6 rounded-sm text-text-subtle hover:bg-surface-sunken hover:text-text";
+  "size-6 rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text";
 
 /* The shared 16px slot. `grid place-items-center` stacks the icon and the
    chevron on one another so neither is in the other's flow, and the fade is on
@@ -100,6 +101,7 @@ export function SidebarTreeItem({
   active,
   pathname,
   rowActions = false,
+  defaultOpen = false,
 }: {
   item: SidebarItemData;
   /** Resolved by the caller; a group is only rendered when it has one. */
@@ -109,6 +111,8 @@ export function SidebarTreeItem({
   pathname: string;
   /** Draws the hover-revealed `+` and `⋯`. Only Projects has operations behind them. */
   rowActions?: boolean;
+  /** Start expanded on every page, not only when this group holds the current one. */
+  defaultOpen?: boolean;
 }) {
   const Icon = SIDEBAR_ICON[item.icon];
   const children = item.children ?? [];
@@ -124,7 +128,7 @@ export function SidebarTreeItem({
      route-style group, since a param-style child shares the parent's path. */
   const childIsCurrent = children.some((child) => child.href === pathname);
 
-  const [open, setOpen] = useState(active || childIsCurrent);
+  const [open, setOpen] = useState(defaultOpen || active || childIsCurrent);
 
   /* The row is lit only when nothing below it is. See the header. */
   const rowActive = active && !childIsCurrent;
@@ -145,7 +149,7 @@ export function SidebarTreeItem({
           onClick={() => setOpen(!open)}
           className={SLOT}
         >
-          <Icon className={cn("size-4", SWAP, AT_REST)} />
+          <Icon className={cn("size-4 text-text-muted", SWAP, AT_REST)} />
           <ChevronDownIcon
             aria-hidden="true"
             className={cn("size-3.5", SWAP, ON_HOVER, !open && "-rotate-90")}
@@ -159,7 +163,7 @@ export function SidebarTreeItem({
           /* Below `md` this row lives in the drawer, which has to close behind
              the navigation it just started. */
           onClick={() => setMobileSidebarOpen(false)}
-          className={cn(LINK, rowActive && "font-medium text-text")}
+          className={cn(LINK, rowActive && "font-semibold text-text")}
         >
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </Link>

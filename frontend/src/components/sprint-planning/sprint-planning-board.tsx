@@ -119,7 +119,7 @@ export function SprintPlanningBoard({
             emptyText={sprints.length > 0 ? "Everything is planned. New tasks land here." : "No tasks waiting. Add one below."}
             onToggle={() => view.toggle(BACKLOG)}
             header={
-              <p className="ml-auto text-xs text-text-subtle tabular-nums">
+              <p className="ml-auto text-xs text-text-muted tabular-nums">
                 {backlog.length === 1 ? "1 task" : `${backlog.length} tasks`} · {pointsByGroup(backlog).total} pts
               </p>
             }

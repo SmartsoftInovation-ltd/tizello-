@@ -65,12 +65,13 @@ import type { SidebarChildItem } from "@/types/nav";
 const LIST = "mt-0.5 space-y-0.5";
 const BASE =
   "relative flex w-full items-center rounded-sm py-1 pr-2 pl-8 text-left text-xs transition-colors duration-100 ease-standard";
-const IDLE = "text-text-muted hover:bg-surface-sunken hover:text-text";
-const ACTIVE = "bg-surface font-medium text-text";
+/* Body ink for idle labels, as in `sidebar-item.tsx` — muted read as faded. */
+const IDLE = "text-text hover:bg-surface-sunken";
+const ACTIVE = "bg-surface font-semibold text-text ring-1 ring-border";
 /* `cursor-default` rather than `not-allowed`: the row is unavailable, not
    forbidden, and the crossed circle reads as a refusal. Same call
    `sidebar-item.tsx` makes. */
-const DISABLED = "cursor-default text-text-subtle opacity-60";
+const DISABLED = "cursor-default text-text-subtle";
 
 const RAIL =
   "before:absolute before:top-0 before:-bottom-0.5 before:left-4 before:w-px before:bg-border before:content-['']";

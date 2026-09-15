@@ -44,7 +44,9 @@ export function SidebarSection({
       ) : (
         <p
           id={labelId}
-          className="px-2 pb-1 text-2xs font-semibold tracking-widest text-text-subtle uppercase"
+          /* `text-muted`, not `subtle`: 11px caps in the lightest grey fell
+             below comfortable contrast on the light canvas. */
+          className="px-2 pb-1 text-2xs font-semibold tracking-widest text-text-muted uppercase"
         >
           {section.label}
         </p>
@@ -77,6 +79,12 @@ export function SidebarSection({
                    "project actions". A group of fixed workflow screens owns
                    neither, and drawing them would promise both. */
                 rowActions={item.id === "projects"}
+                /* Projects and Sprint board start expanded everywhere: their
+                   children are the way into the work, and a collapsed group hid
+                   them behind a click on every page that was not already one
+                   of them. Collapsing still sticks while the sidebar stays
+                   mounted. */
+                defaultOpen={item.id === "projects" || item.id === "sprint-board"}
               />
             );
           }

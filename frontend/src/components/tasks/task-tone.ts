@@ -14,7 +14,7 @@ import type { StatusColor } from "@/types/task";
  * grey is just a dirtier surface.
  */
 export const STATUS_CHIP: Record<StatusColor, string> = {
-  gray: "border border-border bg-surface-sunken text-text-muted",
+  gray: "border border-border bg-chip text-text-muted",
   brown: "border border-label-brown/40 bg-label-brown/20 text-text",
   orange: "border border-label-orange/40 bg-label-orange/20 text-text",
   yellow: "border border-label-yellow/40 bg-label-yellow/20 text-text",

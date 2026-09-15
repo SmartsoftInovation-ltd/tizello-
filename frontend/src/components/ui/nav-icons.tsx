@@ -64,11 +64,22 @@ export function BacklogIcon(props: IconProps) {
   );
 }
 
+/**
+ * A running figure — "sprint" said literally, and distinct at a glance from the
+ * Backlog and Planning glyphs beside it, which the old column-board drawing was
+ * not. Drawn on the same 16px grid and 1.5 stroke as every icon here: a filled
+ * head, a leaning torso, one arm forward and one back, one leg striding and one
+ * kicked up behind.
+ */
 export function SprintIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
-      <path d="M6.5 2.5v11M10 2.5v7" />
+      <circle cx="10.5" cy="2.6" r="1.4" fill="currentColor" stroke="none" />
+      <path d="M9 5.25 7.25 9.25" />
+      <path d="M9 5.25 6.5 5.75 5 7.5" />
+      <path d="M9 5.25l1.5 2.25 2 .25" />
+      <path d="M7.25 9.25 9.75 10.5 9.25 13.75" />
+      <path d="M7.25 9.25 5.75 11.75 3.25 12" />
     </Icon>
   );
 }
