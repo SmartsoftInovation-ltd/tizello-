@@ -34,7 +34,6 @@ export function TaskPropertyList({
   draft,
   properties,
   scope,
-  tasks,
   onChange,
   onPropertiesChange,
 }: {
@@ -42,7 +41,6 @@ export function TaskPropertyList({
   draft: TaskDraft;
   properties: ProjectPropertyPatch;
   scope: TaskScope;
-  tasks: Task[];
   onChange: (patch: Partial<TaskDraft>) => void;
   onPropertiesChange: (patch: ProjectPropertyPatch) => void;
 }) {
@@ -50,7 +48,7 @@ export function TaskPropertyList({
   const schema = useTaskPropertyDefs(scope);
 
   const rows: TaskRow[] = [
-    ...taskBuiltinRows({ task, draft, scope, tasks, onChange }),
+    ...taskBuiltinRows({ task, draft, scope, onChange }),
     ...schema.defs.map((definition) => ({
       key: definition.id,
       empty: isEmptyValue(properties[definition.id]),

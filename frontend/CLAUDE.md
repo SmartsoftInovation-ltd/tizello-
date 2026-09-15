@@ -73,22 +73,30 @@ against demo data in `src/lib/`, never that a backend is wired.
 - [x] **Backlog** — `/board/backlog` (the sidebar's link; `?project=` picks the
       project, defaulting to the first one) and
       `/workspaces/[workspaceId]/projects/[projectId]/backlog` both render
-      `components/tasks/project-backlog.tsx` — real data (`lib/tasks.ts` →
-      `backend/docs/api/task.md`). The project page's "Open backlog" link goes
-      to `/board/backlog?project=<id>`. **Not-started work only** — the board
-      renders the project's TODO-group statuses, empty ones included as drop
-      targets; a task moved into an IN_PROGRESS or COMPLETE status drops off
-      this list (`task-backlog-board.tsx`). Sub-tasks live under their parent.
-      A task opens in the SAME drawer/modal as a project
-      (`components/tasks/task-drawer.tsx`, same `project-surface` preference):
-      title, Assignee / Status / Due, then ID, Priority, Tags, Description,
-      Files & media, Delay (derived, `lib/task-delay.ts`),
-      Parent-task, per-project custom columns ("+ Add a property", writers
-      only) and "Hide N empty properties". Relations (add/open sub-tasks) and
-      Comments write immediately; fields ride Save as a changed-fields-only
-      PATCH. Collaborators may edit tasks (`lib/task-roles.ts`); columns stay
-      with project writers. The sprint-planning and sprint-board screens are
-      still on the `types/backlog.ts` fixtures.
+      `components/tasks/project-backlog.tsx` — real data (`lib/tasks.ts`,
+      `lib/task-bulk.ts`, `lib/task-history.ts` → `backend/docs/api/task.md`).
+      **Not-started work only** — the TODO-group statuses, empty ones included
+      as drop targets; a task moved into IN_PROGRESS or COMPLETE drops off.
+      **Ranked:** rows are in `position` order and drag (grip, pointer or
+      keyboard) reorders within a status or into another one — one
+      `PATCH /tasks/:id/move` naming the new neighbours (`lib/task-rank.ts`);
+      the server does the arithmetic. **Search + filters** (type, priority,
+      assignee incl. "me"/unassigned, tag) run client-side over the whole list
+      (`lib/task-filters.ts`). **Quick add** under every status (title + Enter,
+      stays open). **Bulk:** a checkbox per row, "Select all N", and a sticky bar
+      to set status / priority / assignee / type or delete the selection — one
+      all-or-nothing request. Sub-tasks live under their parent. The drawer
+      (`task-drawer.tsx`, same `project-surface` preference as projects):
+      type mark + title, "Created by … on …", Status / Assignee / Due, then
+      Type, Priority, Story points, Tags, Description, Files & media, custom
+      columns ("+ Add a property", writers only), Relations (parent picker +
+      sub-tasks), Comments (author can edit; "(edited)" shown) and a collapsed
+      Activity log (`GET /tasks/:id/activity`). ID, Icon, Colour, Delay and
+      Sprint rows were removed on purpose — see `task-builtin-rows.tsx`. Fields
+      ride Save as a changed-fields-only PATCH; sub-tasks and comments write
+      immediately. Collaborators may edit tasks (`lib/task-roles.ts`); columns
+      stay with project writers. The sprint-planning and sprint-board screens
+      are still on the `types/backlog.ts` fixtures.
 - [ ] **Sprint** — `/workspaces/[workspaceId]/projects/[projectId]/sprints`
       lists five fixture sprints from `demo-sprints.ts`, grouped Active /
       Planning / Completed, with a create-and-edit dialog (`TextField

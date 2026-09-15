@@ -19,6 +19,7 @@ import {
   projectRouter as taskProjectRoutes,
   taskRouter as taskRoutes,
 } from "../modules/task/task.routes.js";
+import taskActivityRoutes from "../modules/task/task-activity.routes.js";
 import taskCommentRoutes from "../modules/task/task-comment.routes.js";
 import taskPropertyRoutes from "../modules/task/task-property.routes.js";
 import taskStatusRoutes from "../modules/task/task-status.routes.js";
@@ -59,6 +60,7 @@ router.use("/api/v1/projects/:projectId/tasks", taskProjectRoutes);
 // two-scope split as projects. Comments are their own router so the task
 // routes file lists tasks and nothing else.
 router.use("/api/v1/tasks", taskRoutes);
+router.use("/api/v1/tasks/:taskId/activity", taskActivityRoutes);
 router.use("/api/v1/tasks/:taskId/comments", taskCommentRoutes);
 router.use("/api/v1/workspaces/:workspaceId/invitations", invitationWorkspaceRoutes);
 // The roster and its writes. Workspace-scoped because `permission.js` resolves

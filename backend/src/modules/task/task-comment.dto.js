@@ -16,6 +16,7 @@ const toComment = (row) => ({
   body: row.body,
   authorId: row.authorId,
   author: toPerson(row.author),
+  editedAt: row.editedAt,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });

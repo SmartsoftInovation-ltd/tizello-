@@ -21,6 +21,7 @@ import propertyRepository from './task-property.repository.js';
 import propertyService from './task-property.service.js';
 import statusRepository from './task-status.repository.js';
 import statusService from './task-status.service.js';
+import activityService from './task-activity.service.js';
 import dto from './task.dto.js';
 
 /*
@@ -29,6 +30,13 @@ import dto from './task.dto.js';
  * existed, and stopping is better than a request that never returns.
  */
 const MAX_DEPTH = 100;
+
+/*
+ * Below this gap two neighbours are too close to take a midpoint of reliably,
+ * and the project is respaced first. Far above a double's rounding error at
+ * the magnitudes ranks reach, far below any gap a person creates by dragging.
+ */
+const MIN_RANK_GAP = 1e-6;
 
 const notFound = () => new AppError(httpStatus.NOT_FOUND, 'Task not found', AUTH_CODES.NOT_FOUND);
 
@@ -154,8 +162,12 @@ const createTask = async (project, payload, user) => {
     attachments: attachments ?? [],
     parentId: rest.parentId ?? null,
     ...(merged ? { properties: merged } : {}),
+    type: rest.type ?? undefined,
+    storyPoints: rest.storyPoints ?? null,
     createdById: user.id,
   });
+
+  await activityService.recordCreated(row.id, user.id);
 
   return dto.toTask(row, definitions);
 };
@@ -187,9 +199,17 @@ const getTask = async (task) => {
 /**
  * `PATCH /tasks/:taskId`. Only fields present in the patch are written; the
  * validator already rejected `{}`.
+ *
+ * Also the write behind `moveTask`, which passes `position` — a field the
+ * PATCH validator does not accept, so a client can only rank through `/move`,
+ * where the neighbours are checked.
+ *
+ * `user` is optional only for that internal shape's sake; every HTTP caller
+ * passes it, and it is who the history entries name.
  */
-const updateTask = async (task, project, patch) => {
+const updateTask = async (task, project, patch, user = null) => {
   const { properties, tags, attachments, ...columns } = patch;
+  const before = await repository.findTaskById(task.id);
 
   if ('assigneeId' in columns) await checkAssignee(project.workspaceId, columns.assigneeId);
   if ('parentId' in columns) await checkParent(project.id, columns.parentId, task.id);
@@ -226,7 +246,126 @@ const updateTask = async (task, project, patch) => {
     ...(merged ? { properties: merged } : {}),
   });
 
+  if (before) await activityService.recordChanges(before, row, user?.id ?? null);
+
   return dto.toTask(row, definitions);
+};
+
+/**
+ * `PATCH /tasks/:taskId/move` — rank a task between two neighbours, optionally
+ * into another status in the same request.
+ *
+ * `afterId` is the task that will sit directly ABOVE this one, `beforeId` the
+ * one directly BELOW; either may be null (top or bottom of the list the client
+ * is looking at). The client names neighbours, never a number: the arithmetic,
+ * and the respacing it sometimes needs, are the server's, so two clients with
+ * different stale copies of the list cannot write colliding ranks.
+ *
+ *   both      → the midpoint
+ *   only above → one step below it
+ *   only below → one step above it
+ *   neither   → rank unchanged (a status-only move)
+ *
+ * A neighbour that is the task itself, deleted, or in another project is a
+ * `422`, not ignored: silently ranking against half a request would put the
+ * task somewhere nobody dropped it.
+ */
+const moveTask = async (task, project, { statusId, afterId, beforeId }, user) => {
+  const neighbour = async (id) => {
+    if (!id) return null;
+    if (id === task.id) throw unprocessable('A task cannot be placed next to itself');
+
+    const link = await repository.findRankLink(project.id, id);
+    if (!link) throw unprocessable('Neighbour task not found in this project');
+    return link;
+  };
+
+  let [above, below] = await Promise.all([neighbour(afterId), neighbour(beforeId)]);
+
+  if (above && below && below.position - above.position < MIN_RANK_GAP) {
+    await repository.rebalancePositions(project.id);
+    [above, below] = await Promise.all([neighbour(afterId), neighbour(beforeId)]);
+  }
+
+  const step = repository.POSITION_STEP;
+  const position =
+    above && below ? (above.position + below.position) / 2
+    : above ? above.position + step
+    : below ? below.position - step
+    : undefined;
+
+  const patch = {
+    ...(statusId ? { statusId } : {}),
+    ...(position !== undefined ? { position } : {}),
+  };
+
+  return updateTask(task, project, patch, user);
+};
+
+/** 422 unless every requested id is a live task of this project. De-duplicates first. */
+const loadForBulk = async (project, taskIds) => {
+  const ids = [...new Set(taskIds)];
+  const rows = await repository.findTasksByIds(project.id, ids);
+
+  if (rows.length !== ids.length) {
+    throw unprocessable('Some of those tasks were not found in this project');
+  }
+
+  return { ids, rows };
+};
+
+/**
+ * `PATCH /projects/:projectId/tasks/bulk` — one patch applied to many tasks,
+ * in one transaction.
+ *
+ * The patch is deliberately narrower than a single-task PATCH: status, type,
+ * priority, assignee, points and due date are the fields a person changes
+ * across a selection. Title, description and custom properties are per-task by
+ * nature, and a bulk "set description" is a mistake waiting for a click.
+ *
+ * `completedAt` is computed PER TASK, because the selection can span groups: a
+ * bulk move to "Done" stamps the tasks that were not already complete and
+ * leaves the stamps on the ones that were.
+ */
+const bulkUpdateTasks = async (project, { taskIds, patch }, user) => {
+  const { rows } = await loadForBulk(project, taskIds);
+
+  if ('assigneeId' in patch) await checkAssignee(project.workspaceId, patch.assigneeId);
+  const nextStatus = patch.statusId ? await statusService.resolveStatus(project.id, patch.statusId) : null;
+
+  const updates = rows.map((row) => {
+    const completedAt = nextStatus ? completedAtFor(row.status?.group, nextStatus.group, {}) : undefined;
+
+    return {
+      id: row.id,
+      data: { ...patch, ...(completedAt !== undefined ? { completedAt } : {}) },
+    };
+  });
+
+  const [updated, definitions] = await Promise.all([
+    repository.updateTasks(updates),
+    propertyRepository.findPropertiesForProject(project.id),
+  ]);
+
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  await activityService.recordManyChanges(
+    updated.map((row) => [byId.get(row.id), row]),
+    user.id
+  );
+
+  return updated.map((row) => dto.toTask(row, definitions));
+};
+
+/**
+ * `POST /projects/:projectId/tasks/bulk-delete`. Same soft delete and sub-task
+ * promotion as a single delete, for the whole selection at once.
+ */
+const bulkDeleteTasks = async (project, { taskIds }) => {
+  const { ids } = await loadForBulk(project, taskIds);
+
+  await repository.softDeleteTasks(ids);
+
+  return { deleted: ids.length };
 };
 
 /**
@@ -236,4 +375,13 @@ const updateTask = async (task, project, patch) => {
  */
 const deleteTask = (task) => repository.softDeleteTask(task.id);
 
-export default { createTask, listTasks, getTask, updateTask, deleteTask };
+export default {
+  createTask,
+  listTasks,
+  getTask,
+  updateTask,
+  moveTask,
+  bulkUpdateTasks,
+  bulkDeleteTasks,
+  deleteTask,
+};

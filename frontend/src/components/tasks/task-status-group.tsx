@@ -2,7 +2,10 @@
 
 import { useId } from "react";
 import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { DraggableTaskRow } from "@/components/tasks/draggable-task-row";
+import type { TaskScope } from "@/components/tasks/task-draft";
+import { TaskQuickAdd } from "@/components/tasks/task-quick-add";
 import { TaskRow } from "@/components/tasks/task-row";
 import { TaskStatusChip } from "@/components/tasks/task-status-chip";
 import { ChevronDownIcon } from "@/components/ui/icons";
@@ -10,13 +13,17 @@ import { cn } from "@/lib/cn";
 import type { Task, TaskStatusOption } from "@/types/task";
 
 /**
- * One status's section of the backlog — its chip, its count, its rows — and a
- * drop target for a task dragged in from another status.
+ * One status's section of the backlog — its chip, its count, its rows in rank
+ * order, and the quick-add composer — and a drop target for a task dragged in.
  *
  * THE WHOLE SECTION IS THE TARGET, header included, so a collapsed status can
  * still take a drop: collapsing is about what you are looking at, not about
- * what the section accepts. While something is over it the section takes a
+ * what the section accepts. Dropping on the section rather than on a row
+ * appends to the bottom. While something is over it the section takes a
  * dashed edge — the same "there is room here" signal the boards use.
+ *
+ * The rows are a `SortableContext`, which is what opens a gap under the pointer
+ * while ranking (`draggable-task-row.tsx`).
  *
  * The list is hidden with `hidden` rather than unmounted, so `aria-controls`
  * always points at an element that exists.
@@ -24,28 +31,35 @@ import type { Task, TaskStatusOption } from "@/types/task";
 export function TaskStatusGroup({
   status,
   tasks,
-  today,
+  scope,
   collapsed,
-  canDrag,
+  filtered,
+  selected,
   onToggle,
   onOpen,
   onDelete,
+  onSelect,
 }: {
   status: TaskStatusOption;
   tasks: Task[];
-  today: string;
+  scope: TaskScope;
   collapsed: boolean;
-  /** Contributors can move tasks; a read-only viewer gets plain rows. */
-  canDrag: boolean;
+  /** Filters are hiding rows — an empty section says so rather than "drag a task in". */
+  filtered: boolean;
+  selected: Set<string>;
   onToggle: () => void;
   onOpen: (taskId: string) => void;
   onDelete?: (task: Task) => void;
+  onSelect?: (taskId: string, selected: boolean) => void;
 }) {
   const panelId = useId();
+  const canDrag = scope.canContribute;
   const { setNodeRef, isOver } = useDroppable({
     id: `status:${status.id}`,
     data: { statusId: status.id },
   });
+
+  const empty = filtered ? "No matching tasks." : canDrag ? "Nothing here — drag a task in." : "Nothing here.";
 
   return (
     <section
@@ -71,27 +85,35 @@ export function TaskStatusGroup({
         </button>
       </h3>
 
-      <ul id={panelId} hidden={collapsed} className="mt-1 space-y-1.5">
-        {tasks.length === 0 ? (
-          <li className="rounded-md border border-dashed border-border px-3 py-3 text-center text-xs text-text-subtle">
-            {canDrag ? "Nothing here — drag a task in." : "Nothing here."}
-          </li>
-        ) : (
-          tasks.map((task) => {
-            const props = {
-              task,
-              today,
-              onOpen: () => onOpen(task.id),
-              onDelete: onDelete ? () => onDelete(task) : undefined,
-            };
-            return (
-              <li key={task.id}>
-                {canDrag ? <DraggableTaskRow {...props} /> : <TaskRow {...props} />}
+      <div id={panelId} hidden={collapsed}>
+        <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+          <ul className="mt-1 space-y-1.5">
+            {tasks.length === 0 ? (
+              <li className="rounded-md border border-dashed border-border px-3 py-3 text-center text-xs text-text-subtle">
+                {empty}
               </li>
-            );
-          })
-        )}
-      </ul>
+            ) : (
+              tasks.map((task) => {
+                const props = {
+                  task,
+                  today: scope.today,
+                  onOpen: () => onOpen(task.id),
+                  onDelete: onDelete ? () => onDelete(task) : undefined,
+                  selected: selected.has(task.id),
+                  onSelect: onSelect ? (next: boolean) => onSelect(task.id, next) : undefined,
+                };
+                return (
+                  <li key={task.id}>
+                    {canDrag ? <DraggableTaskRow {...props} /> : <TaskRow {...props} />}
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </SortableContext>
+
+        {canDrag && <TaskQuickAdd status={status} scope={scope} />}
+      </div>
     </section>
   );
 }

@@ -29,6 +29,10 @@ const findComment = (taskId, id) => prisma.taskComment.findFirst({ where: { id, 
 const createComment = (taskId, authorId, body) =>
   prisma.taskComment.create({ data: { taskId, authorId, body }, include: AUTHOR });
 
+/** Stamps `editedAt` in the same write, so an edit can never be unmarked. */
+const updateComment = (id, body) =>
+  prisma.taskComment.update({ where: { id }, data: { body, editedAt: new Date() }, include: AUTHOR });
+
 const deleteComment = (id) => prisma.taskComment.delete({ where: { id } });
 
-export default { findCommentsForTask, findComment, createComment, deleteComment };
+export default { findCommentsForTask, findComment, createComment, updateComment, deleteComment };

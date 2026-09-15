@@ -3,7 +3,7 @@ import { fieldErrorsFrom } from "@/lib/field-errors";
 import type { ActionResult } from "@/lib/workspaces";
 import type { ProjectPriority } from "@/types/project";
 import type { ProjectPropertyPatch, UploadedFile } from "@/types/project-property";
-import type { Task, TaskComment } from "@/types/task";
+import type { Task, TaskComment, TaskType } from "@/types/task";
 
 /*
  * The task API — `backend/docs/api/task.md`.
@@ -22,6 +22,8 @@ const MAX_PAGE_SIZE = 500;
 export type TaskInput = {
   title: string;
   description?: string | null;
+  type?: TaskType;
+  storyPoints?: number | null;
   icon?: string | null;
   color?: string | null;
   /** One of the project's status options. Omitted on create → the project's default. */

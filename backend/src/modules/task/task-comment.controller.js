@@ -21,6 +21,17 @@ const create = async (req, res) => {
   return ApiResponse.success(res, httpStatus.CREATED, 'Comment added', { comment });
 };
 
+const update = async (req, res) => {
+  const comment = await service.updateComment(
+    req.task.id,
+    req.params.commentId,
+    req.user.id,
+    req.body.body
+  );
+
+  return ApiResponse.success(res, httpStatus.OK, 'Comment updated', { comment });
+};
+
 const remove = async (req, res) => {
   await service.deleteComment(
     req.task.id,
@@ -32,4 +43,4 @@ const remove = async (req, res) => {
   return ApiResponse.success(res, httpStatus.OK, 'Comment deleted', null);
 };
 
-export default { list, create, remove };
+export default { list, create, update, remove };

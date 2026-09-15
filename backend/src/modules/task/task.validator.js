@@ -25,6 +25,13 @@
 import Joi from 'joi';
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+// Must stay in sync with the TaskType enum in prisma/schema.prisma.
+const TYPES = ['TASK', 'STORY', 'BUG', 'EPIC'];
+
+/** How many tasks one bulk request may touch — a backlog screen's worth, not a project export. */
+const BULK_MAX = 100;
+/** The largest estimate accepted. Past 100 points a task is a project, and should be split. */
+const STORY_POINTS_MAX = 100;
 
 const TAGS_MAX = 20;
 const TAG_LENGTH_MAX = 40;
@@ -45,6 +52,9 @@ const statusId = Joi.string().trim().max(64);
 const priority = Joi.string()
   .valid(...PRIORITIES)
   .allow(null);
+const type = Joi.string().valid(...TYPES);
+// Whole points, 0 allowed (a deliberate "no effort"); null clears the estimate.
+const storyPoints = Joi.number().integer().min(0).max(STORY_POINTS_MAX).allow(null);
 const id = Joi.string().trim().max(64);
 const date = Joi.date().iso().allow(null);
 const tags = Joi.array().items(Joi.string().trim().min(1).max(TAG_LENGTH_MAX)).max(TAGS_MAX);
@@ -55,6 +65,8 @@ const properties = Joi.object().pattern(Joi.string(), Joi.any());
 const createTaskSchema = Joi.object({
   title: title.required(),
   description: description.optional(),
+  type: type.optional(),
+  storyPoints: storyPoints.optional(),
   icon: icon.optional(),
   color: color.optional(),
   statusId: statusId.optional(),
@@ -73,6 +85,8 @@ const createTaskSchema = Joi.object({
 const updateTaskSchema = Joi.object({
   title: title.optional(),
   description: description.optional(),
+  type: type.optional(),
+  storyPoints: storyPoints.optional(),
   icon: icon.optional(),
   color: color.optional(),
   statusId: statusId.optional(),
@@ -104,4 +118,47 @@ const listTasksQuerySchema = Joi.object({
   parentId: id.optional(),
 });
 
-export { createTaskSchema, updateTaskSchema, listTasksQuerySchema };
+/*
+ * `PATCH /tasks/:taskId/move`. Neighbours, never a number — the rank arithmetic
+ * is the server's (docs/api/task.md §Ordering). `null` means "no task on that
+ * side": the top or the bottom of the list the client is looking at.
+ */
+const moveTaskSchema = Joi.object({
+  statusId: statusId.optional(),
+  afterId: id.allow(null).optional(),
+  beforeId: id.allow(null).optional(),
+})
+  .or('statusId', 'afterId', 'beforeId')
+  .messages({ 'object.missing': 'Provide a status or a neighbour to move next to' });
+
+const taskIds = Joi.array().items(id.required()).min(1).max(BULK_MAX).required();
+
+/*
+ * The fields a selection can share — see `bulkUpdateTasks` for why this is
+ * narrower than a single-task PATCH.
+ */
+const bulkUpdateTasksSchema = Joi.object({
+  taskIds,
+  patch: Joi.object({
+    statusId: statusId.optional(),
+    type: type.optional(),
+    priority: priority.optional(),
+    assigneeId: id.allow(null).optional(),
+    storyPoints: storyPoints.optional(),
+    dueDate: date.optional(),
+  })
+    .min(1)
+    .required()
+    .messages({ 'object.min': 'Provide at least one field to update' }),
+});
+
+const bulkDeleteTasksSchema = Joi.object({ taskIds });
+
+export {
+  createTaskSchema,
+  updateTaskSchema,
+  listTasksQuerySchema,
+  moveTaskSchema,
+  bulkUpdateTasksSchema,
+  bulkDeleteTasksSchema,
+};

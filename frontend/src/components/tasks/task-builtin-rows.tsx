@@ -1,39 +1,43 @@
 "use client";
 
-import { ColorRowControl } from "@/components/projects/color-row-control";
-import { IconRowControl } from "@/components/projects/icon-row-control";
+import { FilesValueField } from "@/components/projects/files-value-field";
 import { PRIORITY_CHIP } from "@/components/projects/project-tone";
 import { PropertyRow } from "@/components/projects/property-row";
 import { SelectMenu, type SelectOption } from "@/components/projects/select-menu";
 import type { TaskDraft, TaskScope } from "@/components/tasks/task-draft";
-import { taskScheduleRows } from "@/components/tasks/task-schedule-rows";
 import { TaskTagsField } from "@/components/tasks/task-tags-field";
+import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
 import { TextArea } from "@/components/ui/text-area";
+import { TextField } from "@/components/ui/text-field";
 import { cn } from "@/lib/cn";
 import {
   PROJECT_PRIORITIES,
   PROJECT_PRIORITY_LABEL,
   type ProjectPriority,
 } from "@/types/project";
-import type { Task } from "@/types/task";
+import type { UploadedFile } from "@/types/project-property";
+import { STORY_POINTS_MAX, TASK_TYPES, TASK_TYPE_LABEL, type Task, type TaskType } from "@/types/task";
 
 /**
- * The task's own fields, in the order the Notion template lists them: ID,
- * Priority, Tags, Description — then, from `task-schedule-rows.tsx`, Files &
- * media, Completed on, Delay and Parent-task.
+ * The task's own fields: Type, Priority, Story points, Tags, Description and
+ * Files & media.
  *
  * A function returning rows, not a component, because `TaskPropertyList` needs
  * to know which rows are EMPTY before it decides which to draw. Nothing here
  * holds state; every control is fed from the draft.
  *
- * **ID** is read-only — allocated by the server on create, never changes
- * after.
+ * WHAT IS DELIBERATELY NOT HERE, and why each went:
  *
- * There is deliberately no Sprint row. It used to be a permanently read-only
- * placeholder ("Not in a sprint") — no Sprint model exists yet, so it could
- * never say anything else, and a task in the backlog is by definition in no
- * sprint (`.claude/rules/workflow.md`). A field that can only ever show one
- * value is not information. Add it back once planning can actually set it.
+ * - **ID** — the key is already in the drawer's header; on a new task the row
+ *   could only say "Assigned when created".
+ * - **Icon and Colour** — decoration no one triages by, drawn in a row that
+ *   competed with priority and tags for colour. The title's mark is the TYPE
+ *   now, which carries meaning.
+ * - **Delay** — derived from Due, and the backlog row already says "Overdue".
+ * - **Parent-task** — lives in Relations with the sub-tasks, so the hierarchy
+ *   is in one place (`task-relations.tsx`).
+ * - **Sprint** — no Sprint model yet; a row that can only ever say "Not in a
+ *   sprint" is not information.
  */
 export type TaskRow = { key: string; empty: boolean; node: React.ReactNode };
 
@@ -51,24 +55,34 @@ const PRIORITY_OPTIONS: readonly SelectOption<ProjectPriority | "">[] = [
   })),
 ];
 
+const TYPE_OPTIONS: readonly SelectOption<TaskType>[] = TASK_TYPES.map((value) => ({
+  value,
+  label: TASK_TYPE_LABEL[value],
+  adornment: <TaskTypeIcon type={value} />,
+}));
+
+/** Whole numbers 0–100, or empty. Anything else typed is dropped as it is typed. */
+function cleanPoints(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 3);
+  if (!digits) return "";
+  return String(Math.min(Number(digits), STORY_POINTS_MAX));
+}
+
 export function taskBuiltinRows(input: {
   task: Task | null;
   draft: TaskDraft;
   scope: TaskScope;
-  tasks: Task[];
   onChange: (patch: Partial<TaskDraft>) => void;
 }): TaskRow[] {
-  const { task, draft, onChange } = input;
+  const { draft, onChange } = input;
 
   return [
     {
-      key: "id",
+      key: "type",
       empty: false,
       node: (
-        <PropertyRow label="ID" icon="hash">
-          <p className="px-2.5 py-2 font-mono text-sm text-text-muted">
-            {task?.key ?? "Assigned when created"}
-          </p>
+        <PropertyRow label="Type" icon="type">
+          <SelectMenu label="Type" value={draft.type} options={TYPE_OPTIONS} onChange={(type) => onChange({ type })} />
         </PropertyRow>
       ),
     },
@@ -87,29 +101,30 @@ export function taskBuiltinRows(input: {
       ),
     },
     {
+      key: "points",
+      empty: !draft.storyPoints,
+      node: (
+        <PropertyRow label="Story points" icon="points">
+          <TextField
+            label="Story points"
+            name="storyPoints"
+            hideLabel
+            ghost
+            required={false}
+            placeholder="Not estimated"
+            value={draft.storyPoints}
+            transform={cleanPoints}
+            onValueChange={(storyPoints) => onChange({ storyPoints })}
+          />
+        </PropertyRow>
+      ),
+    },
+    {
       key: "tags",
       empty: draft.tags.length === 0,
       node: (
         <PropertyRow label="Tags" icon="tag">
           <TaskTagsField tags={draft.tags} onChange={(tags) => onChange({ tags })} />
-        </PropertyRow>
-      ),
-    },
-    {
-      key: "icon",
-      empty: !draft.icon,
-      node: (
-        <PropertyRow label="Icon" icon="emoji">
-          <IconRowControl icon={draft.icon} onChange={(icon) => onChange({ icon })} />
-        </PropertyRow>
-      ),
-    },
-    {
-      key: "color",
-      empty: !draft.color,
-      node: (
-        <PropertyRow label="Colour" icon="palette">
-          <ColorRowControl color={draft.color} onChange={(color) => onChange({ color })} />
         </PropertyRow>
       ),
     },
@@ -132,6 +147,17 @@ export function taskBuiltinRows(input: {
         </PropertyRow>
       ),
     },
-    ...taskScheduleRows(input),
+    {
+      key: "files",
+      empty: draft.attachments.length === 0,
+      node: (
+        <PropertyRow label="Files & media" icon="files">
+          <FilesValueField
+            value={draft.attachments}
+            onChange={(value) => onChange({ attachments: value as UploadedFile[] })}
+          />
+        </PropertyRow>
+      ),
+    },
   ];
 }

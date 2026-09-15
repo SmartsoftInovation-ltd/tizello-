@@ -3,10 +3,12 @@
 import { Suspense } from "react";
 import { DrawerCloseButton } from "@/components/projects/drawer-title";
 import { SurfaceMenu } from "@/components/projects/surface-menu";
+import { TaskActivity } from "@/components/tasks/task-activity";
 import { TaskComments } from "@/components/tasks/task-comments";
 import type { TaskScope } from "@/components/tasks/task-draft";
+import { TaskMetaLine } from "@/components/tasks/task-meta-line";
 import { TaskPropertyList } from "@/components/tasks/task-property-list";
-import { TaskSubtasks } from "@/components/tasks/task-subtasks";
+import { TaskRelations } from "@/components/tasks/task-relations";
 import { TaskTitleField } from "@/components/tasks/task-title-field";
 import { TaskTopFields } from "@/components/tasks/task-top-fields";
 import { useTaskForm } from "@/components/tasks/use-task-form";
@@ -17,9 +19,9 @@ import type { ProjectSurface } from "@/lib/project-surface";
 import type { Task } from "@/types/task";
 
 /**
- * The body of the task panel, top to bottom as a Notion page reads: the page
- * glyph and title; Assignee, Status and Due side by side; the property list;
- * then Relations and Comments.
+ * The body of the task panel, top to bottom: the type mark and title, who
+ * filed it; Status, Assignee and Due side by side; the property list; then
+ * Relations (parent and sub-tasks), Comments and the collapsed Activity log.
  *
  * FIELDS RIDE SAVE, RELATIONS AND COMMENTS DO NOT. A property is part of the
  * task, so it is edited as a draft and written once. A sub-task is another
@@ -66,13 +68,13 @@ export function TaskForm({
 
       <DrawerBody className="px-6 py-6">
         <TaskTitleField
-          icon={form.draft.icon}
-          color={form.draft.color}
+          type={form.draft.type}
           defaultValue={form.draft.title}
           error={form.errors.title}
           autoFocus={!task}
           onChange={(title) => form.change({ title })}
         />
+        {task && <TaskMetaLine task={task} />}
 
         <TaskTopFields
           draft={form.draft}
@@ -86,14 +88,18 @@ export function TaskForm({
           draft={form.draft}
           properties={form.properties}
           scope={scope}
-          tasks={tasks}
           onChange={form.change}
           onPropertiesChange={form.changeProperties}
         />
 
-        {task && (
-          <TaskSubtasks task={task} tasks={tasks} scope={scope} onOpenTask={onOpenTask} />
-        )}
+        <TaskRelations
+          task={task}
+          draft={form.draft}
+          scope={scope}
+          tasks={tasks}
+          onChange={form.change}
+          onOpenTask={onOpenTask}
+        />
 
         {task && commentsPromise && (
           <Suspense
@@ -106,6 +112,8 @@ export function TaskForm({
             <TaskComments task={task} scope={scope} promise={commentsPromise} />
           </Suspense>
         )}
+
+        {task && <TaskActivity key={task.id} taskId={task.id} />}
       </DrawerBody>
 
       <DrawerFooter>

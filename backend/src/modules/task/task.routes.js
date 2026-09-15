@@ -22,7 +22,14 @@
 import express from 'express';
 
 import controller from './task.controller.js';
-import { createTaskSchema, updateTaskSchema, listTasksQuerySchema } from './task.validator.js';
+import {
+  createTaskSchema,
+  updateTaskSchema,
+  listTasksQuerySchema,
+  moveTaskSchema,
+  bulkUpdateTasksSchema,
+  bulkDeleteTasksSchema,
+} from './task.validator.js';
 import validate from '../../shared/middlewares/validate.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import { authGuard } from '../../shared/middlewares/auth.js';
@@ -51,6 +58,28 @@ projectRouter.post(
   asyncHandler(controller.create)
 );
 
+// Bulk writes are project-scoped for the same reason create is: the project is
+// what the guard authorises against, and the service then checks every id in
+// the body belongs to it. A POST for delete, not DELETE-with-a-body, because
+// intermediaries are allowed to drop a DELETE's body.
+projectRouter.patch(
+  '/bulk',
+  authGuard,
+  loadProject,
+  requireProjectContribute,
+  validate(bulkUpdateTasksSchema),
+  asyncHandler(controller.bulkUpdate)
+);
+
+projectRouter.post(
+  '/bulk-delete',
+  authGuard,
+  loadProject,
+  requireProjectContribute,
+  validate(bulkDeleteTasksSchema),
+  asyncHandler(controller.bulkRemove)
+);
+
 /* ── Task-scoped: /api/v1/tasks ─────────────────────────────────────────── */
 
 const taskRouter = express.Router();
@@ -64,6 +93,17 @@ taskRouter.patch(
   requireProjectContribute,
   validate(updateTaskSchema),
   asyncHandler(controller.update)
+);
+
+// Ranking is contributing: ordering the backlog is part of working it, the same
+// tier as moving a task to another status.
+taskRouter.patch(
+  '/:taskId/move',
+  authGuard,
+  loadTask,
+  requireProjectContribute,
+  validate(moveTaskSchema),
+  asyncHandler(controller.move)
 );
 
 taskRouter.delete(

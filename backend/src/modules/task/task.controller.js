@@ -32,9 +32,27 @@ const getById = async (req, res) => {
 };
 
 const update = async (req, res) => {
-  const task = await service.updateTask(req.task, req.project, req.body);
+  const task = await service.updateTask(req.task, req.project, req.body, req.user);
 
   return ApiResponse.success(res, httpStatus.OK, 'Task updated', { task });
+};
+
+const move = async (req, res) => {
+  const task = await service.moveTask(req.task, req.project, req.body, req.user);
+
+  return ApiResponse.success(res, httpStatus.OK, 'Task moved', { task });
+};
+
+const bulkUpdate = async (req, res) => {
+  const tasks = await service.bulkUpdateTasks(req.project, req.body, req.user);
+
+  return ApiResponse.success(res, httpStatus.OK, 'Tasks updated', { tasks });
+};
+
+const bulkRemove = async (req, res) => {
+  const result = await service.bulkDeleteTasks(req.project, req.body);
+
+  return ApiResponse.success(res, httpStatus.OK, 'Tasks deleted', result);
 };
 
 const remove = async (req, res) => {
@@ -43,4 +61,4 @@ const remove = async (req, res) => {
   return ApiResponse.success(res, httpStatus.OK, 'Task deleted', null);
 };
 
-export default { list, create, getById, update, remove };
+export default { list, create, getById, update, move, bulkUpdate, bulkRemove, remove };

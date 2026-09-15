@@ -1,11 +1,13 @@
 "use client";
 
 import { BacklogRowMenu } from "@/components/backlog/backlog-row-menu";
+import { StoryPointsBadge } from "@/components/backlog/story-points-badge";
 import { TaskAssignee } from "@/components/backlog/task-assignee";
-import { ProjectGlyph } from "@/components/projects/project-glyph";
 import { ProjectPriorityBadge } from "@/components/projects/project-priority-badge";
 import { Badge } from "@/components/ui/badge";
+import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
 import { AttachmentIcon, ChecklistIcon, CommentIcon } from "@/components/ui/icons";
+import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format-date";
 import { taskDelayDays } from "@/lib/task-delay";
 import type { Task } from "@/types/task";
@@ -15,9 +17,14 @@ import type { Task } from "@/types/task";
  * rows, not a stack of floating cards.
  *
  * The title is a real `<button>` that opens the drawer, so the fastest path to
- * editing is also keyboard-reachable. The second line carries only what is SET
- * — priority, due date, tags, and counts for sub-tasks, comments and files —
- * because a row of "Empty" chips would bury the three that matter.
+ * editing is also keyboard-reachable. The first line is the type mark, key and
+ * title; the second carries only what is SET — priority, points, due date,
+ * tags, and counts for sub-tasks, comments and files — because a row of
+ * "Empty" chips would bury the three that matter.
+ *
+ * The checkbox is for bulk actions, and is drawn only for someone who may
+ * change tasks (`onSelect` is absent otherwise). A selected row takes the
+ * accent tint so a selection spread down a long list is visible at a glance.
  *
  * An overdue task's date is amber rather than red: late is a fact to notice,
  * not an error, and `danger` is reserved for things that failed.
@@ -30,33 +37,39 @@ const ROW =
 const ACTIONS =
   "shrink-0 opacity-100 transition-opacity duration-100 ease-standard sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100";
 
-export function TaskRow({
-  task,
-  today,
-  onOpen,
-  onDelete,
-  handle,
-}: {
+export type TaskRowProps = {
   task: Task;
   today: string;
   onOpen: () => void;
   onDelete?: () => void;
-  /** The drag grip, when the row can be moved to another status. */
+  /** The drag grip, when the row can be moved. */
   handle?: React.ReactNode;
-}) {
+  selected?: boolean;
+  /** Present only for someone who may change tasks. */
+  onSelect?: (selected: boolean) => void;
+};
+
+export function TaskRow({ task, today, onOpen, onDelete, handle, selected = false, onSelect }: TaskRowProps) {
   const delay = task.dueDate
     ? taskDelayDays({ dueDate: task.dueDate, completedAt: task.completedAt ?? "", today })
     : null;
   const late = task.status.group !== "COMPLETE" && delay !== null && delay > 0;
 
   return (
-    <div className={ROW}>
+    <div className={cn(ROW, selected && "border-accent bg-accent-subtle hover:bg-accent-subtle")}>
+      {onSelect && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(event) => onSelect(event.target.checked)}
+          aria-label={`Select ${task.key}`}
+          className="mt-1 size-3.5 shrink-0 cursor-pointer accent-brand-500"
+        />
+      )}
       {handle}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          {(task.icon || task.color) && (
-            <ProjectGlyph icon={task.icon} color={task.color} size="default" className="self-center" />
-          )}
+          <TaskTypeIcon type={task.type} className="self-center" />
           <span className="shrink-0 font-mono text-2xs font-semibold text-text-subtle">
             {task.key}
           </span>
@@ -71,6 +84,7 @@ export function TaskRow({
 
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 empty:hidden">
           {task.priority && <ProjectPriorityBadge priority={task.priority} />}
+          <StoryPointsBadge points={task.storyPoints ?? undefined} />
           {task.dueDate && (
             <Badge variant={late ? "warning" : "outline"}>
               {late ? "Overdue · " : "Due "}

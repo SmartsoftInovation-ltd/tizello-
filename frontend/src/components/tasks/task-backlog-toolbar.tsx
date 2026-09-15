@@ -14,9 +14,11 @@ import { plural } from "@/lib/plural";
  * underline sitting on this row's rule, and the count drops to its own line
  * below. `actions` goes in front of Statuses — the project picker.
  *
- * No filter, sort or search controls — not even locked ones. On a real backlog
- * grouped by status they were promises nobody had scheduled, and a disabled
- * button is still a button someone tries.
+ * Search and filters are NOT here: they sit on their own row below
+ * (`task-backlog-filters.tsx`), because this row's two slots already hold the
+ * workflow tabs and the project picker on `/board/backlog`. There is no sort
+ * control — the order IS the rank the team dragged, and a sort that overrode
+ * it would make dragging look broken.
  *
  * Both actions are absent, not disabled, for someone who may not use them:
  * Statuses for anyone who is not a project writer, New task for a workspace

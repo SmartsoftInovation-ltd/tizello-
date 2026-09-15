@@ -62,6 +62,8 @@ model User {
   assignedTasks       Task[]              @relation("TaskAssignee")
   createdTasks        Task[]              @relation("TaskCreatedBy")
   taskComments        TaskComment[]       @relation("TaskCommentAuthor")
+  // SetNull on the activity side too: a departed user's history stays, unattributed.
+  taskActivities      TaskActivity[]      @relation("TaskActivityActor")
 
   @@map("users")
 }
@@ -539,6 +541,16 @@ model TaskStatusOption {
   @@map("task_status_options")
 }
 
+// What kind of work a task is. Fixed, unlike statuses: the four answer "what is
+// this" the same way in every project, and a board that filters by "Bug" must
+// mean the same thing everywhere. Declaration order is display order.
+enum TaskType {
+  TASK
+  STORY
+  BUG
+  EPIC
+}
+
 model Task {
   id          String     @id @default(cuid())
   projectId   String
@@ -548,6 +560,17 @@ model Task {
   number      Int
   title       String
   description String?
+  type        TaskType   @default(TASK)
+  // The estimate. Nullable, never 0 by default: "not estimated" and "zero
+  // effort" are different answers, and sprint capacity must not count the first
+  // as the second.
+  storyPoints Int?
+  // The backlog rank — lower is higher up. A float so a move writes ONE row
+  // (the midpoint of its new neighbours) instead of renumbering the list; the
+  // service renumbers the project only when a gap gets too narrow to split.
+  // Global per project, not per status, so a task keeps its rank when its
+  // status changes. docs/api/task.md §Ordering.
+  position    Float      @default(0)
   // The same glyph pair Project carries — one emoji and a `#rrggbb` swatch —
   // so a task page and a project page open with the same kind of header.
   icon        String?
@@ -582,6 +605,7 @@ model Task {
   createdById String?
   createdBy   User?      @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   comments    TaskComment[]
+  activities  TaskActivity[]
   deletedAt   DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -590,6 +614,8 @@ model Task {
   // would make every commit message that mentions one ambiguous.
   @@unique([projectId, number])
   @@index([projectId])
+  // The backlog reads a project's tasks in rank order.
+  @@index([projectId, position])
   @@index([parentId])
   @@index([assigneeId])
   @@index([statusId])
@@ -604,11 +630,41 @@ model TaskComment {
   authorId  String?
   author    User?    @relation("TaskCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   body      String
+  // Set only by an edit of `body` — the visible "edited" marker. Not
+  // `updatedAt`, which Prisma bumps on ANY write and so cannot answer "did a
+  // person rewrite this".
+  editedAt  DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([taskId, createdAt])
   @@map("task_comments")
+}
+
+// One entry in a task's history: "Alex changed Status from To do to Review".
+//
+// Append-only — nothing updates or deletes a row except the task's own cascade.
+// `from` / `to` hold a DISPLAY snapshot ({ id, name } for a status or person),
+// not just an id: history must still read correctly after the status is renamed
+// or the person leaves, and resolving ids at read time would rewrite the past.
+// docs/api/task.md §Activity.
+model TaskActivity {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation("TaskActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+  // `created` | `updated` | `commented` — a string, not an enum, so a new kind
+  // of entry is a code change rather than a migration.
+  action    String
+  // The field an `updated` entry is about (`status`, `assignee`, …); null otherwise.
+  field     String?
+  from      Json?
+  to        Json?
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+  @@map("task_activities")
 }
 
 // One user-defined column of a PROJECT's task database.

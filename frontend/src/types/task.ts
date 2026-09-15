@@ -58,6 +58,20 @@ export const STATUS_COLOR_LABEL: Record<StatusColor, string> = {
   red: "Red",
 };
 
+/** What kind of work a task is. Fixed across projects, unlike statuses. Order is display order. */
+export const TASK_TYPES = ["TASK", "STORY", "BUG", "EPIC"] as const;
+export type TaskType = (typeof TASK_TYPES)[number];
+
+export const TASK_TYPE_LABEL: Record<TaskType, string> = {
+  TASK: "Task",
+  STORY: "Story",
+  BUG: "Bug",
+  EPIC: "Epic",
+};
+
+/** The API's ceiling for an estimate — `task.validator.js`. */
+export const STORY_POINTS_MAX = 100;
+
 /** A status as a task carries it — enough to draw the chip and know the group. */
 export type TaskStatusRef = {
   id: string;
@@ -95,6 +109,11 @@ export type Task = {
   key: string;
   title: string;
   description: string | null;
+  type: TaskType;
+  /** `null` is "not estimated", which is not the same as 0. */
+  storyPoints: number | null;
+  /** Backlog rank, lower is higher. Written only through the move endpoint. */
+  position: number;
   /** One emoji, and a `#rrggbb` swatch — the same glyph pair a project carries. */
   icon: string | null;
   color: string | null;
@@ -117,6 +136,7 @@ export type Task = {
   /** Values for this project's task properties, keyed by definition id. */
   properties: ProjectPropertyValues;
   createdById: string | null;
+  createdBy: TaskPerson | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -128,8 +148,38 @@ export type TaskComment = {
   authorId: string | null;
   /** `null` once the author's account is gone — the comment survives them. */
   author: TaskPerson | null;
+  /** Set only when the author rewrote the body — drawn as "edited". */
+  editedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+/** The fields a history entry can be about — `docs/api/task.md` §Activity. */
+export type TaskActivityField =
+  | "title"
+  | "description"
+  | "type"
+  | "status"
+  | "priority"
+  | "assignee"
+  | "dueDate"
+  | "storyPoints"
+  | "tags"
+  | "parent"
+  | "attachments"
+  | "properties";
+
+/** One history entry. `from` / `to` are display snapshots, shaped per field. */
+export type TaskActivity = {
+  id: string;
+  taskId: string;
+  actorId: string | null;
+  actor: TaskPerson | null;
+  action: "created" | "updated" | "commented";
+  field: TaskActivityField | null;
+  from: unknown;
+  to: unknown;
+  createdAt: string;
 };
 
 /**

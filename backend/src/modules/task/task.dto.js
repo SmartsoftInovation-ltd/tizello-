@@ -41,6 +41,9 @@ const toTask = (row, definitions = null) => {
     key: `${projectKey}-${row.number}`,
     title: row.title,
     description: row.description,
+    type: row.type,
+    storyPoints: row.storyPoints,
+    position: row.position,
     icon: row.icon,
     color: row.color,
     statusId: row.statusId,
@@ -66,6 +69,7 @@ const toTask = (row, definitions = null) => {
     commentCount: row._count?.comments ?? 0,
     properties: liveProperties(row.properties, definitions),
     createdById: row.createdById,
+    createdBy: toPerson(row.createdBy),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

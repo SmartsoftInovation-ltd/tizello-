@@ -2,7 +2,7 @@ import type { TaskInput, TaskPatch } from "@/lib/tasks";
 import type { WorkspaceMemberRow } from "@/lib/workspaces";
 import type { ProjectPriority } from "@/types/project";
 import type { ProjectPropertyPatch, UploadedFile } from "@/types/project-property";
-import type { Task, TaskPropertyDef, TaskStatusOption } from "@/types/task";
+import type { Task, TaskPropertyDef, TaskStatusOption, TaskType } from "@/types/task";
 
 /*
  * What the task drawer edits, and how an edit becomes a request.
@@ -10,6 +10,12 @@ import type { Task, TaskPropertyDef, TaskStatusOption } from "@/types/task";
  * Flat and all-strings, because that is what a form holds: `""` is "empty" for
  * every optional field, dates are `YYYY-MM-DD`, and `priority` is `""` rather
  * than `null` so a `SelectMenu` can offer "Empty" as an ordinary option.
+ * `storyPoints` is a string for the same reason — `""` is "not estimated",
+ * which must not collapse into `0`.
+ *
+ * `icon` and `color` stay in the draft with no control in the drawer: the
+ * columns still exist, and carrying the stored values through is what keeps a
+ * Save from clearing a glyph set before those rows were removed.
  *
  * Pure functions with no component around them, like `edit-project-diff.ts` —
  * a diff is the kind of logic worth reading on its own.
@@ -18,6 +24,8 @@ import type { Task, TaskPropertyDef, TaskStatusOption } from "@/types/task";
 export type TaskDraft = {
   title: string;
   description: string;
+  type: TaskType;
+  storyPoints: string;
   icon: string;
   color: string;
   statusId: string;
@@ -64,6 +72,8 @@ export function draftFromTask(
   return {
     title: task?.title ?? "",
     description: task?.description ?? "",
+    type: task?.type ?? "TASK",
+    storyPoints: task?.storyPoints == null ? "" : String(task.storyPoints),
     icon: task?.icon ?? "",
     color: task?.color ?? "",
     statusId: task?.statusId ?? seed.statusId ?? "",
@@ -111,6 +121,8 @@ export function createInput(draft: TaskDraft, raw: ProjectPropertyPatch): TaskIn
     title: draft.title.trim(),
     ...(draft.statusId ? { statusId: draft.statusId } : {}),
     ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
+    ...(draft.type !== "TASK" ? { type: draft.type } : {}),
+    ...(draft.storyPoints ? { storyPoints: Number(draft.storyPoints) } : {}),
     ...(draft.icon ? { icon: draft.icon } : {}),
     ...(draft.color ? { color: draft.color } : {}),
     ...(draft.priority ? { priority: draft.priority } : {}),
@@ -145,6 +157,10 @@ export function taskPatch(
   if (draft.title.trim() !== stored.title) patch.title = draft.title.trim();
   if (draft.description.trim() !== stored.description) {
     patch.description = orNull(draft.description.trim());
+  }
+  if (draft.type !== stored.type) patch.type = draft.type;
+  if (draft.storyPoints !== stored.storyPoints) {
+    patch.storyPoints = draft.storyPoints ? Number(draft.storyPoints) : null;
   }
   if (draft.icon !== stored.icon) patch.icon = orNull(draft.icon);
   if (draft.color !== stored.color) patch.color = orNull(draft.color);

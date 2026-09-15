@@ -9,7 +9,8 @@
  * `requireProjectContribute` — the same tier as editing the task, because a
  * comment is part of working on it. Deleting takes only `loadTask` plus
  * `markProjectWriter`: whether the caller may delete depends on who wrote the
- * comment, which only the service can see.
+ * comment, which only the service can see. Editing takes contribute plus an
+ * author-only check in the service.
  *
  * See docs/api/task.md
  */
@@ -17,7 +18,7 @@
 import express from 'express';
 
 import controller from './task-comment.controller.js';
-import { createCommentSchema } from './task-comment.validator.js';
+import { createCommentSchema, updateCommentSchema } from './task-comment.validator.js';
 import validate from '../../shared/middlewares/validate.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import { authGuard } from '../../shared/middlewares/auth.js';
@@ -38,6 +39,17 @@ router.post(
   requireProjectContribute,
   validate(createCommentSchema),
   asyncHandler(controller.create)
+);
+
+// Contribute, then the author check in the service: someone removed from the
+// project can no longer rewrite what they said on it.
+router.patch(
+  '/:commentId',
+  authGuard,
+  loadTask,
+  requireProjectContribute,
+  validate(updateCommentSchema),
+  asyncHandler(controller.update)
 );
 
 router.delete(

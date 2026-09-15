@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateBacklog } from "@/lib/actions/revalidate-backlog";
 import {
   addTaskComment,
   createTask,
@@ -37,12 +37,6 @@ const TITLE_MAX = 200;
 function titleError(title: string): string | undefined {
   if (!title) return "Give the task a title.";
   return title.length > TITLE_MAX ? `Keep it under ${TITLE_MAX} characters.` : undefined;
-}
-
-/** Both routes that render a backlog — the sidebar's `/board/backlog` and the project-scoped one. */
-function revalidateBacklog(workspaceId: string, projectId: string) {
-  revalidatePath("/board/backlog");
-  revalidatePath(`/workspaces/${workspaceId}/projects/${projectId}/backlog`);
 }
 
 export async function createTaskAction(

@@ -1,16 +1,15 @@
 "use client";
 
-import { ProjectGlyph } from "@/components/projects/project-glyph";
-import { Icon, type IconProps } from "@/components/ui/icons";
+import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
+import type { TaskType } from "@/types/task";
 
 /**
- * The glyph and the title — the top of a Notion page, which is what the task
- * panel is modelled on.
+ * The type mark and the title — the top of the task panel.
  *
- * The glyph is the task's own icon on its own colour, drawn by the same
- * `ProjectGlyph` a project uses, so a task and its project read as the same
- * kind of object. With neither chosen it falls back to the page mark, which is
- * what an untouched Notion page shows.
+ * The mark is the task's TYPE (Task / Story / Bug / Epic), the same square the
+ * backlog row draws before the key. It replaced a free-choice emoji and colour:
+ * a mark that says what kind of work this is carries information, a decorative
+ * one did not. Type itself is changed in the Properties list.
  *
  * A bare input rather than a labelled `TextField`: the title is the one thing a
  * task must have, and a 12px label would bury it among the properties below.
@@ -18,15 +17,13 @@ import { Icon, type IconProps } from "@/components/ui/icons";
  * every open.
  */
 export function TaskTitleField({
-  icon,
-  color,
+  type,
   defaultValue,
   error,
   autoFocus = false,
   onChange,
 }: {
-  icon: string;
-  color: string;
+  type: TaskType;
   defaultValue: string;
   error?: string;
   autoFocus?: boolean;
@@ -35,11 +32,7 @@ export function TaskTitleField({
   return (
     <div>
       <div className="flex items-center gap-3">
-        {icon || color ? (
-          <ProjectGlyph icon={icon} color={color} className="size-9 shrink-0 rounded-md text-xl" label="Task icon" />
-        ) : (
-          <TaskPageIcon className="size-9 shrink-0 text-text-subtle" />
-        )}
+        <TaskTypeIcon type={type} size="lg" />
 
         <input
           name="title"
@@ -63,12 +56,3 @@ export function TaskTitleField({
   );
 }
 
-/** A page with a folded corner. Decorative — the title beside it is the name. */
-function TaskPageIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M3 2.5h10v7.5l-3.5 3.5H3z" fill="currentColor" fillOpacity="0.2" />
-      <path d="M13 10H9.5v3.5" />
-    </Icon>
-  );
-}

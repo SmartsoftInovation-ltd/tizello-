@@ -9,6 +9,7 @@ import {
   deleteTaskCommentAction,
   type listTaskCommentsAction,
 } from "@/lib/actions/task-actions";
+import { updateTaskCommentAction } from "@/lib/actions/task-bulk-actions";
 import { taskErrorCopy, type Task, type TaskComment } from "@/types/task";
 
 /**
@@ -21,8 +22,8 @@ import { taskErrorCopy, type Task, type TaskComment } from "@/types/task";
  * and fetching every thread with the page would be one request per task nobody
  * opened.
  *
- * Posting and deleting write immediately and update the local list once the
- * API has answered — reconciliation, not optimism.
+ * Posting, editing and deleting write immediately and update the local list
+ * once the API has answered — reconciliation, not optimism.
  *
  * Cmd/Ctrl+Enter posts. A plain Enter is a new line: comments are paragraphs.
  */
@@ -55,6 +56,19 @@ export function TaskComments({
     });
   }
 
+  /* Awaited by the item rather than run in this transition, so the editor can
+     stay open with the text intact when the save fails. */
+  async function edit(comment: TaskComment, text: string): Promise<boolean> {
+    const result = await updateTaskCommentAction(task.id, comment.id, text);
+    if (!result.comment) {
+      toast.error(taskErrorCopy(result.code ?? "SERVER_ERROR"));
+      return false;
+    }
+    const updated = result.comment;
+    setComments((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+    return true;
+  }
+
   function remove(comment: TaskComment) {
     startTransition(async () => {
       const result = await deleteTaskCommentAction(scope.workspaceId, scope.projectId, task.id, comment.id);
@@ -82,8 +96,10 @@ export function TaskComments({
               comment={comment}
               /* The author may always delete their own; a project writer may
                  moderate anyone's — the API enforces the same two cases. */
+              canEdit={comment.authorId === scope.currentUserId && scope.canContribute}
               canDelete={comment.authorId === scope.currentUserId || scope.canManageProperties}
               disabled={isPending}
+              onSave={(text) => edit(comment, text)}
               onDelete={() => remove(comment)}
             />
           ))}

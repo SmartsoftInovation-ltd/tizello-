@@ -14,11 +14,13 @@ export type PropertyIconKind =
   | "people"
   | "emoji"
   | "files"
-  /* The task drawer's rows — Tags, Delay, Parent-task and Sprint. */
+  /* The task drawer's rows — Tags, Delay, Parent-task, Sprint, Type and Story points. */
   | "tag"
   | "clock"
   | "arrow"
-  | "sprint";
+  | "sprint"
+  | "type"
+  | "points";
 
 export function PropertyIcon({ kind }: { kind: PropertyIconKind }) {
   const paths = {
@@ -78,6 +80,18 @@ export function PropertyIcon({ kind }: { kind: PropertyIconKind }) {
       </>
     ),
     arrow: <path d="M4.5 11.5l7-7M6 4.5h5.5V10" />,
+    type: (
+      <>
+        <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+        <path d="M5.5 8.25l1.75 1.75 3.25-3.5" />
+      </>
+    ),
+    points: (
+      <>
+        <path d="M8 2.5l5.5 5.5L8 13.5 2.5 8z" />
+        <path d="M8 6v4" />
+      </>
+    ),
     sprint: (
       <>
         <circle cx="5.5" cy="4" r="0.9" fill="currentColor" stroke="none" />

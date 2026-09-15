@@ -10,7 +10,8 @@ import { cn } from "@/lib/cn";
 import { taskErrorCopy, type Task } from "@/types/task";
 
 /**
- * Relations: this task's sub-tasks, and a way to add one.
+ * This task's sub-tasks, and a way to add one — the lower half of Relations
+ * (`task-relations.tsx`, which owns the section and its heading).
  *
  * A SUB-TASK IS A TASK. It has its own key, status, assignee and drawer — the
  * only thing that makes it a sub-task is `parentId`. So adding one here is a
@@ -60,8 +61,10 @@ export function TaskSubtasks({
   }
 
   return (
-    <section className="mt-6 border-t border-border pt-4" aria-label="Relations">
-      <h3 className="px-0.5 text-xs font-medium text-text-subtle">Relations</h3>
+    <div>
+      <p className="mt-3 px-0.5 text-2xs font-medium text-text-subtle">
+        Sub-tasks{subtasks.length > 0 ? ` · ${subtasks.length}` : ""}
+      </p>
 
       {subtasks.length > 0 && (
         <ul className="mt-2 space-y-0.5">
@@ -129,6 +132,6 @@ export function TaskSubtasks({
           </button>
         </div>
       )}
-    </section>
+    </div>
   );
 }
