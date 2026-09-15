@@ -35,6 +35,8 @@ export type TaskInput = {
   tags?: string[];
   attachments?: UploadedFile[];
   parentId?: string | null;
+  /** A sprint of this project, or `null` for the backlog. */
+  sprintId?: string | null;
   /** Partial and keyed by definition id; `null` on a key DELETES that value. */
   properties?: ProjectPropertyPatch;
 };

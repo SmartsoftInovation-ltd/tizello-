@@ -535,42 +535,7 @@ const refresh = async ({ refreshToken, userAgent, ip }) => {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Session expired', AUTH_CODES.TOKEN_INVALID);
   }
 
-  if (record.revokedAt) {
-    const withinGrace = Date.now() - record.revokedAt.getTime() <= REFRESH_GRACE_MS;
-
-    // A revoked token WITH a successor, presented within the window, is the tab
-    // race — replay the already-issued replacement rather than raising an alarm.
-    // The check keys on `replacedById` as well as on time, and must: a revoked
-    // token with no replacement is a logout, and replaying that would resurrect
-    // a session the user deliberately ended.
-    if (withinGrace && record.replacedById) {
-      const replacement = await repository.findRefreshTokenById(record.replacedById);
-
-      if (replacement && !replacement.revokedAt) {
-        return {
-          user: dto.toUser(record.user),
-          tokens: {
-            accessToken: signAccessToken(record.user, { familyId: replacement.familyId }),
-            // Deliberately no new refresh token: the winning request already set
-            // that cookie. Re-issuing here would rotate a token this caller
-            // never asked to rotate and restart the race.
-          },
-          replayed: true,
-        };
-      }
-    }
-
-    // Outside the window, or with no successor: this token was already spent and
-    // is being presented again. Assume the copy is not in the owner's hands and
-    // kill the whole lineage — every descendant of that one sign-in.
-    await repository.revokeRefreshTokenFamily(record.familyId);
-
-    throw new AppError(httpStatus.UNAUTHORIZED, 'Session expired', AUTH_CODES.TOKEN_INVALID, {
-      reuseDetected: true,
-      userId: record.userId,
-      familyId: record.familyId,
-    });
-  }
+  if (record.revokedAt) return refreshFromRevoked(record);
 
   if (record.expiresAt <= new Date()) {
     throw new AppError(httpStatus.UNAUTHORIZED, 'Session expired', AUTH_CODES.TOKEN_EXPIRED);
@@ -578,9 +543,15 @@ const refresh = async ({ refreshToken, userAgent, ip }) => {
 
   const nextToken = mintOpaqueToken();
 
-  // One transaction: insert the successor, then point the old row at it. Both,
-  // or neither.
-  await prisma.$transaction(async (tx) => {
+  // One transaction: claim the old row, insert the successor, point the old row
+  // at it. All, or nothing. The claim is a conditional update
+  // (`claimRefreshToken`), so when two requests race with the same token only
+  // one rotates; the loser sees zero rows and falls through to the revoked
+  // path below, where it is inside the grace window and gets the winner's
+  // session replayed instead of a second lineage.
+  const rotated = await prisma.$transaction(async (tx) => {
+    if ((await repository.claimRefreshToken(record.id, tx)) === 0) return false;
+
     const created = await repository.createRefreshToken(
       {
         userId: record.userId,
@@ -596,8 +567,11 @@ const refresh = async ({ refreshToken, userAgent, ip }) => {
       tx
     );
 
-    await repository.revokeRefreshToken(record.id, created.id, tx);
+    await repository.setRefreshTokenSuccessor(record.id, created.id, tx);
+    return true;
   });
+
+  if (!rotated) return refreshFromRevoked(await repository.findRefreshTokenByHash(tokenHash));
 
   return {
     user: dto.toUser(record.user),
@@ -606,6 +580,50 @@ const refresh = async ({ refreshToken, userAgent, ip }) => {
       refreshToken: nextToken,
     },
   };
+};
+
+/**
+ * A presented refresh token that is already revoked: either the tail of a race
+ * (another request rotated it moments ago) or a replay of a spent token.
+ *
+ * Split out of `refresh` because two paths reach it — a token read as revoked,
+ * and a token that lost the rotation claim to a concurrent request.
+ */
+const refreshFromRevoked = async (record) => {
+  const withinGrace = Date.now() - record.revokedAt.getTime() <= REFRESH_GRACE_MS;
+
+  // A revoked token WITH a successor, presented within the window, is the tab
+  // race — replay the already-issued replacement rather than raising an alarm.
+  // The check keys on `replacedById` as well as on time, and must: a revoked
+  // token with no replacement is a logout, and replaying that would resurrect
+  // a session the user deliberately ended.
+  if (withinGrace && record.replacedById) {
+    const replacement = await repository.findRefreshTokenById(record.replacedById);
+
+    if (replacement && !replacement.revokedAt) {
+      return {
+        user: dto.toUser(record.user),
+        tokens: {
+          accessToken: signAccessToken(record.user, { familyId: replacement.familyId }),
+          // Deliberately no new refresh token: the winning request already set
+          // that cookie. Re-issuing here would rotate a token this caller
+          // never asked to rotate and restart the race.
+        },
+        replayed: true,
+      };
+    }
+  }
+
+  // Outside the window, or with no successor: this token was already spent and
+  // is being presented again. Assume the copy is not in the owner's hands and
+  // kill the whole lineage — every descendant of that one sign-in.
+  await repository.revokeRefreshTokenFamily(record.familyId);
+
+  throw new AppError(httpStatus.UNAUTHORIZED, 'Session expired', AUTH_CODES.TOKEN_INVALID, {
+    reuseDetected: true,
+    userId: record.userId,
+    familyId: record.familyId,
+  });
 };
 
 /**

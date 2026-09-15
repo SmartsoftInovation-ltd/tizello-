@@ -163,9 +163,24 @@ had also aged out would report "expired", the caller would shrug, and the theft
 alarm — the clearest signal of exfiltration this system produces — would never
 fire.
 
-**2. Rotation runs in one transaction.** Split into two statements, a crash
-between them leaves the old row revoked and no successor written: the user is
-signed out by an outage.
+**2. Rotation runs in one transaction, and starts with a conditional claim.**
+Split into two statements, a crash between them leaves the old row revoked and
+no successor written: the user is signed out by an outage.
+
+The claim is `UPDATE … SET revokedAt = now() WHERE id = ? AND revokedAt IS NULL`
+(`claimRefreshToken`), and only a request that claimed the row (1 row updated)
+mints a successor. An earlier version read the row, saw it live, and then
+rotated — so N concurrent refreshes with one token ALL passed the check and
+minted N successors, of which the browser could keep only one. Postgres
+re-evaluates the `WHERE` for a waiting `UPDATE` once the first commits, so
+exactly one request wins; the others see 0 rows, re-read the now-revoked row,
+and take the grace path in §3.
+
+The web client adds the other half of this: it renews in its proxy, before a
+page renders (`frontend/src/proxy.ts`, `lib/session-refresh.ts`). A refresh
+issued from inside a Server Component render could not save the rotated cookie,
+so the browser kept a spent token and its next request — past the grace window —
+was treated as reuse and ended the session.
 
 **3. A 10-second grace window, keyed on `replacedById`.** Two tabs whose access
 tokens expire in the same second both present the same refresh token. One wins;

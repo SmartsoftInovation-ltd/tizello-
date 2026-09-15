@@ -131,6 +131,9 @@ export type Task = {
   attachments: UploadedFile[];
   parentId: string | null;
   parent: TaskRef | null;
+  /** The sprint it is planned into; `null` is "in the backlog". */
+  sprintId: string | null;
+  sprint: { id: string; name: string; state: "PLANNING" | "ACTIVE" | "COMPLETED" } | null;
   subtaskCount: number;
   commentCount: number;
   /** Values for this project's task properties, keyed by definition id. */
@@ -152,34 +155,6 @@ export type TaskComment = {
   editedAt: string | null;
   createdAt: string;
   updatedAt: string;
-};
-
-/** The fields a history entry can be about — `docs/api/task.md` §Activity. */
-export type TaskActivityField =
-  | "title"
-  | "description"
-  | "type"
-  | "status"
-  | "priority"
-  | "assignee"
-  | "dueDate"
-  | "storyPoints"
-  | "tags"
-  | "parent"
-  | "attachments"
-  | "properties";
-
-/** One history entry. `from` / `to` are display snapshots, shaped per field. */
-export type TaskActivity = {
-  id: string;
-  taskId: string;
-  actorId: string | null;
-  actor: TaskPerson | null;
-  action: "created" | "updated" | "commented";
-  field: TaskActivityField | null;
-  from: unknown;
-  to: unknown;
-  createdAt: string;
 };
 
 /**

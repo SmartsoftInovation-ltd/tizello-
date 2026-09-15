@@ -33,6 +33,7 @@ import type { Task } from "@/types/task";
 export function TaskForm({
   task,
   parentId,
+  sprintId,
   scope,
   surface,
   tasks,
@@ -42,6 +43,7 @@ export function TaskForm({
 }: {
   task: Task | null;
   parentId?: string;
+  sprintId?: string;
   scope: TaskScope;
   surface: ProjectSurface;
   tasks: Task[];
@@ -49,7 +51,7 @@ export function TaskForm({
   onClose: () => void;
   onOpenTask: (taskId: string) => void;
 }) {
-  const form = useTaskForm({ task, scope, parentId, onClose });
+  const form = useTaskForm({ task, scope, parentId, sprintId, onClose });
   const readOnly = !scope.canContribute;
 
   return (
@@ -59,7 +61,7 @@ export function TaskForm({
           {task ? (
             <span className="font-mono">{task.key}</span>
           ) : (
-            `New task in ${scope.projectName}`
+            `New task in ${scope.sprints.find((sprint) => sprint.id === sprintId)?.name ?? scope.projectName}`
           )}
         </p>
         <SurfaceMenu surface={surface} />

@@ -22,6 +22,7 @@ import propertyService from './task-property.service.js';
 import statusRepository from './task-status.repository.js';
 import statusService from './task-status.service.js';
 import activityService from './task-activity.service.js';
+import sprintRepository from '../sprint/sprint.repository.js';
 import dto from './task.dto.js';
 
 /*
@@ -72,6 +73,18 @@ const checkAssignee = async (workspaceId, assigneeId) => {
 };
 
 /**
+ * A sprint must be one of THIS project's, and not completed — a completed
+ * sprint is a record of what it delivered, not somewhere new work can land.
+ */
+const checkSprint = async (projectId, sprintId) => {
+  if (!sprintId) return;
+
+  const sprint = await sprintRepository.findSprintInProject(projectId, sprintId);
+  if (!sprint) throw unprocessable('That sprint does not exist in this project');
+  if (sprint.state === 'COMPLETED') throw unprocessable('A completed sprint cannot take tasks');
+};
+
+/**
  * A parent must be a live task in the SAME project, and must not be the task
  * itself or any of its descendants.
  *
@@ -80,7 +93,7 @@ const checkAssignee = async (workspaceId, assigneeId) => {
  * walk is one row per level where the downward one is a tree.
  */
 const checkParent = async (projectId, parentId, taskId = null) => {
-  if (!parentId) return;
+  if (!parentId) return null;
 
   if (parentId === taskId) throw unprocessable('A task cannot be its own ancestor');
 
@@ -89,7 +102,7 @@ const checkParent = async (projectId, parentId, taskId = null) => {
     throw unprocessable('Parent task not found in this project');
   }
 
-  if (!taskId) return;
+  if (!taskId) return parent;
 
   let cursor = parent.parentId;
   for (let depth = 0; cursor && depth < MAX_DEPTH; depth += 1) {
@@ -97,6 +110,8 @@ const checkParent = async (projectId, parentId, taskId = null) => {
     const link = await repository.findParentLink(cursor);
     cursor = link?.parentId ?? null;
   }
+
+  return parent;
 };
 
 /**
@@ -131,7 +146,8 @@ const createTask = async (project, payload, user) => {
   const { properties, tags, attachments, ...rest } = payload;
 
   await checkAssignee(project.workspaceId, rest.assigneeId);
-  await checkParent(project.id, rest.parentId);
+  const parent = await checkParent(project.id, rest.parentId);
+  await checkSprint(project.id, rest.sprintId);
   if (attachments) checkAttachments(attachments);
 
   /* The requested status (must be this project's), or the project default. */
@@ -161,6 +177,9 @@ const createTask = async (project, payload, user) => {
     tags: tags ? normalizeTags(tags) : [],
     attachments: attachments ?? [],
     parentId: rest.parentId ?? null,
+    /* A new sub-task joins its parent's sprint unless told otherwise — it is a
+       piece of the parent's work, wherever that work is planned. */
+    sprintId: rest.sprintId !== undefined ? rest.sprintId : (parent?.sprintId ?? null),
     ...(merged ? { properties: merged } : {}),
     type: rest.type ?? undefined,
     storyPoints: rest.storyPoints ?? null,
@@ -213,6 +232,7 @@ const updateTask = async (task, project, patch, user = null) => {
 
   if ('assigneeId' in columns) await checkAssignee(project.workspaceId, columns.assigneeId);
   if ('parentId' in columns) await checkParent(project.id, columns.parentId, task.id);
+  if ('sprintId' in columns) await checkSprint(project.id, columns.sprintId);
   if (attachments) checkAttachments(attachments);
 
   const { merged, definitions } = properties
@@ -246,6 +266,10 @@ const updateTask = async (task, project, patch, user = null) => {
     ...(merged ? { properties: merged } : {}),
   });
 
+  if ('sprintId' in columns && before?.sprintId !== row.sprintId) {
+    await repository.moveSubtreeToSprint([task.id], row.sprintId);
+  }
+
   if (before) await activityService.recordChanges(before, row, user?.id ?? null);
 
   return dto.toTask(row, definitions);
@@ -270,7 +294,7 @@ const updateTask = async (task, project, patch, user = null) => {
  * `422`, not ignored: silently ranking against half a request would put the
  * task somewhere nobody dropped it.
  */
-const moveTask = async (task, project, { statusId, afterId, beforeId }, user) => {
+const moveTask = async (task, project, { statusId, sprintId, afterId, beforeId }, user) => {
   const neighbour = async (id) => {
     if (!id) return null;
     if (id === task.id) throw unprocessable('A task cannot be placed next to itself');
@@ -296,6 +320,7 @@ const moveTask = async (task, project, { statusId, afterId, beforeId }, user) =>
 
   const patch = {
     ...(statusId ? { statusId } : {}),
+    ...(sprintId !== undefined ? { sprintId } : {}),
     ...(position !== undefined ? { position } : {}),
   };
 
@@ -331,6 +356,7 @@ const bulkUpdateTasks = async (project, { taskIds, patch }, user) => {
   const { rows } = await loadForBulk(project, taskIds);
 
   if ('assigneeId' in patch) await checkAssignee(project.workspaceId, patch.assigneeId);
+  if ('sprintId' in patch) await checkSprint(project.id, patch.sprintId);
   const nextStatus = patch.statusId ? await statusService.resolveStatus(project.id, patch.statusId) : null;
 
   const updates = rows.map((row) => {
@@ -346,6 +372,8 @@ const bulkUpdateTasks = async (project, { taskIds, patch }, user) => {
     repository.updateTasks(updates),
     propertyRepository.findPropertiesForProject(project.id),
   ]);
+
+  if ('sprintId' in patch) await repository.moveSubtreeToSprint(rows.map((row) => row.id), patch.sprintId);
 
   const byId = new Map(rows.map((row) => [row.id, row]));
   await activityService.recordManyChanges(

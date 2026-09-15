@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { PlusIcon } from "@/components/ui/icons";
 import { createTaskAction } from "@/lib/actions/task-actions";
-import { taskErrorCopy, type TaskStatusOption } from "@/types/task";
+import { taskErrorCopy } from "@/types/task";
 
 /**
  * "+ Add task" under a status: type a title, press Enter, it is in the backlog.
@@ -15,15 +15,28 @@ import { taskErrorCopy, type TaskStatusOption } from "@/types/task";
  * a task is filled in later. The composer STAYS OPEN and keeps focus after a
  * create for exactly that reason; Escape or Done closes it.
  *
- * It files into THIS status, not the project default, because that is the
- * section it is drawn under. The new task lands at the bottom (the API ranks
+ * It files into the section it is drawn under — a status on the backlog, a
+ * sprint (or the backlog) on the planning screen — because that is where the
+ * person is looking. The new task lands at the bottom (the API ranks
  * new arrivals last), which is right under the composer the person is looking
  * at.
  *
  * A real `<form>`: the backlog is not inside the drawer's form, so Enter can be
  * a native submit here.
  */
-export function TaskQuickAdd({ status, scope }: { status: TaskStatusOption; scope: TaskScope }) {
+export function TaskQuickAdd({
+  scope,
+  where,
+  statusId,
+  sprintId,
+}: {
+  scope: TaskScope;
+  /** The section's name, for the accessible labels — "Not Started", "ECS Sprint 2". */
+  where: string;
+  statusId?: string;
+  /** A sprint id; omitted or `null` files into the backlog. */
+  sprintId?: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -37,7 +50,7 @@ export function TaskQuickAdd({ status, scope }: { status: TaskStatusOption; scop
       >
         <PlusIcon className="size-3.5" />
         Add task
-        <span className="sr-only"> to {status.name}</span>
+        <span className="sr-only"> to {where}</span>
       </button>
     );
   }
@@ -50,7 +63,8 @@ export function TaskQuickAdd({ status, scope }: { status: TaskStatusOption; scop
     startTransition(async () => {
       const result = await createTaskAction(scope.workspaceId, scope.projectId, {
         title: value,
-        statusId: status.id,
+        ...(statusId ? { statusId } : {}),
+        ...(sprintId ? { sprintId } : {}),
       });
 
       if (result.code || result.fieldErrors) {
@@ -65,7 +79,7 @@ export function TaskQuickAdd({ status, scope }: { status: TaskStatusOption; scop
     <form onSubmit={submit} className="mt-1.5 flex items-center gap-2 rounded-md border border-border bg-surface p-1.5">
       <input
         autoFocus
-        aria-label={`New task title in ${status.name}`}
+        aria-label={`New task title in ${where}`}
         placeholder="Task title, then Enter"
         value={title}
         maxLength={200}

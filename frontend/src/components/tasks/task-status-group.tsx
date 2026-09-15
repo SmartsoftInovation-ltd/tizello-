@@ -7,6 +7,7 @@ import { DraggableTaskRow } from "@/components/tasks/draggable-task-row";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { TaskQuickAdd } from "@/components/tasks/task-quick-add";
 import { TaskRow } from "@/components/tasks/task-row";
+import { StoryPointsPicker } from "@/components/tasks/story-points-picker";
 import { TaskStatusChip } from "@/components/tasks/task-status-chip";
 import { ChevronDownIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
@@ -101,6 +102,7 @@ export function TaskStatusGroup({
                   onDelete: onDelete ? () => onDelete(task) : undefined,
                   selected: selected.has(task.id),
                   onSelect: onSelect ? (next: boolean) => onSelect(task.id, next) : undefined,
+                  trailing: <StoryPointsPicker task={task} scope={scope} />,
                 };
                 return (
                   <li key={task.id}>
@@ -112,7 +114,7 @@ export function TaskStatusGroup({
           </ul>
         </SortableContext>
 
-        {canDrag && <TaskQuickAdd status={status} scope={scope} />}
+        {canDrag && <TaskQuickAdd scope={scope} where={status.name} statusId={status.id} />}
       </div>
     </section>
   );

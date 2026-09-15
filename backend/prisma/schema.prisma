@@ -64,6 +64,7 @@ model User {
   taskComments        TaskComment[]       @relation("TaskCommentAuthor")
   // SetNull on the activity side too: a departed user's history stays, unattributed.
   taskActivities      TaskActivity[]      @relation("TaskActivityActor")
+  createdSprints      Sprint[]            @relation("SprintCreatedBy")
 
   @@map("users")
 }
@@ -378,6 +379,10 @@ model Project {
   // Plan §2.3, docs/api/task.md §Numbering.
   taskCounter Int @default(0)
 
+  // --- sprint numbering. Same rule as taskCounter, written only by the sprint
+  // module: "ECS Sprint 4" stays 4 after sprint 3 is deleted.
+  sprintCounter Int @default(0)
+
   // Values for this workspace's user-defined properties: a { [defId]: value }
   // map. Json rather than a row per value because nothing queries inside it
   // yet and a table would mean a join on every list read plus N inserts every
@@ -405,6 +410,7 @@ model Project {
   tasks            Task[]
   taskPropertyDefs TaskPropertyDef[]
   taskStatuses     TaskStatusOption[]
+  sprints          Sprint[]
 
   // Archived is reversible (hidden from the default list); deletedAt is not.
   // Neither is `status` — three independent axes, three columns.
@@ -599,6 +605,11 @@ model Task {
   parentId    String?
   parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
   subtasks    Task[]     @relation("Subtasks")
+  // The sprint this task is planned into; null is "in the backlog". SetNull, not
+  // Cascade: deleting a sprint returns its work to the backlog, it never deletes
+  // it. docs/api/sprint.md.
+  sprintId    String?
+  sprint      Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   // Values for the project's task properties: { [taskPropertyDefId]: value }.
   // Same Json-values / row-definitions split as Project.properties.
   properties  Json?
@@ -619,6 +630,7 @@ model Task {
   @@index([parentId])
   @@index([assigneeId])
   @@index([statusId])
+  @@index([sprintId])
   @@map("tasks")
 }
 
@@ -689,4 +701,54 @@ model TaskPropertyDef {
   @@unique([projectId, name])
   @@index([projectId])
   @@map("task_property_defs")
+}
+
+// ---------------------------------------------------------------------------
+// Sprints — src/modules/sprint/, docs/api/sprint.md
+// ---------------------------------------------------------------------------
+
+// PLANNING → ACTIVE → COMPLETED, one way. There is no reopen: a completed sprint
+// is the record of what a time-box delivered, and reopening it would rewrite
+// that record. Must stay in sync with SPRINT_STATES in src/shared/constants/sprint.js.
+enum SprintState {
+  PLANNING
+  ACTIVE
+  COMPLETED
+}
+
+// A time-box inside one project that tasks are planned into.
+//
+// At most ONE ACTIVE sprint per project. That rule is a partial unique index
+// Prisma cannot express, hand-written into the migration as
+// sprints_one_active_per_project — the service checks first for a readable 409,
+// the index is what holds under a race.
+model Sprint {
+  id             String      @id @default(cuid())
+  projectId      String
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // From Project.sprintCounter, never reused.
+  number         Int
+  name           String
+  goal           String?
+  // Optional while PLANNING — a sprint booked for "after this one" often has no
+  // dates yet. Both are required to START, which is when a time-box begins to
+  // mean something.
+  startDate      DateTime?
+  endDate        DateTime?
+  // The points the team expects to finish — a forecast planning fills against,
+  // never a limit anything enforces. Null is "not decided", not zero.
+  capacityPoints Int?
+  state          SprintState @default(PLANNING)
+  // When it actually started and finished, as opposed to the planned dates.
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdById    String?
+  createdBy      User?       @relation("SprintCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  tasks          Task[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([projectId, number])
+  @@index([projectId, state])
+  @@map("sprints")
 }

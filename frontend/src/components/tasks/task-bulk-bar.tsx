@@ -26,6 +26,9 @@ import { TASK_TYPES, TASK_TYPE_LABEL, taskErrorCopy, type TaskType } from "@/typ
  * API applies it all-or-nothing, so a failure never leaves half a selection
  * changed without saying so.
  *
+ * Sprint moves the selection into a sprint or back to the backlog in one
+ * request — planning twenty tasks without twenty drags.
+ *
  * Status offers EVERY status, not just To-do ones: moving a batch to "In
  * progress" is a normal grooming action, and those tasks then leave this
  * backlog exactly as a single task does.
@@ -71,6 +74,12 @@ export function TaskBulkBar({
     { value: "", label: "Unassigned" },
     ...scope.members.map((member) => ({ value: member.userId, label: memberName(member) })),
   ];
+  const sprintOptions: BulkOption[] = [
+    { value: "", label: "Backlog" },
+    ...scope.sprints
+      .filter((sprint) => sprint.state !== "COMPLETED")
+      .map((sprint) => ({ value: sprint.id, label: sprint.state === "ACTIVE" ? `${sprint.name} (active)` : sprint.name })),
+  ];
   const typeOptions: BulkOption[] = TASK_TYPES.map((value) => ({
     value,
     label: TASK_TYPE_LABEL[value],
@@ -88,6 +97,7 @@ export function TaskBulkBar({
       </span>
       <span aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
 
+      <TaskBulkMenu label="Sprint" options={sprintOptions} disabled={isPending} onChoose={(value) => apply({ sprintId: value || null }, value ? "Moved to sprint" : "Moved to backlog")} />
       <TaskBulkMenu label="Status" options={statusOptions} disabled={isPending} onChoose={(statusId) => apply({ statusId }, "Status set")} />
       <TaskBulkMenu label="Priority" options={priorityOptions} disabled={isPending} onChoose={(value) => apply({ priority: (value || null) as ProjectPriority | null }, "Priority set")} />
       <TaskBulkMenu label="Assignee" options={assigneeOptions} disabled={isPending} onChoose={(value) => apply({ assigneeId: value || null }, "Assignee set")} />

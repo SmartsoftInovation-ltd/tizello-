@@ -32,7 +32,6 @@ import { PROJECT_VIEWS } from "@/types/project";
  * `resolveHref` once the shell can hold a real project.
  */
 const DEMO_WORKSPACE_ID = "atlas-robotics";
-const DEMO_PROJECT_ID = "TIZ-1";
 
 /*
  * The projects page's five `?view=` screens, mirrored under the sidebar's
@@ -61,10 +60,10 @@ const PROJECT_VIEW_CHILDREN: readonly SidebarChildItem[] = PROJECT_VIEWS.map(
  * ITEMS by reading the id out of the pathname; a child cannot do that, because
  * this list is built once at module scope and a child carries a literal href.
  *
- * So they are written against the fixture project for now, exactly as the flat
- * Sprints and Sprint planning items were before this became a group — the same
- * TEMP note applies, and deleting `DEMO_PROJECT_ID` is what will force this to
- * be resolved per-render like the items above it.
+ * So each points at a `/board/*` screen that picks its own project from
+ * `?project=` (falling back to the remembered workspace's first project) —
+ * `/board/backlog` and `/board/sprint-planning` do; `/board/sprint` is still the
+ * fixture board.
  *
  * `Current sprint` points at `/board/sprint`, the same place the parent does.
  * That is deliberate: the parent is the group's name AND its default screen,
@@ -85,7 +84,9 @@ export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
   {
     id: "sprint-planning",
     label: "Sprint planning",
-    href: `/workspaces/${DEMO_WORKSPACE_ID}/projects/${DEMO_PROJECT_ID}/sprint-planning`,
+    /* The real planning screen, which picks its project from `?project=` the
+       way `/board/backlog` does — so it no longer needs the fixture ids. */
+    href: "/board/sprint-planning",
   },
   { id: "backlog", label: "Backlog", href: "/board/backlog" },
 ];

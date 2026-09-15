@@ -30,6 +30,7 @@ import type { Task } from "@/types/task";
 export function TaskDrawer({
   task,
   parentId,
+  sprintId,
   open,
   scope,
   tasks,
@@ -40,6 +41,8 @@ export function TaskDrawer({
   /** `null` creates. */
   task: Task | null;
   parentId?: string;
+  /** Seeds Sprint when creating from a sprint box. */
+  sprintId?: string;
   open: boolean;
   scope: TaskScope;
   /** Every task in the project — the parent picker and the sub-task list read it. */
@@ -65,6 +68,7 @@ export function TaskDrawer({
         key={`${task?.id ?? "new"}-${task?.updatedAt ?? ""}-${open}`}
         task={task}
         parentId={parentId}
+        sprintId={sprintId}
         scope={scope}
         surface={surface}
         tasks={tasks}

@@ -32,9 +32,9 @@ export function PlanningPageHeader({
         Sprint planning
       </h1>
       <p className="mt-1 max-w-prose text-sm text-text-muted">
-        Pull work out of {project.name}&rsquo;s backlog and into the sprint
-        you&rsquo;re filling. A task is in one place or the other, never both,
-        and the points tell you when the sprint is full.
+        Drag {project.name}&rsquo;s work from the backlog into a sprint and
+        estimate it. A task is in one place or the other, never both, and the
+        points tell you when the sprint is full.
       </p>
     </header>
   );

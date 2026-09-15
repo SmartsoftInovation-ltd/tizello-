@@ -10,7 +10,8 @@ import {
   type TaskMove,
 } from "@/lib/task-bulk";
 import { getTaskActivity, updateTaskComment } from "@/lib/task-history";
-import type { TaskActivity, TaskComment } from "@/types/task";
+import type { TaskActivity } from "@/types/task-activity";
+import type { TaskComment } from "@/types/task";
 
 /*
  * Rank, bulk and history writes — the same thin shape as `task-actions.ts`:

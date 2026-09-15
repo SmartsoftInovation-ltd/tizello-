@@ -1,6 +1,7 @@
 import { formatDate } from "@/lib/format-date";
 import { PROJECT_PRIORITY_LABEL, type ProjectPriority } from "@/types/project";
-import { TASK_TYPE_LABEL, type TaskActivity, type TaskActivityField, type TaskType } from "@/types/task";
+import type { TaskActivity, TaskActivityField } from "@/types/task-activity";
+import { TASK_TYPE_LABEL, type TaskType } from "@/types/task";
 
 /*
  * One history entry as a sentence fragment — "changed Status from To do to
@@ -23,6 +24,7 @@ const LABEL: Record<TaskActivityField, string> = {
   assignee: "Assignee",
   dueDate: "Due date",
   storyPoints: "Story points",
+  sprint: "Sprint",
   tags: "Tags",
   parent: "Parent task",
   attachments: "Files",
@@ -39,6 +41,7 @@ function show(field: TaskActivityField, value: unknown): string | null {
   switch (field) {
     case "status":
     case "assignee":
+    case "sprint":
       return named(value, "name");
     case "parent":
       return named(value, "key");

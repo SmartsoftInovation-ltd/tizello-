@@ -14,6 +14,8 @@ import type { Task, TaskType } from "@/types/task";
 
 export type TaskMove = {
   statusId?: string;
+  /** The container: a sprint id, or `null` for the backlog. */
+  sprintId?: string | null;
   /** The task directly above the new spot, or `null` for the top. */
   afterId?: string | null;
   /** The task directly below the new spot, or `null` for the bottom. */
@@ -28,6 +30,7 @@ export type TaskBulkPatch = {
   assigneeId?: string | null;
   storyPoints?: number | null;
   dueDate?: string | null;
+  sprintId?: string | null;
 };
 
 /** The API's ceiling per bulk request. */

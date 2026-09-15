@@ -34,16 +34,19 @@ export function useTaskForm({
   task,
   scope,
   parentId,
+  sprintId,
   onClose,
 }: {
   task: Task | null;
   scope: TaskScope;
   /** Seeds Parent-task when the drawer was opened to add a sub-task. */
   parentId?: string;
+  /** Seeds Sprint when the drawer was opened from a sprint. */
+  sprintId?: string;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<TaskDraft>(() =>
-    draftFromTask(task, { parentId, statusId: defaultStatusId(scope.statuses) }),
+    draftFromTask(task, { parentId, sprintId, statusId: defaultStatusId(scope.statuses) }),
   );
   const [properties, setProperties] = useState<ProjectPropertyPatch>(
     () => task?.properties ?? {},
@@ -91,7 +94,7 @@ export function useTaskForm({
       run(
         () =>
           createTaskAction(scope.workspaceId, scope.projectId, createInput(draft, properties)),
-        `${title} is in the backlog.`,
+        `${title} is in ${scope.sprints.find((sprint) => sprint.id === draft.sprintId)?.name ?? "the backlog"}.`,
       );
       return;
     }

@@ -87,11 +87,14 @@ export function TaskBacklogPanel({
     : undefined;
 
   /* The toolbar count, the selection and "select all" all follow what the
-     board actually shows — top-level TODO-group tasks that pass the filters. */
+     board actually shows — top-level TODO-group tasks that are in NO sprint
+     and pass the filters. A task planned into a sprint lives on the planning
+     screen until the sprint returns it. */
   const todoStatusIds = new Set(
     scope.statuses.filter((status) => status.group === "TODO").map((status) => status.id),
   );
-  const todoTasks = tasks.filter((task) => todoStatusIds.has(task.statusId));
+  const backlog = tasks.filter((task) => !task.sprintId);
+  const todoTasks = backlog.filter((task) => todoStatusIds.has(task.statusId));
   const ids = new Set(todoTasks.map((task) => task.id));
   const topLevel = todoTasks.filter((task) => !task.parentId || !ids.has(task.parentId));
   const visible = (task: Task) => matchesFilters(task, filters);
@@ -128,7 +131,7 @@ export function TaskBacklogPanel({
       </div>
 
       <TaskBacklogBoard
-        tasks={tasks}
+        tasks={backlog}
         scope={scope}
         visible={visible}
         filtered={filtered}

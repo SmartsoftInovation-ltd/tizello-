@@ -1,24 +1,49 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { REFRESH_COOKIE, SESSION_COOKIE } from "@/lib/session-cookie";
+import { ACCESS_COOKIE, REFRESH_COOKIE } from "@/lib/session-cookie";
+import { accessTokenNeedsRefresh, refreshSession } from "@/lib/session-refresh";
 
 /*
- * Route protection (Next 16 renamed middleware to proxy).
+ * Route protection and session renewal (Next 16 renamed middleware to proxy).
  *
- * This is an optimistic check and nothing more: it looks for the *presence* of
- * the session cookie, which is cheap and runs on every matched request. Real
- * validation happens in the page, where `getSession()` resolves the cookie to a
- * user. Treating a proxy check as authorisation would be a mistake — a cookie
- * with any value at all passes here.
+ * 1. RENEW. When the access token is missing or about to lapse and a refresh
+ *    token is present, the session is renewed HERE, once, before anything
+ *    renders — the new cookies go to the browser on the response and to this
+ *    request's render on the forwarded headers. `lib/session-refresh.ts` says
+ *    why this cannot be left to the render: a refresh there rotates a token the
+ *    browser never learns about, and the API then treats the next request as
+ *    theft and ends the session.
+ *
+ * 2. GATE. Otherwise this is an optimistic check and nothing more: the
+ *    *presence* of a session cookie lets the request through, and real
+ *    validation happens in the page, where `getSession()` resolves it to a user.
+ *    Treating a proxy check as authorisation would be a mistake — a cookie with
+ *    any value at all passes here.
  */
-export function proxy(request: NextRequest) {
-  /* Either cookie is enough to let the request through. The access cookie is
-     the short-lived half and the browser drops it at its own max-age; bouncing
-     on that alone signs out a user whose refresh token is still perfectly good,
-     which is the whole thing the refresh token exists to prevent. `getSession()`
-     downstream renews through `apiCallWithRefresh` and only genuinely fails
-     once the refresh token has expired too. */
-  if (request.cookies.has(SESSION_COOKIE) || request.cookies.has(REFRESH_COOKIE)) {
-    return NextResponse.next();
+export async function proxy(request: NextRequest) {
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+
+  if (refreshToken && accessTokenNeedsRefresh(request.cookies.get(ACCESS_COOKIE)?.value)) {
+    const renewed = await refreshSession(refreshToken);
+
+    if (renewed.ok) {
+      for (const cookie of renewed.cookies) request.cookies.set(cookie.name, cookie.value);
+      const response = NextResponse.next({ request: { headers: request.headers } });
+      for (const { name, value, ...options } of renewed.cookies) response.cookies.set(name, value, options);
+      return response;
+    }
+
+    /* The API refused the refresh token: the session is over. Drop both cookies
+       so this request is gated as signed out below and the browser stops
+       re-presenting a token that will never work. An unreachable API (status 0)
+       changes nothing — an outage must not sign anyone out. */
+    if (renewed.status === 401) {
+      request.cookies.delete(ACCESS_COOKIE);
+      request.cookies.delete(REFRESH_COOKIE);
+    }
+  }
+
+  if (request.cookies.has(ACCESS_COOKIE) || request.cookies.has(REFRESH_COOKIE)) {
+    return NextResponse.next({ request: { headers: request.headers } });
   }
 
   /* A Server Action POST is not a navigation, and redirecting one hands React
@@ -37,12 +62,18 @@ export function proxy(request: NextRequest) {
      when it is read back. */
   url.searchParams.set("next", request.nextUrl.pathname);
 
-  return NextResponse.redirect(url, 307);
+  const redirect = NextResponse.redirect(url, 307);
+  if (refreshToken) {
+    redirect.cookies.delete(ACCESS_COOKIE);
+    redirect.cookies.delete(REFRESH_COOKIE);
+  }
+  return redirect;
 }
 
 export const config = {
   // `/workspaces` joined `/board` here once its data stopped being a fixture:
   // an unauthenticated call to the real API 401s, and without this guard that
   // read as "you have zero workspaces" instead of a sign-in redirect.
-  matcher: ["/board/:path*", "/workspaces/:path*"],
+  // `/profile` for the same reason — it reads the session's own record.
+  matcher: ["/board/:path*", "/workspaces/:path*", "/profile/:path*"],
 };

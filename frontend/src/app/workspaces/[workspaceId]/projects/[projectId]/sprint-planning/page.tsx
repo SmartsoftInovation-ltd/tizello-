@@ -1,11 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { SprintWorkflowNav } from "@/components/sprint-board/sprint-workflow-nav";
 import { PlanningPageHeader } from "@/components/sprint-planning/planning-page-header";
-import { SprintPlanningPanel } from "@/components/sprint-planning/sprint-planning-panel";
-import { getProjectTasks } from "@/lib/demo-backlog";
+import { ProjectSprintPlanning } from "@/components/sprint-planning/project-sprint-planning";
+import { getSession } from "@/lib/auth";
+import { getProject } from "@/lib/projects";
 import { getWorkspace } from "@/lib/workspaces";
-import { DEMO_TODAY, getProject } from "@/lib/demo-projects";
-import { getProjectSprints } from "@/lib/demo-sprints";
 
 export async function generateMetadata({
   params,
@@ -16,38 +15,34 @@ export async function generateMetadata({
   if (!project) {
     return {
       title: "Project not found",
-      description:
-        "This project does not exist, or it is no longer shared with you.",
+      description: "This project does not exist, or it is no longer shared with you.",
     };
   }
 
   return {
     title: `Sprint planning · ${project.name}`,
-    description: `Pull work out of ${project.name}'s backlog into the sprint being planned, and watch the story points against capacity.`,
+    description: `Drag ${project.name}'s work from the backlog into sprints, estimate it, and start and complete sprints.`,
   };
 }
 
+/**
+ * One project's sprint planning, addressed by the project — the same real
+ * screen `/board/sprint-planning` renders (`project-sprint-planning.tsx`), with
+ * the project's own header instead of a picker.
+ */
 export default async function SprintPlanningPage({
   params,
 }: PageProps<"/workspaces/[workspaceId]/projects/[projectId]/sprint-planning">) {
-  /* `params` is a Promise in Next 16, and it is awaited. */
   const { workspaceId, projectId } = await params;
 
-  /* Both reads happen on the server. A missing workspace or a missing project
-     is `notFound()`, not an empty shell — planning belongs to a project, and a
-     page that renders the chrome around nothing is a worse answer than 404. */
-  const [workspace, project] = await Promise.all([
-    getWorkspace(workspaceId),
-    getProject(projectId),
-  ]);
-  if (!workspace || !project) notFound();
+  const user = await getSession();
+  if (!user) redirect(`/sign-in?next=/workspaces/${workspaceId}/projects/${projectId}/sprint-planning`);
 
-  /* Every task, not just the backlog: this screen renders both containers side
-     by side, and the panel decides which side a row is on from its `sprintId`. */
-  const [tasks, sprints] = await Promise.all([
-    getProjectTasks(projectId),
-    getProjectSprints(projectId),
-  ]);
+  const [workspace, project] = await Promise.all([getWorkspace(workspaceId), getProject(projectId)]);
+
+  /* A project id under someone else's workspace id is a 404, not this
+     project under the wrong breadcrumb. */
+  if (!workspace || !project || project.workspaceId !== workspace.id) notFound();
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">
@@ -55,14 +50,7 @@ export default async function SprintPlanningPage({
         <SprintWorkflowNav current="sprint-planning" />
       </div>
       <PlanningPageHeader workspaceId={workspace.id} project={project} />
-
-      {/* Everything below the header is interactive, so `SprintPlanningPanel`
-          is the client leaf — the header itself ships no JavaScript.
-
-          `today` is the app's pinned date rather than a live clock: a value
-          read from `new Date()` during render differs between the server pass
-          and hydration, and React throws the node away. See `demo-projects.ts`. */}
-      <SprintPlanningPanel tasks={tasks} sprints={sprints} today={DEMO_TODAY} />
+      <ProjectSprintPlanning workspace={workspace} project={project} userId={user.id} />
     </main>
   );
 }

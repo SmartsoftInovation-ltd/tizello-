@@ -62,6 +62,13 @@ const recordChanges = (before, after, actorId) => write(changesBetween(before, a
 const recordManyChanges = (pairs, actorId) =>
   write(pairs.flatMap(([before, after]) => changesBetween(before, after, actorId)));
 
+/**
+ * The same change on many tasks, already known — for writes that do not go
+ * through a task update, like completing or deleting a sprint.
+ */
+const recordFieldChange = (taskIds, field, from, to, actorId) =>
+  write(taskIds.map((taskId) => ({ taskId, actorId, action: 'updated', field, from, to })));
+
 const recordComment = (taskId, actorId) => write([{ taskId, actorId, action: 'commented' }]);
 
 const listActivity = async (taskId) => {
@@ -70,4 +77,11 @@ const listActivity = async (taskId) => {
   return rows.map(dto.toActivity);
 };
 
-export default { recordCreated, recordChanges, recordManyChanges, recordComment, listActivity };
+export default {
+  recordCreated,
+  recordChanges,
+  recordManyChanges,
+  recordFieldChange,
+  recordComment,
+  listActivity,
+};

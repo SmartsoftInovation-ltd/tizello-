@@ -1,99 +1,87 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { datesError, SprintDetailsFields } from "@/components/sprint-planning/sprint-details-fields";
+import { SprintDurationChoices } from "@/components/sprint-planning/sprint-duration-choices";
+import type { TaskScope } from "@/components/tasks/task-draft";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { formatDate } from "@/lib/format-date";
-import { plural } from "@/lib/plural";
-import { isOverCapacity } from "@/lib/sprint-planning";
-import type { SprintRecord } from "@/types/sprint";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { startSprintAction } from "@/lib/actions/sprint-actions";
+import { endDateFor } from "@/lib/sprint-plan";
+import { sprintErrorCopy, type ProjectSprint } from "@/types/project-sprint";
 
-/*
- * The confirm on the one irreversible thing this screen does. Starting is not
- * destructive, so the confirm is the brand fill rather than `danger` — the same
- * bargain `SprintTransitionDialog` strikes, which this dialog deliberately
- * echoes in shape while saying the extra thing planning knows: how much work is
- * in the box.
+/**
+ * Start a sprint — the moment its dates and goal are settled.
  *
- * THE SINGLE-ACTIVE RULE IS REAL. `startSprint` refuses while another sprint is
- * running, so when one is, the dialog says which and the confirm is disabled
- * rather than firing into a no-op. Opening it anyway is the point: "why can't I
- * start this?" is answered here, in the place the question is asked.
+ * DURATION BUTTONS SET THE END DATE. Picking "2 weeks" from a start date is how
+ * teams think about a sprint; the end date field stays editable for the odd
+ * holiday-shortened one, and editing it by hand simply deselects the button.
+ * Defaults: the dates already on the sprint, else today and two weeks.
+ *
+ * The dialog repeats what is being committed to — tasks and points — because
+ * starting is the one planning step that changes what the team is working on.
+ * The single-active rule is enforced by the API; the header already disables
+ * Start while another sprint runs, so a `409` here means a race and says so.
  */
 export function StartSprintDialog({
   sprint,
   count,
   points,
-  blockedBy,
-  onOpenChange,
-  onConfirm,
+  scope,
+  onClose,
 }: {
-  /** `null` when nothing is pending, which is also what closes it. */
-  sprint: SprintRecord | null;
+  /** `null` while closed. */
+  sprint: ProjectSprint | null;
   count: number;
   points: number;
-  /** The sprint already running, if there is one. */
-  blockedBy?: SprintRecord;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  scope: TaskScope;
+  onClose: () => void;
 }) {
   const titleId = useId();
+  const [isPending, startTransition] = useTransition();
+  const startDate = sprint?.startDate ?? scope.today;
+  const [dates, setDates] = useState({ startDate, endDate: sprint?.endDate ?? endDateFor(startDate, 2) });
+  const [goal, setGoal] = useState(sprint?.goal ?? "");
+
+  function confirm() {
+    if (!sprint || !dates.startDate || !dates.endDate || datesError(dates)) return;
+
+    startTransition(async () => {
+      const result = await startSprintAction(scope.workspaceId, scope.projectId, sprint.id, {
+        ...dates,
+        goal: goal.trim() || null,
+      });
+      if (result.code) {
+        toast.error(sprintErrorCopy(result.code));
+        return;
+      }
+      toast.success(result.message);
+      onClose();
+    });
+  }
 
   return (
-    <Dialog
-      open={sprint !== null}
-      onOpenChange={onOpenChange}
-      aria-labelledby={titleId}
-    >
+    <Dialog open={sprint !== null} onOpenChange={(next) => !next && onClose()} aria-labelledby={titleId} className="max-w-lg">
       <DialogContent>
         <DialogHeader>
-          <DialogTitle id={titleId}>
-            {sprint ? `Start ${sprint.name}?` : "Start this sprint?"}
-          </DialogTitle>
+          <DialogTitle id={titleId}>Start {sprint?.name}</DialogTitle>
           <DialogDescription>
-            {sprint && (
-              <>
-                It runs {formatDate(sprint.startDate)} to{" "}
-                {formatDate(sprint.endDate)} with{" "}
-                {plural(count, "item", "items")} and{" "}
-                {sprint.capacityPoints === undefined
-                  ? plural(points, "point", "points")
-                  : `${points} of ${sprint.capacityPoints} points`}{" "}
-                planned. Starting makes it the one active sprint, and there is
-                no reopening it.
-              </>
-            )}
+            {count === 1 ? "1 task" : `${count} tasks`} · {points} story points will be in this sprint.
           </DialogDescription>
         </DialogHeader>
 
-        {sprint && isOverCapacity(points, sprint.capacityPoints) && (
-          <p className="mt-3 rounded-sm bg-warning-subtle px-2.5 py-2 text-xs text-text-muted">
-            That is over the capacity this sprint was planned against. Nothing
-            stops you &mdash; it is a forecast, not a limit.
-          </p>
-        )}
-
-        {blockedBy && (
-          <p className="mt-3 rounded-sm bg-danger-subtle px-2.5 py-2 text-xs text-text-muted">
-            <span className="font-semibold text-text">{blockedBy.name}</span> is
-            still running. One sprint runs at a time, so complete it on the
-            sprints screen before starting this one.
-          </p>
-        )}
+        <div className="mt-4 space-y-4">
+          <SprintDurationChoices {...dates} fallbackStart={scope.today} onChange={setDates} />
+          <SprintDetailsFields dates={dates} goal={goal} today={scope.today} onDates={setDates} onGoal={setGoal} />
+        </div>
 
         <DialogFooter className="mt-5">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={blockedBy !== undefined}>
-            Start sprint
+          <Button disabled={isPending || !dates.startDate || !dates.endDate || Boolean(datesError(dates))} onClick={confirm}>
+            {isPending ? "Starting…" : "Start sprint"}
           </Button>
         </DialogFooter>
       </DialogContent>

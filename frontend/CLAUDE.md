@@ -91,27 +91,43 @@ against demo data in `src/lib/`, never that a backend is wired.
       Type, Priority, Story points, Tags, Description, Files & media, custom
       columns ("+ Add a property", writers only), Relations (parent picker +
       sub-tasks), Comments (author can edit; "(edited)" shown) and a collapsed
-      Activity log (`GET /tasks/:id/activity`). ID, Icon, Colour, Delay and
-      Sprint rows were removed on purpose — see `task-builtin-rows.tsx`. Fields
+      Activity log (`GET /tasks/:id/activity`). ID, Icon, Colour and Delay
+      rows were removed on purpose — see `task-builtin-rows.tsx`. Fields
       ride Save as a changed-fields-only PATCH; sub-tasks and comments write
       immediately. Collaborators may edit tasks (`lib/task-roles.ts`); columns
-      stay with project writers. The sprint-planning and sprint-board screens
-      are still on the `types/backlog.ts` fixtures.
+      stay with project writers. **Tasks planned into a sprint leave this list**
+      (they live on sprint planning until the sprint returns them). Story points
+      are Fibonacci buttons in the drawer and a picker on each row; the drawer
+      also has a Sprint field. The sprint-board screen is still on fixtures.
 - [ ] **Sprint** — `/workspaces/[workspaceId]/projects/[projectId]/sprints`
       lists five fixture sprints from `demo-sprints.ts`, grouped Active /
       Planning / Completed, with a create-and-edit dialog (`TextField
       type="date"` is the date input), start / complete confirms and
       delete-with-confirm. All `useState`: nothing persists past a refresh.
       `Sprint` (board stamp) and `SprintRecord` (full record) are two types.
-- [ ] **Sprint planning** —
-      `/workspaces/[workspaceId]/projects/[projectId]/sprint-planning` renders
-      the backlog and the selected PLANNING sprint side by side, moves tasks
-      between them by setting `sprintId`, totals story points against the
-      sprint's `capacityPoints`, and confirms Start sprint in a dialog. Working
-      search, priority filter and sort on the backlog side; no drag & drop.
-      Every move is client state over `lib/sprint-planning.ts` — the pure
-      helpers are shaped like `planIntoSprint()` / `closeSprint()` and their
-      Server Actions, which remain complete, correct and still uncalled.
+- [x] **Sprint planning** — `/board/sprint-planning` (the sidebar's link, same
+      `?project=` picker as the backlog, `components/tasks/board-project-selection.ts`)
+      and `/workspaces/[workspaceId]/projects/[projectId]/sprint-planning` both
+      render `components/sprint-planning/project-sprint-planning.tsx` — real data
+      (`lib/sprints.ts` → `backend/docs/api/sprint.md`). **Jira-style:** every
+      open sprint as a box (active first, then planning), stacked above a
+      Backlog box; **drag & drop** a task into a sprint, back to the backlog,
+      between sprints or to a new rank — one `PATCH /tasks/:id/move` with
+      `sprintId` + neighbours (`use-planning-dnd.ts`, optimistic). Each sprint
+      header shows dates, task count, To do / In progress / Done points and
+      capacity, with **Create / Edit / Start / Complete / Delete sprint**
+      (project writers). Start sets dates with 1–4 week buttons; one active
+      sprint per project (Start is disabled with the reason). Complete keeps
+      done tasks and returns the rest to the backlog. Rows carry the status chip
+      and a **story-points picker** (1 · 2 · 3 · 5 · 8 · 13); quick add per box.
+      **Same surfaces as the backlog** (`planning-overlays.tsx`): toolbar with
+      Statuses / Create sprint / New task, the task drawer (view, edit, create —
+      seeded into a sprint from its ⋯ → "Add task to this sprint"), delete
+      confirm, status editor, bulk bar (incl. "Sprint"). A row's ⋯ menu adds
+      **Move to** (any open sprint, backlog, top/bottom) as the click twin of a
+      drag. A sprint opens in the same drawer (side panel or centred), with a
+      summary bar of done / in-progress / to-do points; "No sprints yet" card
+      when empty. Sub-tasks follow their parent into a sprint.
 - [x] **Columns** — To do / In progress / Done, fixed on sprint boards, rendered
       by `BoardColumn` + `ColumnPill`. A card's column is its status.
       `BoardColumn` is the shell both boards share: pill, count, track, empty

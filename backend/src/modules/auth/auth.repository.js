@@ -63,8 +63,18 @@ const findRefreshTokenByHash = (tokenHash, tx = prisma) =>
 
 const findRefreshTokenById = (id, tx = prisma) => tx.refreshToken.findUnique({ where: { id } });
 
-const revokeRefreshToken = (id, replacedById, tx = prisma) =>
-  tx.refreshToken.update({ where: { id }, data: { revokedAt: new Date(), replacedById } });
+// Claims a token for rotation: revokes it ONLY if it is still live, and returns
+// how many rows that was (1 or 0). A conditional UPDATE is what makes rotation
+// atomic — two concurrent refreshes with the same token both read it as live,
+// but Postgres re-checks `revokedAt IS NULL` for the second UPDATE after the
+// first commits, so exactly one of them wins. Read-then-update let both win and
+// mint two successors from one token.
+const claimRefreshToken = async (id, tx = prisma) =>
+  (await tx.refreshToken.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date() } })).count;
+
+// Points a claimed token at the successor it was rotated into.
+const setRefreshTokenSuccessor = (id, replacedById, tx = prisma) =>
+  tx.refreshToken.update({ where: { id }, data: { replacedById } });
 
 // Revokes a whole lineage. `revokedAt: null` in the filter keeps an already
 // revoked row's original timestamp — the moment a token was first revoked is
@@ -160,8 +170,9 @@ export default {
   createRefreshToken,
   findRefreshTokenByHash,
   findRefreshTokenById,
-  revokeRefreshToken,
   revokeRefreshTokenFamily,
+  claimRefreshToken,
+  setRefreshTokenSuccessor,
   revokeAllUserRefreshTokens,
   createLoginCode,
   findLatestLoginCode,

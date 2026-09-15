@@ -32,6 +32,7 @@ const TASK_INCLUDE = {
   status: { select: { id: true, name: true, color: true, group: true } },
   assignee: PERSON,
   createdBy: PERSON,
+  sprint: { select: { id: true, name: true, state: true } },
   parent: { select: { id: true, number: true, title: true, deletedAt: true } },
   _count: {
     select: {
@@ -129,7 +130,7 @@ const findTasksForProject = async (projectId, { page, limit, statusId, q, parent
 const findParentLink = (id) =>
   prisma.task.findFirst({
     where: { id, deletedAt: null },
-    select: { id: true, projectId: true, parentId: true },
+    select: { id: true, projectId: true, parentId: true, sprintId: true },
   });
 
 /** A move's neighbour: just enough to place a task beside it. */
@@ -192,6 +193,29 @@ const softDeleteTasks = (ids) =>
 
 const softDeleteTask = (id) => softDeleteTasks([id]);
 
+/**
+ * Puts every live descendant of `parentIds` in `sprintId` (null = backlog).
+ *
+ * Sub-tasks follow their parent into and out of a sprint: the planning screen
+ * shows top-level tasks, and a parent planned into a sprint whose sub-tasks
+ * stayed behind would leave its own pieces of work on the backlog. Walked level
+ * by level — a task tree is shallow — and capped like the cycle walk.
+ */
+const moveSubtreeToSprint = async (parentIds, sprintId) => {
+  let level = parentIds;
+
+  for (let depth = 0; level.length > 0 && depth < 100; depth += 1) {
+    const children = await prisma.task.findMany({
+      where: { parentId: { in: level }, deletedAt: null },
+      select: { id: true },
+    });
+    level = children.map((child) => child.id);
+    if (level.length > 0) {
+      await prisma.task.updateMany({ where: { id: { in: level } }, data: { sprintId } });
+    }
+  }
+};
+
 /** Is this user in the workspace at all? The guard behind an assignee. */
 const findWorkspaceMembership = (workspaceId, userId) =>
   prisma.membership.findUnique({ where: { userId_workspaceId: { userId, workspaceId } } });
@@ -209,5 +233,6 @@ export default {
   updateTasks,
   softDeleteTask,
   softDeleteTasks,
+  moveSubtreeToSprint,
   findWorkspaceMembership,
 };

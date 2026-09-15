@@ -1,6 +1,7 @@
 import { apiCallWithRefresh } from "@/lib/api-client";
 import type { ActionResult } from "@/lib/workspaces";
-import type { TaskActivity, TaskComment } from "@/types/task";
+import type { TaskActivity } from "@/types/task-activity";
+import type { TaskComment } from "@/types/task";
 
 /*
  * What a task's history is made of: its activity log and comment edits —

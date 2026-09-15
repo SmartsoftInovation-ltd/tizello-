@@ -16,6 +16,10 @@ import {
 import memberRoutes from "../modules/member/member.routes.js";
 import projectPropertyRoutes from "../modules/project/project-property.routes.js";
 import {
+  projectRouter as sprintProjectRoutes,
+  sprintRouter as sprintRoutes,
+} from "../modules/sprint/sprint.routes.js";
+import {
   projectRouter as taskProjectRoutes,
   taskRouter as taskRoutes,
 } from "../modules/task/task.routes.js";
@@ -56,6 +60,10 @@ router.use("/api/v1/projects/:projectId/task-properties", taskPropertyRoutes);
 // Complete. Project-scoped for the same `loadProject` reason as the two beside it.
 router.use("/api/v1/projects/:projectId/task-statuses", taskStatusRoutes);
 router.use("/api/v1/projects/:projectId/tasks", taskProjectRoutes);
+// A project's sprints — the time-boxes its tasks are planned into. Create and
+// list are project-scoped; everything else is addressed by the sprint's own id.
+router.use("/api/v1/projects/:projectId/sprints", sprintProjectRoutes);
+router.use("/api/v1/sprints", sprintRoutes);
 // Everything else about a task is addressed by the task's own id — same
 // two-scope split as projects. Comments are their own router so the task
 // routes file lists tasks and nothing else.

@@ -8,7 +8,7 @@ import type { TaskDraft, TaskScope } from "@/components/tasks/task-draft";
 import { TaskTagsField } from "@/components/tasks/task-tags-field";
 import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
 import { TextArea } from "@/components/ui/text-area";
-import { TextField } from "@/components/ui/text-field";
+import { StoryPointsChoices } from "@/components/tasks/story-points-choices";
 import { cn } from "@/lib/cn";
 import {
   PROJECT_PRIORITIES,
@@ -16,11 +16,11 @@ import {
   type ProjectPriority,
 } from "@/types/project";
 import type { UploadedFile } from "@/types/project-property";
-import { STORY_POINTS_MAX, TASK_TYPES, TASK_TYPE_LABEL, type Task, type TaskType } from "@/types/task";
+import { TASK_TYPES, TASK_TYPE_LABEL, type Task, type TaskType } from "@/types/task";
 
 /**
- * The task's own fields: Type, Priority, Story points, Tags, Description and
- * Files & media.
+ * The task's own fields: Type, Sprint, Priority, Story points, Tags,
+ * Description and Files & media.
  *
  * A function returning rows, not a component, because `TaskPropertyList` needs
  * to know which rows are EMPTY before it decides which to draw. Nothing here
@@ -36,8 +36,9 @@ import { STORY_POINTS_MAX, TASK_TYPES, TASK_TYPE_LABEL, type Task, type TaskType
  * - **Delay** — derived from Due, and the backlog row already says "Overdue".
  * - **Parent-task** — lives in Relations with the sub-tasks, so the hierarchy
  *   is in one place (`task-relations.tsx`).
- * - **Sprint** — no Sprint model yet; a row that can only ever say "Not in a
- *   sprint" is not information.
+ *
+ * **Sprint** is back now that sprints are real: it offers the backlog and every
+ * sprint not yet completed, and saving moves the task (and its sub-tasks) there.
  */
 export type TaskRow = { key: string; empty: boolean; node: React.ReactNode };
 
@@ -61,20 +62,19 @@ const TYPE_OPTIONS: readonly SelectOption<TaskType>[] = TASK_TYPES.map((value) =
   adornment: <TaskTypeIcon type={value} />,
 }));
 
-/** Whole numbers 0–100, or empty. Anything else typed is dropped as it is typed. */
-function cleanPoints(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 3);
-  if (!digits) return "";
-  return String(Math.min(Number(digits), STORY_POINTS_MAX));
-}
-
 export function taskBuiltinRows(input: {
   task: Task | null;
   draft: TaskDraft;
   scope: TaskScope;
   onChange: (patch: Partial<TaskDraft>) => void;
 }): TaskRow[] {
-  const { draft, onChange } = input;
+  const { draft, scope, onChange } = input;
+  const sprintOptions: SelectOption<string>[] = [
+    { value: "", label: "Backlog" },
+    ...scope.sprints
+      .filter((sprint) => sprint.state !== "COMPLETED")
+      .map((sprint) => ({ value: sprint.id, label: sprint.state === "ACTIVE" ? `${sprint.name} (active)` : sprint.name })),
+  ];
 
   return [
     {
@@ -83,6 +83,15 @@ export function taskBuiltinRows(input: {
       node: (
         <PropertyRow label="Type" icon="type">
           <SelectMenu label="Type" value={draft.type} options={TYPE_OPTIONS} onChange={(type) => onChange({ type })} />
+        </PropertyRow>
+      ),
+    },
+    {
+      key: "sprint",
+      empty: !draft.sprintId,
+      node: (
+        <PropertyRow label="Sprint" icon="sprint">
+          <SelectMenu label="Sprint" value={draft.sprintId} options={sprintOptions} onChange={(sprintId) => onChange({ sprintId })} />
         </PropertyRow>
       ),
     },
@@ -105,17 +114,12 @@ export function taskBuiltinRows(input: {
       empty: !draft.storyPoints,
       node: (
         <PropertyRow label="Story points" icon="points">
-          <TextField
-            label="Story points"
-            name="storyPoints"
-            hideLabel
-            ghost
-            required={false}
-            placeholder="Not estimated"
-            value={draft.storyPoints}
-            transform={cleanPoints}
-            onValueChange={(storyPoints) => onChange({ storyPoints })}
-          />
+          <div className="px-1.5 py-1">
+            <StoryPointsChoices
+              value={draft.storyPoints ? Number(draft.storyPoints) : null}
+              onChange={(points) => onChange({ storyPoints: points === null ? "" : String(points) })}
+            />
+          </div>
         </PropertyRow>
       ),
     },

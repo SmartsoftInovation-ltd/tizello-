@@ -65,6 +65,7 @@
 | `dueDate`, `completedAt` | ISO timestamps or `null`. See §Status and completedAt. |
 | `tags` | Up to 20 free-text labels, each 1–40 chars. Trimmed and de-duplicated case-insensitively, first spelling kept. |
 | `attachments` | Array of upload metadata — exactly a FILES property value (`upload.md`), validated by the same `PROPERTY_TYPES.FILES.check`. Always an array in responses. |
+| `sprintId`, `sprint` | The sprint it is planned into, or `null` for the backlog. `sprint` is `{ id, name, state }`. Rules in [sprint.md](./sprint.md) §Task membership. |
 | `parentId`, `parent` | See §Sub-tasks. `parent` is `{ id, number, key, title }` or `null`. |
 | `subtaskCount`, `commentCount` | Live sub-tasks; all comments. |
 | `properties` | `{ [taskPropertyDefId]: value }`, only for definitions that still exist. |
@@ -200,7 +201,7 @@ Every task has an append-only history in `task_activities`:
 | `commented` | a comment is posted | all `null` |
 
 Tracked fields: `title`, `description`, `type`, `status`, `priority`,
-`assignee`, `dueDate`, `storyPoints`, `tags`, `parent`, `attachments`,
+`assignee`, `dueDate`, `storyPoints`, `sprint`, `tags`, `parent`, `attachments`,
 `properties`. Not tracked: `icon`, `color`, `position` — a rank change is not
 something anyone reads history to find.
 
@@ -226,13 +227,12 @@ unconditionally, so a deleted task `404`s everywhere, and a second delete is a
 `404`, not an idempotent `200` — the same rule `project.md` states. A task in a
 soft-deleted project is unreachable too: `loadTask` requires both to be live.
 
-### Sprints — not modelled yet
+### Sprints
 
-There is no `Sprint` model and no `sprintId` column. The frontend's backlog is
-therefore every task in the project. When sprints land, membership is a nullable
-`sprintId` on `Task` plus planning/close operations that move tasks between the
-backlog and a sprint (frontend `.claude/rules/workflow.md`); no field here
-needs to change shape for that.
+A task's container is the nullable `sprintId` — see [sprint.md](./sprint.md)
+§Task membership. It is accepted on create, PATCH, move (§8b) and bulk update
+(§8c); the sprint must be this project's and not completed (`422`), and a
+task's live sub-tasks follow it into and out of a sprint.
 
 ---
 
@@ -600,7 +600,6 @@ another status the default before deleting this one`.
 
 ## Open questions
 
-- **Sprints.** `sprintId`, planning and close — see §Sprints.
 - **Comment edit history.** An edit stamps `editedAt` but keeps no copy of the
   previous body.
 - **Server-side filters** for type, priority, assignee and tag. The backlog

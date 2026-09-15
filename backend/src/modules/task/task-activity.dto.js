@@ -31,6 +31,7 @@ const SNAPSHOT = {
   assignee: (row) => personName(row.assignee),
   dueDate: (row) => day(row.dueDate),
   storyPoints: (row) => row.storyPoints,
+  sprint: (row) => (row.sprint ? { id: row.sprint.id, name: row.sprint.name } : null),
   tags: (row) => row.tags ?? [],
   parent: (row) =>
     row.parent && !row.parent.deletedAt

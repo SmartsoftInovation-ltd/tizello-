@@ -2,6 +2,7 @@ import type { TaskInput, TaskPatch } from "@/lib/tasks";
 import type { WorkspaceMemberRow } from "@/lib/workspaces";
 import type { ProjectPriority } from "@/types/project";
 import type { ProjectPropertyPatch, UploadedFile } from "@/types/project-property";
+import type { ProjectSprint } from "@/types/project-sprint";
 import type { Task, TaskPropertyDef, TaskStatusOption, TaskType } from "@/types/task";
 
 /*
@@ -36,6 +37,8 @@ export type TaskDraft = {
   tags: string[];
   attachments: UploadedFile[];
   parentId: string;
+  /** `""` is the backlog. */
+  sprintId: string;
 };
 
 /**
@@ -56,6 +59,8 @@ export type TaskScope = {
   definitions: TaskPropertyDef[];
   /** This project's Status options, ordered by group then position. */
   statuses: TaskStatusOption[];
+  /** This project's sprints, any state — pickers offer the ones not completed. */
+  sprints: ProjectSprint[];
   /** Project writer: may add and delete task columns and statuses. Drawn only — the API enforces. */
   canManageProperties: boolean;
   /** Project member or workspace admin: may create and edit tasks. */
@@ -67,7 +72,7 @@ const day = (iso: string | null) => iso?.slice(0, 10) ?? "";
 /** `seed` fills what a NEW task starts with — the default status, and a parent when adding a sub-task. */
 export function draftFromTask(
   task: Task | null,
-  seed: { parentId?: string; statusId?: string } = {},
+  seed: { parentId?: string; statusId?: string; sprintId?: string } = {},
 ): TaskDraft {
   return {
     title: task?.title ?? "",
@@ -84,6 +89,7 @@ export function draftFromTask(
     tags: task?.tags ?? [],
     attachments: task?.attachments ?? [],
     parentId: task?.parentId ?? seed.parentId ?? "",
+    sprintId: task?.sprintId ?? seed.sprintId ?? "",
   };
 }
 
@@ -132,6 +138,7 @@ export function createInput(draft: TaskDraft, raw: ProjectPropertyPatch): TaskIn
     ...(draft.tags.length > 0 ? { tags: draft.tags } : {}),
     ...(draft.attachments.length > 0 ? { attachments: draft.attachments } : {}),
     ...(draft.parentId ? { parentId: draft.parentId } : {}),
+    ...(draft.sprintId ? { sprintId: draft.sprintId } : {}),
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
 }
@@ -170,6 +177,7 @@ export function taskPatch(
   if (draft.dueDate !== stored.dueDate) patch.dueDate = orNull(draft.dueDate);
   if (draft.completedAt !== stored.completedAt) patch.completedAt = orNull(draft.completedAt);
   if (draft.parentId !== stored.parentId) patch.parentId = orNull(draft.parentId);
+  if (draft.sprintId !== stored.sprintId) patch.sprintId = orNull(draft.sprintId);
   if (!same(draft.tags, stored.tags)) patch.tags = draft.tags;
   if (!same(draft.attachments, stored.attachments)) patch.attachments = draft.attachments;
 

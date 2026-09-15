@@ -100,7 +100,12 @@ export function Drawer({
 
     if (open && !element.open) {
       element.showModal();
-      element.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+      /* A field marked `data-autofocus` wins over document order. React's own
+         `autoFocus` fires during commit, while the dialog is still closed, so
+         it is lost; without this the first focusable element — the header's
+         surface switch — took focus, and typing a new task's title opened a
+         menu instead. */
+      (element.querySelector<HTMLElement>("[data-autofocus]") ?? element.querySelector<HTMLElement>(FOCUSABLE))?.focus();
     }
     /* Closing hands focus back to whatever opened the drawer — the browser
        restores it for us, so there is nothing to do here. */

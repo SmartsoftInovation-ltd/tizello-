@@ -38,6 +38,7 @@ export function TaskTitleField({
           name="title"
           autoComplete="off"
           autoFocus={autoFocus}
+          data-autofocus={autoFocus || undefined}
           defaultValue={defaultValue}
           maxLength={200}
           placeholder="Untitled task"

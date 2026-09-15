@@ -55,6 +55,8 @@ const toTask = (row, definitions = null) => {
     completedAt: row.completedAt,
     tags: row.tags ?? [],
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    sprintId: row.sprintId,
+    sprint: row.sprint ? { id: row.sprint.id, name: row.sprint.name, state: row.sprint.state } : null,
     parentId: row.parentId,
     parent:
       row.parent && !row.parent.deletedAt

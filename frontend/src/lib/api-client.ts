@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { REFRESH_COOKIE } from "@/lib/session-cookie";
+import { API_BASE_URL, parseSetCookies } from "@/lib/session-refresh";
 
 /*
  * The one place the frontend talks to the backend.
@@ -24,7 +25,7 @@ import { REFRESH_COOKIE } from "@/lib/session-cookie";
  *    returns.
  */
 
-const API_BASE = process.env.API_BASE_URL ?? "http://localhost:5000/api/v1";
+const API_BASE = API_BASE_URL;
 
 /** The API's envelope — identical for success and failure. */
 export type ApiEnvelope<T> = {
@@ -59,22 +60,11 @@ function splitSetCookie(header: string): string[] {
 /**
  * Copies the API's `Set-Cookie` headers onto the response Next is building.
  *
- * Attributes are read back off each cookie rather than re-invented, with one
- * deliberate exception: **the refresh cookie is re-scoped to `path=/`.**
- *
- * The backend scopes `tizello_refresh` to `/api/v1/auth/refresh` so a browser
- * talking straight to the API sends it to that one endpoint. Nothing here talks
- * straight to the API — the browser talks to Next, Next talks to the API — so
- * on *this* origin that path matches no route the browser will ever request,
- * which means the cookie is never sent back to Next, never forwarded on, and
- * the refresh call silently authenticates as nobody. The session then dies with
- * the access token instead of living as long as the refresh token, and the user
- * is asked to sign in every fifteen minutes.
- *
- * It stays `httpOnly` and `secure`, so page JavaScript still cannot read it —
- * the narrow path bought nothing across an origin the API doesn't serve.
+ * Parsing — including re-scoping the refresh cookie from the API's
+ * `/api/v1/auth/refresh` path to `/` on this origin — is `parseSetCookies` in
+ * `lib/session-refresh.ts`, shared with the proxy so the two cannot write the
+ * cookie differently. See `lib/session-cookie.ts` for why the path must be `/`.
  */
-const PATH_SCOPED_TO_API = /^\/api\//;
 async function forwardSetCookies(response: Response): Promise<string> {
   const raw =
     typeof response.headers.getSetCookie === "function"
@@ -84,49 +74,22 @@ async function forwardSetCookies(response: Response): Promise<string> {
   if (raw.length === 0) return "";
 
   const jar = await cookies();
-  const pairs: string[] = [];
+  const writes = parseSetCookies(raw);
 
-  for (const line of raw) {
-    const [pair, ...attributes] = line.split(";");
-    const index = pair.indexOf("=");
-    if (index < 0) continue;
-
-    const name = pair.slice(0, index).trim();
-    const value = pair.slice(index + 1).trim();
-
-    const options: Parameters<typeof jar.set>[2] = {};
-
-    for (const attribute of attributes) {
-      const [key, ...rest] = attribute.split("=");
-      const flag = key.trim().toLowerCase();
-      const detail = rest.join("=").trim();
-
-      if (flag === "path") options.path = PATH_SCOPED_TO_API.test(detail) ? "/" : detail;
-      else if (flag === "domain") options.domain = detail;
-      else if (flag === "max-age") options.maxAge = Number(detail);
-      else if (flag === "expires") options.expires = new Date(detail);
-      else if (flag === "httponly") options.httpOnly = true;
-      else if (flag === "secure") options.secure = true;
-      else if (flag === "samesite") {
-        options.sameSite = detail.toLowerCase() as "lax" | "strict" | "none";
-      }
-    }
-
-    pairs.push(`${name}=${value}`);
-
+  for (const { name, value, ...options } of writes) {
     try {
       jar.set(name, value, options);
     } catch {
       /* Next only allows a cookie write from a Server Action or Route Handler.
-         A silent renewal fired from a Server *Component* render therefore
-         cannot persist the new pair — but it is still valid for the rest of
-         this request, which is what the returned header is for. The browser
-         keeps the old cookies and renews again on the next action. Throwing
+         A renewal fired from a Server *Component* render therefore cannot
+         persist the new pair — but it is still valid for the rest of this
+         request, which is what the returned header is for. The proxy renews
+         ahead of expiry (`proxy.ts`), so this is the rare fallback. Throwing
          here instead would turn "the access token lapsed" into a 500 page. */
     }
   }
 
-  return pairs.join("; ");
+  return writes.map(({ name, value }) => `${name}=${value}`).join("; ");
 }
 
 type CallOptions = {

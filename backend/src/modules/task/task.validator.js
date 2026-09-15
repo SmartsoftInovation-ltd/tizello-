@@ -77,6 +77,7 @@ const createTaskSchema = Joi.object({
   tags: tags.optional(),
   attachments: attachments.optional(),
   parentId: id.allow(null).optional(),
+  sprintId: id.allow(null).optional(),
   properties: properties.optional(),
 });
 
@@ -97,6 +98,7 @@ const updateTaskSchema = Joi.object({
   tags: tags.optional(),
   attachments: attachments.optional(),
   parentId: id.allow(null).optional(),
+  sprintId: id.allow(null).optional(),
   properties: properties.optional(),
 })
   .min(1)
@@ -125,11 +127,13 @@ const listTasksQuerySchema = Joi.object({
  */
 const moveTaskSchema = Joi.object({
   statusId: statusId.optional(),
+  // The container: a sprint id, or null for the backlog. Planning is a move.
+  sprintId: id.allow(null).optional(),
   afterId: id.allow(null).optional(),
   beforeId: id.allow(null).optional(),
 })
-  .or('statusId', 'afterId', 'beforeId')
-  .messages({ 'object.missing': 'Provide a status or a neighbour to move next to' });
+  .or('statusId', 'sprintId', 'afterId', 'beforeId')
+  .messages({ 'object.missing': 'Provide a status, a sprint or a neighbour to move next to' });
 
 const taskIds = Joi.array().items(id.required()).min(1).max(BULK_MAX).required();
 
@@ -146,6 +150,7 @@ const bulkUpdateTasksSchema = Joi.object({
     assigneeId: id.allow(null).optional(),
     storyPoints: storyPoints.optional(),
     dueDate: date.optional(),
+    sprintId: id.allow(null).optional(),
   })
     .min(1)
     .required()

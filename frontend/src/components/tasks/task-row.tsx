@@ -47,9 +47,17 @@ export type TaskRowProps = {
   selected?: boolean;
   /** Present only for someone who may change tasks. */
   onSelect?: (selected: boolean) => void;
+  /**
+   * Controls drawn on the right, before the assignee — the status chip and the
+   * story-points picker on planning rows. When given, the read-only points
+   * badge on the second line is dropped: one estimate per row, not two.
+   */
+  trailing?: React.ReactNode;
+  /** Replaces the default View / Edit / Delete menu — the planning screen adds "Move to". */
+  menu?: React.ReactNode;
 };
 
-export function TaskRow({ task, today, onOpen, onDelete, handle, selected = false, onSelect }: TaskRowProps) {
+export function TaskRow({ task, today, onOpen, onDelete, handle, selected = false, onSelect, trailing, menu }: TaskRowProps) {
   const delay = task.dueDate
     ? taskDelayDays({ dueDate: task.dueDate, completedAt: task.completedAt ?? "", today })
     : null;
@@ -84,7 +92,7 @@ export function TaskRow({ task, today, onOpen, onDelete, handle, selected = fals
 
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 empty:hidden">
           {task.priority && <ProjectPriorityBadge priority={task.priority} />}
-          <StoryPointsBadge points={task.storyPoints ?? undefined} />
+          {!trailing && <StoryPointsBadge points={task.storyPoints ?? undefined} />}
           {task.dueDate && (
             <Badge variant={late ? "warning" : "outline"}>
               {late ? "Overdue · " : "Due "}
@@ -106,7 +114,8 @@ export function TaskRow({ task, today, onOpen, onDelete, handle, selected = fals
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1.5">
+        {trailing}
         <TaskAssignee
           assignee={
             task.assignee
@@ -118,7 +127,7 @@ export function TaskRow({ task, today, onOpen, onDelete, handle, selected = fals
             Delete ride `onDelete`, which is only passed to someone who may
             change tasks — see `BacklogRowMenu`. */}
         <span className={ACTIONS}>
-          <BacklogRowMenu task={task} onView={onOpen} onEdit={onDelete && onOpen} onDelete={onDelete} />
+          {menu ?? <BacklogRowMenu task={task} onView={onOpen} onEdit={onDelete && onOpen} onDelete={onDelete} />}
         </span>
       </div>
     </div>
