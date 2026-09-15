@@ -15,12 +15,15 @@ export async function ProjectSprintPlanning({
   workspace,
   project,
   userId,
+  actions,
 }: {
   workspace: Workspace;
   project: ProjectRecord;
   userId: string;
+  /** Toolbar slot beside Create sprint — the project picker. */
+  actions?: React.ReactNode;
 }) {
   const { tasks, scope } = await loadTaskScope({ workspace, project, userId });
 
-  return <SprintPlanningBoard key={project.id} tasks={tasks} scope={scope} />;
+  return <SprintPlanningBoard key={project.id} tasks={tasks} scope={scope} actions={actions} />;
 }

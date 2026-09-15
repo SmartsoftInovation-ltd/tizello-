@@ -1,34 +1,28 @@
 "use client";
 
-import { Fragment } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProjectGlyph } from "@/components/projects/project-glyph";
+import { ProjectPickerDialog } from "@/components/tasks/project-picker-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { CheckIcon, ChevronDownIcon } from "@/components/ui/icons";
-import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar";
+import { ChevronDownIcon } from "@/components/ui/icons";
 import type { ProjectRecord } from "@/types/project";
 import type { Workspace } from "@/types/workspace";
 
 /**
- * Which project `/board/backlog` is showing.
+ * Which project a `/board/*` screen is showing — the backlog or sprint planning.
  *
- * The sidebar's Backlog link carries no project — the shell has none to give
- * it — so the page picks one and this menu switches it. The choice lives in
- * the URL (`?project=`), not in state: a backlog link somebody shares opens on
- * the same project, and Back returns to the previous one.
+ * The sidebar's links carry no project — the shell has none to give them — so
+ * the page picks one and this switches it. The choice lives in the URL
+ * (`?project=`), not in state: a link somebody shares opens on the same
+ * project, and Back returns to the previous one.
  *
- * It sits in the backlog toolbar beside Statuses, so the trigger is the same
- * `outline` / `sm` button: the project's own glyph, its name and its key.
- * The menu is grouped by workspace, each under that workspace's avatar,
- * because two workspaces may both have a "Website" project and the key alone
- * does not say whose it is.
+ * `basePath` is the screen's own route, so switching project on sprint planning
+ * STAYS on sprint planning; it used to push `/board/backlog` unconditionally.
+ *
+ * The trigger is an `outline` / `sm` toolbar button — the project's glyph, name
+ * and key. Choosing opens `ProjectPickerDialog`, a centred card rather than a
+ * dropdown, because the list is long; that file says why.
  */
 export type PickerGroup = {
   workspace: Pick<Workspace, "id" | "name" | "icon" | "color" | "accent">;
@@ -41,19 +35,34 @@ const KEY_CHIP =
 export function BacklogProjectPicker({
   groups,
   selectedId,
+  basePath = "/board/backlog",
 }: {
   groups: PickerGroup[];
   selectedId?: string;
+  /** The route `?project=` is appended to. */
+  basePath?: string;
 }) {
   const router = useRouter();
-  const selected = groups
-    .flatMap((group) => group.projects)
-    .find((project) => project.id === selectedId);
+  const [open, setOpen] = useState(false);
+  const [dialogKey, setDialogKey] = useState(0);
+  const selected = groups.flatMap((group) => group.projects).find((project) => project.id === selectedId);
+
+  function choose(projectId: string) {
+    setOpen(false);
+    if (projectId !== selectedId) router.push(`${basePath}?project=${projectId}`);
+  }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
         aria-label={selected ? `Project: ${selected.name}. Choose another` : "Choose a project"}
+        onClick={() => {
+          /* Remount per open, so the search starts empty every time. */
+          setDialogKey((current) => current + 1);
+          setOpen(true);
+        }}
         className={buttonVariants({ variant: "outline", size: "sm", className: "max-w-64" })}
       >
         {selected ? (
@@ -66,49 +75,16 @@ export function BacklogProjectPicker({
           "Choose a project"
         )}
         <ChevronDownIcon className="size-3 shrink-0 text-text-subtle" />
-      </DropdownMenuTrigger>
+      </button>
 
-      <DropdownMenuContent align="end" className="max-h-96 w-72 overflow-y-auto">
-        {groups.map(({ workspace, projects }, index) => (
-          <Fragment key={workspace.id}>
-            {index > 0 && <DropdownMenuSeparator />}
-            <div className="flex items-center gap-2 px-2 pt-1.5 pb-1">
-              <WorkspaceAvatar
-                name={workspace.name}
-                icon={workspace.icon}
-                color={workspace.color}
-                accent={workspace.accent}
-                size="sm"
-              />
-              <span className="min-w-0 truncate text-2xs font-semibold tracking-widest text-text-subtle uppercase">
-                {workspace.name}
-              </span>
-            </div>
-
-            {projects.map((project) => {
-              const current = project.id === selectedId;
-              return (
-                <DropdownMenuItem
-                  key={project.id}
-                  aria-current={current ? "page" : undefined}
-                  className={current ? "bg-surface-hover text-text" : undefined}
-                  onSelect={() => router.push(`/board/backlog?project=${project.id}`)}
-                >
-                  <ProjectGlyph icon={project.icon} color={project.color} />
-                  <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                  <span className={KEY_CHIP}>{project.key}</span>
-                  {current ? (
-                    <CheckIcon className="size-3.5 shrink-0 text-text-brand" />
-                  ) : (
-                    /* Holds the column open so the keys stay aligned. */
-                    <span className="size-3.5 shrink-0" aria-hidden="true" />
-                  )}
-                </DropdownMenuItem>
-              );
-            })}
-          </Fragment>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <ProjectPickerDialog
+        key={dialogKey}
+        open={open}
+        groups={groups}
+        selectedId={selectedId}
+        onChoose={choose}
+        onOpenChange={setOpen}
+      />
+    </>
   );
 }

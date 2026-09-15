@@ -45,17 +45,20 @@ export default async function BoardSprintPlanningPage({ searchParams }: PageProp
         </p>
       </header>
 
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-2 border-b border-border">
+      <div className="mt-6 border-b border-border">
         <SprintWorkflowNav current="sprint-planning" />
-        {selected && (
-          <div className="pb-2">
-            <BacklogProjectPicker groups={groups} selectedId={selected.project.id} />
-          </div>
-        )}
       </div>
 
       {selected ? (
-        <ProjectSprintPlanning workspace={selected.workspace} project={selected.project} userId={user.id} />
+        <ProjectSprintPlanning
+          workspace={selected.workspace}
+          project={selected.project}
+          userId={user.id}
+          /* Beside Create sprint in the toolbar; `basePath` keeps a switch on this screen. */
+          actions={
+            <BacklogProjectPicker groups={groups} selectedId={selected.project.id} basePath="/board/sprint-planning" />
+          }
+        />
       ) : (
         <div className="mt-6 rounded-md border border-dashed border-border bg-surface-sunken px-4 py-10 text-center">
           <p className="text-sm font-medium text-text">No projects yet</p>

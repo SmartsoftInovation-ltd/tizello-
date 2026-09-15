@@ -22,8 +22,8 @@ import type { Task } from "@/types/task";
  * them. Estimating (the points pill), creating, starting and completing sprints
  * all happen on this one screen.
  *
- * SAME SURFACES AS THE BACKLOG. New task, a row's ⋯ menu, the task drawer, the
- * delete confirm and the bulk bar behave exactly as they do there
+ * SAME SURFACES AS THE BACKLOG. A row's ⋯ menu, the task drawer, the delete
+ * confirm and the bulk bar behave exactly as they do there
  * (`planning-overlays.tsx`) — the status editor deliberately stays on the backlog;
  * a sprint opens in that same drawer. What planning adds is "Move to" in the
  * row menu and the sprint boxes.
@@ -37,7 +37,16 @@ const DRAG_INSTRUCTIONS = {
     "Press Space or Enter to pick this task up. Use the arrow keys to move it within this box or into another sprint or the backlog, then press Space or Enter to drop it, or Escape to cancel. The task's menu also has Move to.",
 };
 
-export function SprintPlanningBoard({ tasks, scope }: { tasks: Task[]; scope: TaskScope }) {
+export function SprintPlanningBoard({
+  tasks,
+  scope,
+  actions,
+}: {
+  tasks: Task[];
+  scope: TaskScope;
+  /** Toolbar slot beside Create sprint — the project picker. */
+  actions?: React.ReactNode;
+}) {
   const view = usePlanningView();
   const dialogs = useSprintDialogs();
   const visible = (task: Task) => matchesFilters(task, view.filters);
@@ -64,9 +73,8 @@ export function SprintPlanningBoard({ tasks, scope }: { tasks: Task[]; scope: Ta
         planned={planned.length}
         waiting={backlog.length}
         canManage={scope.canManageProperties}
-        canCreate={scope.canContribute}
+        actions={actions}
         onCreateSprint={dialogs.create}
-        onNewTask={() => view.openCreate()}
       />
       <TaskBacklogFilters filters={view.filters} tags={tagsIn(tasks)} scope={scope} onChange={view.setFilters} />
 

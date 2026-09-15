@@ -59,7 +59,8 @@ export function Dialog({
     if (!element) return;
     if (open && !element.open) {
       element.showModal();
-      element.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+      /* `data-autofocus` wins over document order, as in `ui/drawer.tsx`. */
+      (element.querySelector<HTMLElement>("[data-autofocus]") ?? element.querySelector<HTMLElement>(FOCUSABLE))?.focus();
     }
     /* Closing hands focus back to whatever opened the dialog — the browser
        restores it for us, so there is nothing to do here. */
