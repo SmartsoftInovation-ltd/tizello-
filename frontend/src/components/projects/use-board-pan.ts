@@ -36,6 +36,8 @@ export function useBoardPan(
   ref: RefObject<HTMLElement | null>,
   /** True while a card is being dragged — the two gestures must never overlap. */
   dragging: boolean,
+  /** More elements that belong to another gesture — a board whose whole columns can be dragged. */
+  alsoIgnore?: string,
 ) {
   const [panning, setPanning] = useState(false);
   const origin = useRef({ x: 0, scrollLeft: 0 });
@@ -45,7 +47,7 @@ export function useBoardPan(
     /* Primary button only: a middle-click is the browser's autoscroll and a
        right-click is the context menu, and hijacking either is hostile. */
     if (!rail || dragging || event.button !== 0 || !event.isPrimary) return;
-    if ((event.target as Element).closest(IGNORE)) return;
+    if ((event.target as Element).closest(alsoIgnore ? `${IGNORE}, ${alsoIgnore}` : IGNORE)) return;
     /* Nothing to pan — a board narrower than its rail would otherwise show a
        grabbing cursor and then not move, which reads as broken. */
     if (rail.scrollWidth <= rail.clientWidth) return;

@@ -20,6 +20,10 @@ export const metadata = {
  *
  * A static segment, so it wins over `board/[boardId]`, which drew a fixture
  * sprint here before.
+ *
+ * FITS THE VIEWPORT. `h-full` + `overflow-hidden` pins the page to the shell's
+ * scroll region, and the board below takes whatever height is left — so the
+ * page never scrolls vertically; a long column scrolls inside itself instead.
  */
 export default async function CurrentSprintPage({ searchParams }: PageProps<"/board/sprint">) {
   const { project: requested } = await searchParams;
@@ -30,22 +34,15 @@ export default async function CurrentSprintPage({ searchParams }: PageProps<"/bo
   const { selected, requestedEntry, groups } = await boardProjectSelection(requested);
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
+    <main className="flex h-full w-full flex-col overflow-hidden px-4 pt-5 pb-3 sm:px-6">
       {requestedEntry && <RememberWorkspace workspaceId={requestedEntry.workspace.id} />}
 
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-text">
-          <SprintIcon className="size-5 shrink-0 text-text-muted" />
-          Current sprint
-        </h1>
-        <p className="mt-1 max-w-prose text-sm text-text-muted">
-          {selected
-            ? `${selected.project.name}'s running sprint. Drag cards between statuses, and add a status for any step your team has.`
-            : "Sprints belong to a project. Create one to get a board."}
-        </p>
-      </header>
+      <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-text">
+        <SprintIcon className="size-5 shrink-0 text-text-muted" />
+        Current sprint
+      </h1>
 
-      <div className="mt-6 border-b border-border">
+      <div className="mt-3 border-b border-border">
         <SprintWorkflowNav current="current-sprint" />
       </div>
 
@@ -54,6 +51,7 @@ export default async function CurrentSprintPage({ searchParams }: PageProps<"/bo
           workspace={selected.workspace}
           project={selected.project}
           userId={user.id}
+          /* Beside Statuses in the sprint card. */
           actions={<BacklogProjectPicker groups={groups} selectedId={selected.project.id} basePath="/board/sprint" />}
         />
       ) : (

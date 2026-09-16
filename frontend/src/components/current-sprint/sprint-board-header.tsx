@@ -1,21 +1,24 @@
 "use client";
 
-import { SprintPoints } from "@/components/sprint-planning/sprint-points";
+import { SprintProgress } from "@/components/current-sprint/sprint-progress";
+import { CalendarIcon } from "@/components/ui/app-icons";
 import { Button } from "@/components/ui/button";
 import { FlagIcon, PencilIcon, PlusIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/format-date";
-import { daysRemaining } from "@/lib/sprint-dates";
 import type { PointsByGroup } from "@/lib/sprint-plan";
 import type { ProjectSprint } from "@/types/project-sprint";
 
 /**
- * The running sprint's identity and controls, above its columns: name and
- * Active badge, dates and how long is left, the goal, then the points summary
- * sprint planning shows (so the two screens report a sprint identically), and
- * Statuses / New task / Complete sprint.
+ * The running sprint as ONE card above its columns: identity and actions on
+ * the top row, and the progress strip — work, time, live countdown — below a
+ * hairline (`sprint-progress.tsx`).
  *
- * Each action is absent, not disabled, for someone who may not use it:
- * Statuses and Complete for project writers, New task for contributors.
+ * The identity reads as a single line where it fits — name, Active pill, dates,
+ * task count — with the goal under it, so the card stays short and the columns
+ * keep the height. The project picker leads the action row, beside Statuses.
+ *
+ * Statuses and New task are quiet buttons; Complete sprint is the one brand
+ * fill. Each is absent, not disabled, for someone who may not use it.
  */
 export function SprintBoardHeader({
   sprint,
@@ -41,57 +44,57 @@ export function SprintBoardHeader({
   onNewTask: () => void;
   onComplete: () => void;
 }) {
-  const left = sprint.endDate ? daysRemaining(today, sprint.endDate) : null;
-
   return (
-    <div className="mt-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-border pb-3">
-      <div className="min-w-0">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-text">
-          <span className="truncate">{sprint.name}</span>
-          <span className="rounded-xs bg-brand-100 px-1.5 py-0.5 text-2xs font-semibold text-brand-800">Active</span>
-        </h2>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-text-muted">
-          <span>
-            {sprint.startDate && sprint.endDate
-              ? `${formatDate(sprint.startDate)} – ${formatDate(sprint.endDate)}`
-              : "No dates set"}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span>{count === 1 ? "1 task" : `${count} tasks`}</span>
-          {left !== null && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className={left < 0 ? "font-medium text-danger" : undefined}>
-                {left < 0 ? `${-left} days overdue` : left === 1 ? "last day" : `${left} days left`}
-              </span>
-            </>
+    <section aria-label={sprint.name} className="mt-4 shrink-0 rounded-lg border border-border bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="truncate text-base font-semibold tracking-tight text-text">{sprint.name}</h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-2 py-0.5 text-2xs font-semibold text-brand-800">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-brand-500" />
+              Active
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
+              <CalendarIcon className="size-3.5 text-text-subtle" />
+              {sprint.startDate && sprint.endDate ? `${formatDate(sprint.startDate)} – ${formatDate(sprint.endDate)}` : "No dates set"}
+            </span>
+            <span className="rounded-full bg-surface-hover px-2 py-0.5 text-2xs font-semibold text-text-muted tabular-nums">
+              {count === 1 ? "1 task" : `${count} tasks`}
+            </span>
+          </div>
+          {sprint.goal && (
+            <p className="mt-1 max-w-prose truncate text-xs text-text-muted">
+              <span className="font-semibold text-text-subtle">Goal</span> · {sprint.goal}
+            </p>
           )}
-        </p>
-        {sprint.goal && <p className="mt-1 max-w-prose text-xs text-text-subtle">{sprint.goal}</p>}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {actions}
+          {canManage && (
+            <Button size="sm" variant="subtle" onClick={onEditStatuses}>
+              <PencilIcon className="size-3.5" />
+              Statuses
+            </Button>
+          )}
+          {canContribute && (
+            <Button size="sm" variant="subtle" onClick={onNewTask}>
+              <PlusIcon className="size-3.5" />
+              New task
+            </Button>
+          )}
+          {canManage && (
+            <Button size="sm" onClick={onComplete}>
+              <FlagIcon className="size-3.5" />
+              Complete sprint
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SprintPoints points={points} capacity={sprint.capacityPoints} />
-        {actions}
-        {canManage && (
-          <Button size="sm" variant="subtle" onClick={onEditStatuses}>
-            <PencilIcon className="size-3.5" />
-            Statuses
-          </Button>
-        )}
-        {canContribute && (
-          <Button size="sm" variant="subtle" onClick={onNewTask}>
-            <PlusIcon className="size-3.5" />
-            New task
-          </Button>
-        )}
-        {canManage && (
-          <Button size="sm" onClick={onComplete}>
-            <FlagIcon className="size-3.5" />
-            Complete sprint
-          </Button>
-        )}
+      <div className="mt-3 border-t border-border pt-3">
+        <SprintProgress points={points} capacity={sprint.capacityPoints} startDate={sprint.startDate} endDate={sprint.endDate} today={today} />
       </div>
-    </div>
+    </section>
   );
 }

@@ -44,7 +44,7 @@ export function AddStatusColumn({ scope }: { scope: TaskScope }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-11 w-list shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-surface-hover px-3 text-sm font-medium text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-sunken hover:text-text"
+        className="flex h-11 w-list shrink-0 self-start items-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-surface-hover px-3 text-sm font-medium text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-sunken hover:text-text"
       >
         <PlusIcon className="size-4" />
         Add status
@@ -53,7 +53,7 @@ export function AddStatusColumn({ scope }: { scope: TaskScope }) {
   }
 
   return (
-    <section aria-label="Add a status" className="w-list shrink-0 self-start rounded-lg border border-border bg-panel p-1.5">
+    <section aria-label="Add a status" className="scrollbar-board max-h-full w-list shrink-0 self-start overflow-y-auto rounded-lg border border-border bg-panel p-1.5">
       <p className="px-1.5 pt-1 text-2xs font-semibold tracking-widest text-text-subtle uppercase">Group</p>
       <div role="radiogroup" aria-label="Status group" className="flex gap-1 px-1 pt-1.5 pb-2">
         {TASK_STATUS_GROUPS.map((choice) => (

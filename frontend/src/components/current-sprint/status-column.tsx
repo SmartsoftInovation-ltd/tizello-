@@ -1,7 +1,6 @@
 "use client";
 
-import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { SortableSprintCard } from "@/components/current-sprint/sortable-sprint-card";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { TaskQuickAdd } from "@/components/tasks/task-quick-add";
@@ -16,18 +15,30 @@ import type { Task, TaskStatusOption } from "@/types/task";
  * rank order, and a quick add that files straight into this status AND this
  * sprint.
  *
- * `w-list` (272px) like every column in the app, and `min-h-board` on the
- * track so a card crossing columns never changes a column's height mid-drag —
- * the reason `DESIGN-SYSTEM.md` §Board geometry gives. The whole column is the
- * droppable, so an empty one still takes a card, and it tints while one is
- * over it.
+ * `w-list` (272px) like every column in the app, and exactly as tall as the
+ * rail: the page fits the viewport, so a long column scrolls its OWN cards
+ * (thin bar) with the header and quick add pinned. A fixed height also means a
+ * card crossing columns never resizes one mid-drag.
+ *
+ * THE COLUMN IS SORTABLE TOO. A project writer can pick the whole column up —
+ * from its header, its padding, anywhere that is not a card — and drop it
+ * elsewhere on the rail (`use-column-dnd.ts`). A press on a card is captured by
+ * the card first, so the two drags never start together. While carried, the
+ * column's place shows as an empty dashed slot. For everyone the column is
+ * still a drop target for cards, so an empty one still takes a card.
+ *
+ * `receiving` is set on the column the held card is currently IN — the one it
+ * will land in — which lifts with a soft brand ring before the drop.
  */
+const SLIDE = { duration: 320, easing: "cubic-bezier(0.25, 1, 0.5, 1)" };
+
 export function StatusColumn({
   status,
   tasks,
   sprintId,
   scope,
   filtered,
+  receiving,
   onOpen,
 }: {
   status: TaskStatusOption;
@@ -36,53 +47,72 @@ export function StatusColumn({
   sprintId: string;
   scope: TaskScope;
   filtered: boolean;
+  /** A card is being dragged and currently sits in this column. */
+  receiving: boolean;
   onOpen: (taskId: string) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: columnKey(status.id), data: { statusId: status.id } });
+  const canMove = scope.canManageProperties;
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: columnKey(status.id),
+    data: { type: "column", statusId: status.id },
+    disabled: { draggable: !canMove, droppable: false },
+    transition: SLIDE,
+  });
   const points = tasks.reduce((sum, task) => sum + (task.storyPoints ?? 0), 0);
 
   return (
     <section
-      ref={setNodeRef}
+      /* The element itself is the keyboard activator, so Space typed in a field
+         inside it (the quick add) never starts a drag — dnd-kit only checks
+         the event target when an activator is set. */
+      ref={(node) => {
+        setNodeRef(node);
+        setActivatorNodeRef(node);
+      }}
+      data-board-column
+      {...(canMove ? { ...attributes, ...listeners } : {})}
+      aria-roledescription={canMove ? "draggable column" : undefined}
       aria-label={status.name}
+      style={{ transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined, transition }}
       className={cn(
-        "flex w-list shrink-0 flex-col rounded-lg border bg-panel p-2 transition-colors duration-100 ease-standard",
-        isOver ? "border-dashed border-brand-500 bg-success-subtle" : "border-border",
+        "flex h-full min-h-0 w-list shrink-0 flex-col rounded-lg border bg-panel p-2 transition-[border-color,box-shadow,background-color] duration-300 ease-standard",
+        canMove && "cursor-grab active:cursor-grabbing",
+        isDragging
+          ? "border-dashed border-brand-500/60 bg-brand-500/5"
+          : receiving
+            ? "border-brand-500/60 bg-brand-500/5 ring-4 ring-brand-500/15"
+            : "border-border",
       )}
     >
-      <header className="flex items-center gap-2 px-1 pb-2">
-        <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status.color])} />
-        <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide text-text uppercase">{status.name}</h2>
-        <span className="rounded-full bg-surface-hover px-1.5 text-2xs font-semibold text-text-muted tabular-nums">{tasks.length}</span>
-        {points > 0 && (
-          <span title="Story points in this column" className="ml-auto inline-flex items-center gap-1 text-2xs font-medium text-text-subtle tabular-nums">
-            <PointsIcon className="size-3" />
-            {points}
-          </span>
-        )}
-      </header>
-
-      <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
-        <ul className="flex min-h-board flex-1 flex-col gap-1.5">
-          {tasks.length === 0 ? (
-            <li className="rounded-md border border-dashed border-border-strong px-3 py-6 text-center text-xs text-text-subtle">
-              {filtered ? "No matching tasks." : scope.canContribute ? "Drop a card here" : "Nothing here"}
-            </li>
-          ) : (
-            tasks.map((task) => (
-              <SortableSprintCard
-                key={task.id}
-                task={task}
-                today={scope.today}
-                canDrag={scope.canContribute}
-                onOpen={() => onOpen(task.id)}
-              />
-            ))
+      <div className={cn("flex min-h-0 flex-1 flex-col", isDragging && "invisible")}>
+        <header className="flex items-center gap-2 px-1 pb-2">
+          <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status.color])} />
+          <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide text-text uppercase">{status.name}</h2>
+          <span className="rounded-full bg-surface-hover px-1.5 text-2xs font-semibold text-text-muted tabular-nums">{tasks.length}</span>
+          {points > 0 && (
+            <span title="Story points in this column" className="ml-auto inline-flex items-center gap-1 text-2xs font-medium text-text-subtle tabular-nums">
+              <PointsIcon className="size-3" />
+              {points}
+            </span>
           )}
-        </ul>
-      </SortableContext>
+        </header>
 
-      {scope.canContribute && <TaskQuickAdd scope={scope} where={status.name} statusId={status.id} sprintId={sprintId} />}
+        <SortableContext items={tasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
+          <ul className="scrollbar-board -mr-1 flex min-h-0 flex-1 cursor-default flex-col gap-1.5 overflow-y-auto pr-1">
+            {tasks.length === 0 ? (
+              <li className="grid flex-1 place-items-center rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-text-subtle">
+                {filtered ? "No matching tasks." : scope.canContribute ? "Drop a card here" : "Nothing here"}
+              </li>
+            ) : (
+              tasks.map((task) => (
+                <SortableSprintCard key={task.id} task={task} today={scope.today} canDrag={scope.canContribute} onOpen={() => onOpen(task.id)} />
+              ))
+            )}
+          </ul>
+        </SortableContext>
+
+        {scope.canContribute && <TaskQuickAdd scope={scope} where={status.name} statusId={status.id} sprintId={sprintId} />}
+      </div>
     </section>
   );
 }

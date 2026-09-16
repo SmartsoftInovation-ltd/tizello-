@@ -19,6 +19,7 @@ export async function ProjectCurrentSprint({
   workspace: Workspace;
   project: ProjectRecord;
   userId: string;
+  /** The project picker, drawn beside Statuses. */
   actions?: React.ReactNode;
 }) {
   const { tasks, scope } = await loadTaskScope({ workspace, project, userId });
