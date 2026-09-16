@@ -133,7 +133,16 @@ against demo data in `src/lib/`, never that a backend is wired.
       `BoardColumn` is the shell both boards share: pill, count, track, empty
       state and a `footer` slot for the composer, plus optional droppable
       wiring (`containerRef` / `isOver`) that the sprint board fills in.
-- [x] **Sprint board + tasks** — `/board/sprint` renders the one ACTIVE sprint
+- [x] **Current sprint board** — `/board/sprint` (the sidebar's Current sprint
+      link, same `?project=` picker) renders `components/current-sprint/` — real
+      data via `loadTaskScope`. The project's ACTIVE sprint, **one column per
+      task status** (not fixed): "+ Add status" at the end creates one (name,
+      colour, group), and Statuses opens the backlog's status editor. Drag a card
+      between columns or to a new rank — one `PATCH /tasks/:id/move` with
+      `statusId` + neighbours (`use-sprint-board-dnd.ts`, optimistic). Header has
+      dates, days left, points and Complete sprint; filters, task drawer and
+      quick add per column. No active sprint → a link to sprint planning.
+- [x] **Fixture sprint board (superseded)** — `/board/[boardId]` still renders the one ACTIVE sprint
       (SPR-13) from `demo-board.ts`: header with project, sprint, window and
       state badge; live done/total and points on the toolbar; three columns of
       task cards with id, priority, labels, points and assignee. **Drag & drop

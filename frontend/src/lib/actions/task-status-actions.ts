@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateBacklog } from "@/lib/actions/revalidate-backlog";
 import {
   createTaskStatus,
   deleteTaskStatus,
@@ -26,11 +26,6 @@ export type TaskStatusFormState = {
 };
 
 const NAME_MAX = 40;
-
-function revalidateBacklog(workspaceId: string, projectId: string) {
-  revalidatePath("/board/backlog");
-  revalidatePath(`/workspaces/${workspaceId}/projects/${projectId}/backlog`);
-}
 
 function nameError(name: string): string | undefined {
   if (!name) return "Give the status a name.";

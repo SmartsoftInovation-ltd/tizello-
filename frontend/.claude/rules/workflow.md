@@ -34,8 +34,11 @@ sprint close **moves** unfinished work back.
 - **The sprint board is not the backlog.** Never render every task on the
   sprint board. If a screen shows uncommitted work next to in-flight work, the
   model is wrong.
-- **Three lists on a sprint board, fixed.** `To Do`, `In Progress`, `Done`.
-  Adding a fourth is a product decision, not a styling one — ask first.
+- **A sprint board's columns are the project's statuses — not fixed.**
+  Decided 2026-09-16: teams add steps like `Review` or `QA` as statuses, and
+  each becomes a column. Every status still belongs to one of three groups
+  (To-do / In Progress / Complete), which is what completion and point
+  roll-ups read — so never branch on a status NAME, only on its group.
 - **Sprint close is a real operation**, not a filter. It marks `Done` tasks
   complete and returns the rest to the backlog. Model it as one action.
 - **A card carries its origin.** Returning to the backlog must not lose the
