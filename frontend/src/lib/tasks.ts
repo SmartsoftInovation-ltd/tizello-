@@ -29,7 +29,8 @@ export type TaskInput = {
   /** One of the project's status options. Omitted on create → the project's default. */
   statusId?: string;
   priority?: ProjectPriority | null;
-  assigneeId?: string | null;
+  /** The WHOLE set of assignees — it replaces what is stored; `[]` unassigns everyone. */
+  assigneeIds?: string[];
   dueDate?: string | null;
   completedAt?: string | null;
   tags?: string[];

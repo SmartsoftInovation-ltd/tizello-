@@ -30,7 +30,8 @@ const TASK_INCLUDE = {
   project: { select: { key: true } },
   // The four fields a chip needs; `group` is what the frontend buckets by.
   status: { select: { id: true, name: true, color: true, group: true } },
-  assignee: PERSON,
+  // Oldest first, so a task's avatars do not reshuffle when someone is added.
+  assignees: { orderBy: { createdAt: 'asc' }, select: { user: PERSON } },
   createdBy: PERSON,
   sprint: { select: { id: true, name: true, state: true } },
   parent: { select: { id: true, number: true, title: true, deletedAt: true } },
@@ -216,9 +217,9 @@ const moveSubtreeToSprint = async (parentIds, sprintId) => {
   }
 };
 
-/** Is this user in the workspace at all? The guard behind an assignee. */
-const findWorkspaceMembership = (workspaceId, userId) =>
-  prisma.membership.findUnique({ where: { userId_workspaceId: { userId, workspaceId } } });
+/** Which of these users are in the workspace? The guard behind assignees. */
+const findWorkspaceMemberships = (workspaceId, userIds) =>
+  prisma.membership.findMany({ where: { workspaceId, userId: { in: userIds } }, select: { userId: true } });
 
 export default {
   POSITION_STEP,
@@ -234,5 +235,5 @@ export default {
   softDeleteTask,
   softDeleteTasks,
   moveSubtreeToSprint,
-  findWorkspaceMembership,
+  findWorkspaceMemberships,
 };

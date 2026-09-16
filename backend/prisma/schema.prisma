@@ -57,9 +57,9 @@ model User {
   loginCodes          LoginCode[]
   registrationCodes   RegistrationCode[]
   verificationTokens  VerificationToken[]
-  // Tasks: who is doing it, who filed it, and what they said on it. All three
-  // are SetNull on the task side — removing a person must never delete the work.
-  assignedTasks       Task[]              @relation("TaskAssignee")
+  // Tasks: who is doing it, who filed it, and what they said on it. Removing a
+  // person never deletes the work — an assignment row goes, the task stays.
+  taskAssignments     TaskAssignee[]
   createdTasks        Task[]              @relation("TaskCreatedBy")
   taskComments        TaskComment[]       @relation("TaskCommentAuthor")
   // SetNull on the activity side too: a departed user's history stays, unattributed.
@@ -588,8 +588,10 @@ model Task {
   // Nullable, unlike Project.priority: a task filed as a one-liner has no
   // priority yet, and defaulting it to MEDIUM would be a claim nobody made.
   priority    Priority?
-  assigneeId  String?
-  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  // Everyone doing it — zero, one or several. A join table, not a String[]
+  // of ids, so a user deletion cleans up by FK and "tasks assigned to X" is an
+  // indexed read. docs/api/task.md §Assignees.
+  assignees   TaskAssignee[]
   dueDate     DateTime?
   // Stamped by the service when status becomes DONE and cleared when it
   // leaves DONE — unless the request sets it explicitly. docs/api/task.md.
@@ -628,10 +630,24 @@ model Task {
   // The backlog reads a project's tasks in rank order.
   @@index([projectId, position])
   @@index([parentId])
-  @@index([assigneeId])
   @@index([statusId])
   @@index([sprintId])
   @@map("tasks")
+}
+
+// One person on one task. Cascade both ways: deleting either side leaves
+// nothing to point at, and the task itself survives a user deletion.
+model TaskAssignee {
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Assignees are listed in the order they were added.
+  createdAt DateTime @default(now())
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
 }
 
 model TaskComment {

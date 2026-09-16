@@ -34,6 +34,8 @@ const BULK_MAX = 100;
 const STORY_POINTS_MAX = 100;
 
 const TAGS_MAX = 20;
+/** People on one task. Past ten, nobody in particular owns it. */
+const ASSIGNEES_MAX = 10;
 const TAG_LENGTH_MAX = 40;
 
 const title = Joi.string().trim().min(1).max(200);
@@ -56,6 +58,9 @@ const type = Joi.string().valid(...TYPES);
 // Whole points, 0 allowed (a deliberate "no effort"); null clears the estimate.
 const storyPoints = Joi.number().integer().min(0).max(STORY_POINTS_MAX).allow(null);
 const id = Joi.string().trim().max(64);
+// The WHOLE set of assignees, replacing what was there; [] unassigns everyone.
+// Unique, so the join table's primary key is never the thing that says no.
+const assigneeIds = Joi.array().items(id).unique().max(ASSIGNEES_MAX);
 const date = Joi.date().iso().allow(null);
 const tags = Joi.array().items(Joi.string().trim().min(1).max(TAG_LENGTH_MAX)).max(TAGS_MAX);
 const attachments = Joi.array();
@@ -71,7 +76,7 @@ const createTaskSchema = Joi.object({
   color: color.optional(),
   statusId: statusId.optional(),
   priority: priority.optional(),
-  assigneeId: id.allow(null).optional(),
+  assigneeIds: assigneeIds.optional(),
   dueDate: date.optional(),
   completedAt: date.optional(),
   tags: tags.optional(),
@@ -92,7 +97,7 @@ const updateTaskSchema = Joi.object({
   color: color.optional(),
   statusId: statusId.optional(),
   priority: priority.optional(),
-  assigneeId: id.allow(null).optional(),
+  assigneeIds: assigneeIds.optional(),
   dueDate: date.optional(),
   completedAt: date.optional(),
   tags: tags.optional(),
@@ -147,7 +152,7 @@ const bulkUpdateTasksSchema = Joi.object({
     statusId: statusId.optional(),
     type: type.optional(),
     priority: priority.optional(),
-    assigneeId: id.allow(null).optional(),
+    assigneeIds: assigneeIds.optional(),
     storyPoints: storyPoints.optional(),
     dueDate: date.optional(),
     sprintId: id.allow(null).optional(),

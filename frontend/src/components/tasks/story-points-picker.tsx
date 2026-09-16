@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useMenuPopover } from "@/components/projects/use-menu-popover";
 import { StoryPointsChoices } from "@/components/tasks/story-points-choices";
 import type { TaskScope } from "@/components/tasks/task-draft";
+import { PointsIcon } from "@/components/ui/points-icon";
 import { updateTaskAction } from "@/lib/actions/task-actions";
 import { cn } from "@/lib/cn";
 import { taskErrorCopy, type Task } from "@/types/task";
@@ -22,6 +23,11 @@ import { taskErrorCopy, type Task } from "@/types/task";
  * and a toast says why. Someone who may not change tasks gets a plain badge.
  */
 const PANEL_HEIGHT = 96;
+
+/* A rounded tag rather than a pill, so it does not read as a second status chip
+   beside the real one. The diamond is the drawer's Story points glyph. */
+const PILL =
+  "inline-flex h-6 min-w-12 items-center justify-center gap-1 rounded-sm px-2 text-2xs font-semibold tabular-nums transition-colors duration-100 ease-standard";
 
 export function StoryPointsPicker({ task, scope }: { task: Task; scope: TaskScope }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +48,8 @@ export function StoryPointsPicker({ task, scope }: { task: Task; scope: TaskScop
 
   if (!scope.canContribute) {
     return (
-      <span title="Story points" className="grid h-6 min-w-10 place-items-center rounded-full bg-chip px-2 text-2xs font-semibold text-text-muted tabular-nums">
+      <span title="Story points" className={cn(PILL, "bg-surface-hover text-text-muted")}>
+        <PointsIcon className="size-3 shrink-0" />
         {label}
       </span>
     );
@@ -69,12 +76,14 @@ export function StoryPointsPicker({ task, scope }: { task: Task; scope: TaskScop
         aria-label={points === null ? `Estimate ${task.key}` : `${task.key}: ${points} story points. Change estimate`}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "grid h-6 min-w-10 place-items-center rounded-full px-2 text-2xs font-semibold tabular-nums transition-colors duration-100 ease-standard",
+          PILL,
+          open && "ring-1 ring-brand-500",
           points === null
-            ? "border border-dashed border-border text-text-subtle hover:border-border-strong hover:text-text"
-            : "border border-border bg-chip text-text-muted hover:border-border-strong hover:text-text",
+            ? "border border-dashed border-border-strong text-text-subtle hover:bg-surface-hover hover:text-text"
+            : "bg-surface-hover text-text hover:bg-surface-sunken",
         )}
       >
+        <PointsIcon className="size-3 shrink-0" />
         {label}
       </button>
 

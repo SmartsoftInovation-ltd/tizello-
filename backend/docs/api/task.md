@@ -61,7 +61,7 @@
 | `icon`, `color` | One emoji (≤ 8 chars) and a `#rrggbb` hex, each nullable; `""` is stored as `null`. Same rules as the project's glyph pair (`project.md`), so a task header and a project header render from the same component. |
 | `statusId`, `status` | One of the **project's** status options — see §Statuses. `status` is `{ id, name, color, group }`. Never `null`; omitted on create → the project default. |
 | `priority` | `LOW` · `MEDIUM` · `HIGH` · `URGENT`, or **`null`**. Unlike a project, a task may have no priority — defaulting a one-line task to MEDIUM would be a claim nobody made. Same `Priority` enum the project uses (plan project §2.7). |
-| `assigneeId`, `assignee` | A user who is a member of the project's **workspace**, or `null`. `assignee` is `{ id, name, email }` or `null`. |
+| `assigneeIds` (write), `assignees` (read) | Zero to 10 users, each a member of the project's **workspace**. Always the WHOLE set: sending `assigneeIds` replaces who is on the task, `[]` unassigns everyone. `assignees` is `[{ id, name, email }]` in the order they were sent, never `null`. See §Assignees. |
 | `dueDate`, `completedAt` | ISO timestamps or `null`. See §Status and completedAt. |
 | `tags` | Up to 20 free-text labels, each 1–40 chars. Trimmed and de-duplicated case-insensitively, first spelling kept. |
 | `attachments` | Array of upload metadata — exactly a FILES property value (`upload.md`), validated by the same `PROPERTY_TYPES.FILES.check`. Always an array in responses. |
@@ -201,8 +201,11 @@ Every task has an append-only history in `task_activities`:
 | `commented` | a comment is posted | all `null` |
 
 Tracked fields: `title`, `description`, `type`, `status`, `priority`,
-`assignee`, `dueDate`, `storyPoints`, `sprint`, `tags`, `parent`, `attachments`,
-`properties`. Not tracked: `icon`, `color`, `position` — a rank change is not
+`assignees`, `dueDate`, `storyPoints`, `sprint`, `tags`, `parent`, `attachments`,
+`properties`. `assignees` stores the whole list before and after as
+`[{ id, name }]`; entries written before multiple assignees existed carry
+`field: "assignee"` with a single `{ id, name }` or `null`, and are returned
+unchanged. Not tracked: `icon`, `color`, `position` — a rank change is not
 something anyone reads history to find.
 
 - **Entries come from comparing two snapshots** of the task (before and after),
@@ -219,6 +222,24 @@ something anyone reads history to find.
   history insert fails, the user's change still happened — failing the request
   would report a completed save as failed, and a retry would apply it twice.
   The failure is logged at `error`.
+
+### Assignees
+
+A task can have several people on it — a pairing, a reviewer, a hand-off in
+progress. Stored in the `task_assignees` join table (`taskId`, `userId`,
+`createdAt`), not a `String[]` of ids on the task, so deleting a user removes
+their assignments by foreign key and "tasks assigned to X" is an indexed read.
+
+- **The set is replaced, never patched.** `assigneeIds` is the full list;
+  there is no add/remove endpoint. Two people editing the list at once is a
+  last-write-wins, the same as every other field on a PATCH.
+- **Every id must be a workspace member**, or the whole write is a `422 Some of
+  those users are not members of this workspace` — nothing is half-assigned.
+- **Duplicates are a `400`** (Joi `unique`), not silently collapsed: a client
+  sending the same person twice has a bug worth seeing.
+- Replaced `assigneeId` / `assignee` (one person). Migration
+  `20260916100000_task_multiple_assignees` copied every existing assignee
+  across before dropping the column.
 
 ### Soft delete
 
@@ -336,7 +357,7 @@ moved it.
   "storyPoints": 3,
   "statusId": "clw…",
   "priority": "HIGH",
-  "assigneeId": "clu…",
+  "assigneeIds": ["clu…", "clv…"],
   "dueDate": "2026-09-20",
   "completedAt": null,
   "tags": ["Bug", "a11y"],
@@ -362,7 +383,7 @@ Only `title` is required. No `statusId` → the project's default status.
 | 401 | `UNAUTHORIZED` | |
 | 403 | `FORBIDDEN` | Workspace member not on the project (step 4). |
 | 404 | `NOT_FOUND` | Step 1. |
-| 422 | `VALIDATION_ERROR` | `That status does not exist in this project`; assignee not in the workspace; parent not in the project; an attachment that is not an uploaded file; a property value that fails its type, or an unknown property id. |
+| 422 | `VALIDATION_ERROR` | `That status does not exist in this project`; an assignee not in the workspace; parent not in the project; an attachment that is not an uploaded file; a property value that fails its type, or an unknown property id. |
 
 ## 3. `GET /api/v1/tasks/:taskId`
 
@@ -374,8 +395,8 @@ Only `title` is required. No `statusId` → the project's default status.
 
 Same fields as create, all optional; `{}` is a `400 Provide at least one field
 to update`. Only sent fields are written. `null` clears `description`,
-`priority`, `assigneeId`, `dueDate`, `completedAt`, `parentId`; `[]` clears
-`tags` and `attachments`; `properties` is a **partial** map where `null`
+`priority`, `dueDate`, `completedAt`, `parentId`; `[]` clears
+`assigneeIds`, `tags` and `attachments`; `properties` is a **partial** map where `null`
 deletes a key. `completedAt` follows §Status and completedAt.
 
 **200** — `{ task }`. **Errors:** as §2, plus `422 A task cannot be its own ancestor`.
@@ -466,11 +487,12 @@ for a status not in the project.
 **Guards:** `authGuard`, `loadProject`, `requireProjectContribute`, `validate`.
 
 ```json
-{ "taskIds": ["clx…", "cly…"], "patch": { "statusId": "clw…", "priority": "HIGH", "assigneeId": null } }
+{ "taskIds": ["clx…", "cly…"], "patch": { "statusId": "clw…", "priority": "HIGH", "assigneeIds": [] } }
 ```
 
 `taskIds`: 1–100 ids (duplicates collapsed). `patch`: at least one of
-`statusId`, `type`, `priority`, `assigneeId`, `storyPoints`, `dueDate`.
+`statusId`, `type`, `priority`, `assigneeIds`, `storyPoints`, `dueDate`.
+`assigneeIds` REPLACES the assignees on every selected task.
 Title, description and custom properties are **not** accepted — they are
 per-task by nature, and a bulk "set description" is a mistake waiting for a
 click.

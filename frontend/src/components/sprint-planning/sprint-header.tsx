@@ -1,7 +1,7 @@
 "use client";
 
 import { SprintPoints } from "@/components/sprint-planning/sprint-points";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
+import { FlagIcon, MoreIcon, PencilIcon, PlayIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/format-date";
 import { daysRemaining } from "@/lib/sprint-dates";
 import type { PointsByGroup } from "@/lib/sprint-plan";
@@ -80,16 +80,17 @@ export function SprintHeader({
         {canManage && sprint.state === "PLANNING" && (
           <Button
             size="sm"
-            variant="outline"
             disabled={blockedBy !== null}
             title={blockedBy ? `${blockedBy} is still active — complete it first` : undefined}
             onClick={() => onAction("start")}
           >
+            <PlayIcon className="size-3.5" />
             Start sprint
           </Button>
         )}
         {canManage && sprint.state === "ACTIVE" && (
           <Button size="sm" variant="outline" onClick={() => onAction("complete")}>
+            <FlagIcon className="size-3.5" />
             Complete sprint
           </Button>
         )}
@@ -98,7 +99,7 @@ export function SprintHeader({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`Actions for ${sprint.name}`}
-              className="grid size-7 place-items-center rounded-sm text-text-subtle transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text"
+              className={buttonVariants({ variant: "subtle", size: "icon", className: "size-7" })}
             >
               <MoreIcon className="size-4" />
             </DropdownMenuTrigger>

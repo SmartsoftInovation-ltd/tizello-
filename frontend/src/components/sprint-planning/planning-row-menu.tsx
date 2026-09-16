@@ -31,7 +31,7 @@ import { taskErrorCopy, type Task } from "@/types/task";
  *
  * Moves go through the same `PATCH /tasks/:id/move` as a drop.
  */
-const TRIGGER = buttonVariants({ variant: "ghost", size: "icon", className: "size-7" });
+const TRIGGER = buttonVariants({ variant: "subtle", size: "icon", className: "size-7" });
 
 export function PlanningRowMenu({
   task,

@@ -15,7 +15,7 @@ import { MoreIcon, PencilIcon, TrashIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import type { Task } from "@/types/task";
 
-const TRIGGER = buttonVariants({ variant: "ghost", size: "icon", className: "size-7" });
+const TRIGGER = buttonVariants({ variant: "subtle", size: "icon", className: "size-7" });
 
 /**
  * The per-row ⋯ menu, laid out like `ProjectActionsList` so a task and a

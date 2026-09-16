@@ -121,8 +121,8 @@ export type Task = {
   status: TaskStatusRef;
   /** `null` is "Empty" — a task need not be prioritised to exist. */
   priority: ProjectPriority | null;
-  assigneeId: string | null;
-  assignee: TaskPerson | null;
+  /** Everyone on the task, in the order they were assigned. Empty when unassigned. */
+  assignees: TaskPerson[];
   /** ISO 8601 timestamps; the pickers speak `YYYY-MM-DD` and slice. */
   dueDate: string | null;
   /** Stamped by the server when the task enters a Complete-group status, cleared when it leaves. */

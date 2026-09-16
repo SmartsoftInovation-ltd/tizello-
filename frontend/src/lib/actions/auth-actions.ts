@@ -178,9 +178,19 @@ export async function requestSignInCodeAction(email: string): Promise<void> {
   await requestLoginCode(email);
 }
 
-/** A POST, never a link — a GET that mutates is CSRF-able and gets prefetched. */
-export async function signOutAction(): Promise<void> {
-  await endSession();
+/**
+ * A POST, never a link — a GET that mutates is CSRF-able and gets prefetched.
+ * Waits for the API to confirm the logout; on a failure it returns the error
+ * for the menu to show, and the session is left exactly as it was.
+ */
+export async function signOutAction(): Promise<{ error: string }> {
+  const result = await endSession();
+  if (!result.ok) {
+    return {
+      error: result.code === "RATE_LIMITED" ? AUTH_ERROR_COPY.RATE_LIMITED : "Couldn't sign you out. Try again.",
+    };
+  }
+
   revalidatePath("/", "layout");
   redirect("/sign-in");
 }

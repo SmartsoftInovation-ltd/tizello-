@@ -22,6 +22,7 @@ const LABEL: Record<TaskActivityField, string> = {
   status: "Status",
   priority: "Priority",
   assignee: "Assignee",
+  assignees: "Assignees",
   dueDate: "Due date",
   storyPoints: "Story points",
   sprint: "Sprint",
@@ -43,6 +44,10 @@ function show(field: TaskActivityField, value: unknown): string | null {
     case "assignee":
     case "sprint":
       return named(value, "name");
+    case "assignees":
+      return Array.isArray(value) && value.length > 0
+        ? value.map((person) => named(person, "name") ?? "Unknown").join(", ")
+        : null;
     case "parent":
       return named(value, "key");
     case "priority":

@@ -5,7 +5,7 @@
  * **Authorization is not this file's job.** `loadProject` or `loadTask`, plus
  * `requireProjectContribute` for writes, have already run
  * (shared/middlewares/task.js). What remains here is everything a guard cannot
- * know without looking at the REQUEST's references: whether the assignee is in
+ * know without looking at the REQUEST's references: whether every assignee is in
  * the workspace, whether the parent is in the project and not a descendant,
  * whether a property value fits its type.
  *
@@ -64,12 +64,28 @@ const checkAttachments = (attachments) => {
   if (problem) throw unprocessable(`Attachments ${problem}`);
 };
 
-/** An assignee must be able to reach the task — i.e. be in the project's workspace. */
-const checkAssignee = async (workspaceId, assigneeId) => {
-  if (!assigneeId) return;
+/** Every assignee must be able to reach the task — i.e. be in the project's workspace. */
+const checkAssignees = async (workspaceId, assigneeIds) => {
+  if (!assigneeIds?.length) return;
 
-  const membership = await repository.findWorkspaceMembership(workspaceId, assigneeId);
-  if (!membership) throw unprocessable('That user is not a member of this workspace');
+  const memberships = await repository.findWorkspaceMemberships(workspaceId, assigneeIds);
+  if (memberships.length !== assigneeIds.length) {
+    throw unprocessable('Some of those users are not members of this workspace');
+  }
+};
+
+/**
+ * `assigneeIds` → the nested write that sets them, REPLACING the stored set
+ * when `replace` is on. `createdAt` is spaced a millisecond apart so the
+ * response lists people in the order the client sent them.
+ */
+const assigneesWrite = (assigneeIds, replace) => {
+  const now = Date.now();
+
+  return {
+    ...(replace ? { deleteMany: {} } : {}),
+    create: assigneeIds.map((userId, index) => ({ userId, createdAt: new Date(now + index) })),
+  };
 };
 
 /**
@@ -145,7 +161,7 @@ const completedAtFor = (previousGroup, nextGroup, patch) => {
 const createTask = async (project, payload, user) => {
   const { properties, tags, attachments, ...rest } = payload;
 
-  await checkAssignee(project.workspaceId, rest.assigneeId);
+  await checkAssignees(project.workspaceId, rest.assigneeIds);
   const parent = await checkParent(project.id, rest.parentId);
   await checkSprint(project.id, rest.sprintId);
   if (attachments) checkAttachments(attachments);
@@ -171,7 +187,7 @@ const createTask = async (project, payload, user) => {
     color: rest.color || null,
     statusId: status.id,
     priority: rest.priority ?? null,
-    assigneeId: rest.assigneeId ?? null,
+    ...(rest.assigneeIds?.length ? { assignees: assigneesWrite(rest.assigneeIds, false) } : {}),
     dueDate: rest.dueDate ?? null,
     completedAt,
     tags: tags ? normalizeTags(tags) : [],
@@ -227,10 +243,10 @@ const getTask = async (task) => {
  * passes it, and it is who the history entries name.
  */
 const updateTask = async (task, project, patch, user = null) => {
-  const { properties, tags, attachments, ...columns } = patch;
+  const { properties, tags, attachments, assigneeIds, ...columns } = patch;
   const before = await repository.findTaskById(task.id);
 
-  if ('assigneeId' in columns) await checkAssignee(project.workspaceId, columns.assigneeId);
+  if (assigneeIds) await checkAssignees(project.workspaceId, assigneeIds);
   if ('parentId' in columns) await checkParent(project.id, columns.parentId, task.id);
   if ('sprintId' in columns) await checkSprint(project.id, columns.sprintId);
   if (attachments) checkAttachments(attachments);
@@ -264,6 +280,7 @@ const updateTask = async (task, project, patch, user = null) => {
     ...(tags ? { tags: normalizeTags(tags) } : {}),
     ...(attachments ? { attachments } : {}),
     ...(merged ? { properties: merged } : {}),
+    ...(assigneeIds ? { assignees: assigneesWrite(assigneeIds, true) } : {}),
   });
 
   if ('sprintId' in columns && before?.sprintId !== row.sprintId) {
@@ -354,8 +371,9 @@ const loadForBulk = async (project, taskIds) => {
  */
 const bulkUpdateTasks = async (project, { taskIds, patch }, user) => {
   const { rows } = await loadForBulk(project, taskIds);
+  const { assigneeIds, ...fields } = patch;
 
-  if ('assigneeId' in patch) await checkAssignee(project.workspaceId, patch.assigneeId);
+  if (assigneeIds) await checkAssignees(project.workspaceId, assigneeIds);
   if ('sprintId' in patch) await checkSprint(project.id, patch.sprintId);
   const nextStatus = patch.statusId ? await statusService.resolveStatus(project.id, patch.statusId) : null;
 
@@ -364,7 +382,11 @@ const bulkUpdateTasks = async (project, { taskIds, patch }, user) => {
 
     return {
       id: row.id,
-      data: { ...patch, ...(completedAt !== undefined ? { completedAt } : {}) },
+      data: {
+        ...fields,
+        ...(completedAt !== undefined ? { completedAt } : {}),
+        ...(assigneeIds ? { assignees: assigneesWrite(assigneeIds, true) } : {}),
+      },
     };
   });
 

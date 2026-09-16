@@ -28,7 +28,9 @@ const SNAPSHOT = {
   type: (row) => row.type,
   status: (row) => (row.status ? { id: row.status.id, name: row.status.name, color: row.status.color } : null),
   priority: (row) => row.priority,
-  assignee: (row) => personName(row.assignee),
+  // A list since tasks took several assignees. Entries written before that
+  // carry `field: "assignee"` with a single person, and still read back as-is.
+  assignees: (row) => (row.assignees ?? []).map((assignment) => personName(assignment.user)),
   dueDate: (row) => day(row.dueDate),
   storyPoints: (row) => row.storyPoints,
   sprint: (row) => (row.sprint ? { id: row.sprint.id, name: row.sprint.name } : null),

@@ -14,6 +14,10 @@ const VARIANT = {
   default: BRAND_FILL,
   outline:
     "border border-border bg-surface text-text transition-colors duration-100 ease-standard hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-60",
+  /* Ghost with its hover fill kept at rest — the row and sprint kebabs, so the
+     control is visibly a button before the pointer finds it. Hover deepens. */
+  subtle:
+    "bg-surface-hover text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-sunken hover:text-text disabled:pointer-events-none disabled:opacity-60",
   ghost:
     "text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-60",
   /* The destructive confirm. `text-inverse` is the only ink that clears the

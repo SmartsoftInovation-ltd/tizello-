@@ -27,7 +27,8 @@ export type TaskBulkPatch = {
   statusId?: string;
   type?: TaskType;
   priority?: ProjectPriority | null;
-  assigneeId?: string | null;
+  /** Replaces the assignees on every selected task. */
+  assigneeIds?: string[];
   storyPoints?: number | null;
   dueDate?: string | null;
   sprintId?: string | null;

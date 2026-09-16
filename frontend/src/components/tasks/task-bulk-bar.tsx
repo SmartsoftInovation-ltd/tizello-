@@ -100,7 +100,7 @@ export function TaskBulkBar({
       <TaskBulkMenu label="Sprint" options={sprintOptions} disabled={isPending} onChoose={(value) => apply({ sprintId: value || null }, value ? "Moved to sprint" : "Moved to backlog")} />
       <TaskBulkMenu label="Status" options={statusOptions} disabled={isPending} onChoose={(statusId) => apply({ statusId }, "Status set")} />
       <TaskBulkMenu label="Priority" options={priorityOptions} disabled={isPending} onChoose={(value) => apply({ priority: (value || null) as ProjectPriority | null }, "Priority set")} />
-      <TaskBulkMenu label="Assignee" options={assigneeOptions} disabled={isPending} onChoose={(value) => apply({ assigneeId: value || null }, "Assignee set")} />
+      <TaskBulkMenu label="Assignee" options={assigneeOptions} disabled={isPending} onChoose={(value) => apply({ assigneeIds: value ? [value] : [] }, value ? "Assignee set" : "Assignees removed")} />
       <TaskBulkMenu label="Type" options={typeOptions} disabled={isPending} onChoose={(value) => apply({ type: value as TaskType }, "Type set")} />
 
       <Button size="sm" variant="outline" disabled={isPending} onClick={() => setConfirmDelete(true)} className="ml-1">

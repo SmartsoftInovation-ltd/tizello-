@@ -63,17 +63,22 @@ export async function getSession(): Promise<User | null> {
 }
 
 /**
- * `POST /logout`. Revokes the refresh-token family server-side and clears both
- * cookies. The local deletes are belt-and-braces for the case where the API is
- * unreachable: the user asked to sign out, and they must end up signed out even
- * if the call fails.
+ * `POST /logout`. Revokes the refresh-token family server-side, and ONLY THEN
+ * clears both cookies here.
+ *
+ * The cookies stay when the API does not confirm. Deleting them regardless
+ * looked signed out on this machine while the refresh token was still live on
+ * the server — anyone holding a copy could go on minting sessions. A failed
+ * sign-out now says so and can be retried; the caller renders the `code`.
  */
-export async function endSession(): Promise<void> {
-  await apiCall("/auth/logout", { method: "POST", forwardCookies: true });
+export async function endSession(): Promise<{ ok: true } | { ok: false; code: string }> {
+  const result = await apiCall("/auth/logout", { method: "POST", forwardCookies: true });
+  if (!result.ok) return { ok: false, code: result.code };
 
   const jar = await cookies();
   jar.delete(ACCESS_COOKIE);
   jar.delete(REFRESH_COOKIE);
+  return { ok: true };
 }
 
 /* --- credentials -------------------------------------------------------- */

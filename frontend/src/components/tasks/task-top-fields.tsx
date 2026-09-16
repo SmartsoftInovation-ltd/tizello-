@@ -47,8 +47,8 @@ export function TaskTopFields({
       <TopField label="Assignee" icon="people">
         <TaskAssigneePicker
           members={scope.members}
-          value={draft.assigneeId}
-          onChange={(assigneeId) => onChange({ assigneeId })}
+          value={draft.assigneeIds}
+          onChange={(assigneeIds) => onChange({ assigneeIds })}
         />
       </TopField>
 

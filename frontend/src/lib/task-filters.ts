@@ -43,7 +43,8 @@ export function matchesFilters(task: Task, filters: TaskFilters): boolean {
   if (filters.priority === "none" ? task.priority !== null : filters.priority && task.priority !== filters.priority) {
     return false;
   }
-  if (filters.assigneeId === "none" ? task.assigneeId !== null : filters.assigneeId && task.assigneeId !== filters.assigneeId) {
+  const assigned = (userId: string) => task.assignees.some((person) => person.id === userId);
+  if (filters.assigneeId === "none" ? task.assignees.length > 0 : filters.assigneeId && !assigned(filters.assigneeId)) {
     return false;
   }
   if (filters.tag && !task.tags.some((tag) => tag.toLowerCase() === filters.tag.toLowerCase())) {

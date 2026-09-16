@@ -31,7 +31,8 @@ export type TaskDraft = {
   color: string;
   statusId: string;
   priority: ProjectPriority | "";
-  assigneeId: string;
+  /** User ids, in the order they were assigned. */
+  assigneeIds: string[];
   dueDate: string;
   completedAt: string;
   tags: string[];
@@ -83,7 +84,7 @@ export function draftFromTask(
     color: task?.color ?? "",
     statusId: task?.statusId ?? seed.statusId ?? "",
     priority: task?.priority ?? "",
-    assigneeId: task?.assigneeId ?? "",
+    assigneeIds: task?.assignees.map((person) => person.id) ?? [],
     dueDate: day(task?.dueDate ?? null),
     completedAt: day(task?.completedAt ?? null),
     tags: task?.tags ?? [],
@@ -132,7 +133,7 @@ export function createInput(draft: TaskDraft, raw: ProjectPropertyPatch): TaskIn
     ...(draft.icon ? { icon: draft.icon } : {}),
     ...(draft.color ? { color: draft.color } : {}),
     ...(draft.priority ? { priority: draft.priority } : {}),
-    ...(draft.assigneeId ? { assigneeId: draft.assigneeId } : {}),
+    ...(draft.assigneeIds.length > 0 ? { assigneeIds: draft.assigneeIds } : {}),
     ...(draft.dueDate ? { dueDate: draft.dueDate } : {}),
     ...(draft.completedAt ? { completedAt: draft.completedAt } : {}),
     ...(draft.tags.length > 0 ? { tags: draft.tags } : {}),
@@ -173,7 +174,7 @@ export function taskPatch(
   if (draft.color !== stored.color) patch.color = orNull(draft.color);
   if (draft.statusId && draft.statusId !== stored.statusId) patch.statusId = draft.statusId;
   if (draft.priority !== stored.priority) patch.priority = draft.priority || null;
-  if (draft.assigneeId !== stored.assigneeId) patch.assigneeId = orNull(draft.assigneeId);
+  if (!same(draft.assigneeIds, stored.assigneeIds)) patch.assigneeIds = draft.assigneeIds;
   if (draft.dueDate !== stored.dueDate) patch.dueDate = orNull(draft.dueDate);
   if (draft.completedAt !== stored.completedAt) patch.completedAt = orNull(draft.completedAt);
   if (draft.parentId !== stored.parentId) patch.parentId = orNull(draft.parentId);

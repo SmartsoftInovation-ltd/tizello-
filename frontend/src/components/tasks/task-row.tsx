@@ -2,7 +2,7 @@
 
 import { BacklogRowMenu } from "@/components/backlog/backlog-row-menu";
 import { StoryPointsBadge } from "@/components/backlog/story-points-badge";
-import { TaskAssignee } from "@/components/backlog/task-assignee";
+import { TaskAssignees } from "@/components/backlog/task-assignees";
 import { ProjectPriorityBadge } from "@/components/projects/project-priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
@@ -116,13 +116,7 @@ export function TaskRow({ task, today, onOpen, onDelete, handle, selected = fals
 
       <div className="flex shrink-0 items-center gap-1.5">
         {trailing}
-        <TaskAssignee
-          assignee={
-            task.assignee
-              ? { id: task.assignee.id, name: task.assignee.name ?? task.assignee.email }
-              : undefined
-          }
-        />
+        <TaskAssignees people={task.assignees.map((person) => ({ id: person.id, name: person.name ?? person.email }))} />
         {/* Always drawn: View is for everyone who can see the row. Edit and
             Delete ride `onDelete`, which is only passed to someone who may
             change tasks — see `BacklogRowMenu`. */}

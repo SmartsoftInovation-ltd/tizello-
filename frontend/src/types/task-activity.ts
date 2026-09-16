@@ -13,7 +13,9 @@ export type TaskActivityField =
   | "type"
   | "status"
   | "priority"
+  /** Entries written before a task could have several people — one `{ id, name }`. */
   | "assignee"
+  | "assignees"
   | "dueDate"
   | "storyPoints"
   | "sprint"

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTransition } from "react";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,28 +18,43 @@ import { signOutAction } from "@/lib/actions/auth-actions";
 import { initials } from "@/lib/initials";
 
 /**
- * Sign out as a menu item that is also a real POST — `DropdownMenuItem`
- * (`ui/dropdown-menu-item.tsx`) only knows `onSelect` and `href`, neither of
- * which submits a form, so this reimplements its exact shape (`role`,
- * `tabIndex`, class) on a `<button type="submit">` instead. A GET would be
- * CSRF-able and prefetchable; this needs no client JavaScript to work.
+ * Sign out as a menu item that calls the server action — `DropdownMenuItem`
+ * (`ui/dropdown-menu-item.tsx`) only knows `onSelect` and `href`, so this
+ * reimplements its exact shape (`role`, `tabIndex`, class) on a `<button>`.
+ * Still a POST: a GET would be CSRF-able and prefetchable.
+ *
+ * WAITS FOR THE API. The item reads "Signing out…" and the menu stays open
+ * until `POST /auth/logout` answers: OK redirects to sign-in from the action;
+ * anything else closes the menu and toasts why, with the session untouched.
+ * The menu must stay mounted meanwhile — the pending state lives in this item.
  */
 function SignOutMenuItem() {
   const { closeAndRefocus } = useDropdownMenu();
+  const [isPending, startTransition] = useTransition();
+
+  function signOut() {
+    startTransition(async () => {
+      const result = await signOutAction();
+      if (result?.error) {
+        closeAndRefocus();
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
-    <form action={signOutAction}>
-      <button
-        type="submit"
-        role="menuitem"
-        tabIndex={-1}
-        onClick={closeAndRefocus}
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text focus:bg-surface-hover focus:text-text"
-      >
-        <SignOutIcon className="size-4 shrink-0" />
-        Sign out
-      </button>
-    </form>
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      disabled={isPending}
+      aria-busy={isPending}
+      onClick={signOut}
+      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text focus:bg-surface-hover focus:text-text disabled:opacity-60"
+    >
+      <SignOutIcon className="size-4 shrink-0" />
+      {isPending ? "Signing out…" : "Sign out"}
+    </button>
   );
 }
 
