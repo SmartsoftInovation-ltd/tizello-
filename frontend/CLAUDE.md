@@ -214,6 +214,26 @@ against demo data in `src/lib/`, never that a backend is wired.
       WHOLE assigned list, never the selected tab. That is why the page fetches
       `state=all` and filters client-side: a server-filtered list has no
       denominator, and a bar under the Done tab would otherwise read 100%.
+- [x] **Trash** — `/trash` (the sidebar's Trash row, no longer "Soon") over a
+      new backend module (`backend/src/modules/trash/`, contract at
+      `backend/docs/api/trash.md`). Deleted **projects and tasks** from every
+      workspace the caller is in, newest first, each with **Restore** and
+      **Delete forever**. **Restoring takes exactly the authority deleting
+      took** — the owner tier for a project, the contribute tier for a task —
+      because a lower bar lets someone undo a decision they could not have
+      made, and a higher one leaves a deletion nobody present can reverse.
+      Purge takes the same authority, not more: the row is already deleted, and
+      gating it higher leaves contributors a bin they can fill and never empty.
+      `canRestore` is resolved **per entry** (one caller is ADMIN in one
+      workspace and MEMBER in another) and only draws the button — the endpoint
+      enforces. Restore has no confirm (it is reversible); purge has one, and
+      it is the single place in this API where `DELETE` destroys the row.
+      Workspaces are deliberately not listed, nor are tasks inside a deleted
+      project — restore the project and its tasks come back with it.
+      **Tested:** `npm test` in `backend/` runs Node's built-in runner over the
+      permission ladder (12 cases, including "contributing is never harder than
+      managing"), and the restore/purge round-trip was verified live against
+      the dev database.
 - [ ] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
       the three role cards, a read-only permissions matrix (14 actions in four
       areas × OWNER / ADMIN / MEMBER, from `demo-permissions.ts`) and a role

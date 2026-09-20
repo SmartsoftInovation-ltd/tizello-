@@ -18,7 +18,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:migrate:deploy": "prisma migrate deploy"
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "test": "node --test"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

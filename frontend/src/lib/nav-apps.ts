@@ -68,7 +68,10 @@ export const SHELL_SECTIONS: readonly SidebarSection[] = [
         id: "trash",
         label: "Trash",
         icon: "trash",
-        hint: "Trash is not built yet",
+        /* Like My tasks, and unlike everything under Workspace: the trash
+           spans every workspace the caller is in, because someone looking for
+           what they deleted usually cannot remember where it was. */
+        href: "/trash",
       },
     ],
   },

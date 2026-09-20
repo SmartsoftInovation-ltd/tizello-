@@ -15,6 +15,7 @@ import {
 } from "../modules/project/project.routes.js";
 import memberRoutes from "../modules/member/member.routes.js";
 import searchRoutes from "../modules/search/search.routes.js";
+import trashRoutes from "../modules/trash/trash.routes.js";
 import projectPropertyRoutes from "../modules/project/project-property.routes.js";
 import {
   projectRouter as sprintProjectRoutes,
@@ -69,6 +70,10 @@ router.use("/api/v1/sprints", sprintRoutes);
 // project: its scope is every workspace the caller belongs to, resolved from
 // the session. docs/api/search.md.
 router.use("/api/v1/search", searchRoutes);
+// Cross-cutting like search, and mounted flat for the same reason: the trash
+// is not a place inside a workspace or a project, it is everything of the
+// caller's that is gone. docs/api/trash.md.
+router.use("/api/v1/trash", trashRoutes);
 // Everything else about a task is addressed by the task's own id — same
 // two-scope split as projects. Comments are their own router so the task
 // routes file lists tasks and nothing else.

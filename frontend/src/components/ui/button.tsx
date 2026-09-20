@@ -27,6 +27,18 @@ const VARIANT = {
      fight the disabled dim. */
   danger:
     "bg-danger text-text-inverse transition-[opacity,transform] duration-100 ease-standard hover:opacity-90 active:translate-y-px disabled:pointer-events-none disabled:opacity-60",
+  /* The destructive action OFFERED, as opposed to confirmed — a soft red that
+     says what the button does without shouting it from a list of rows.
+     `dangerSubtle` sits on a tinted fill with `text-danger` ink, which
+     DESIGN-SYSTEM.md measures at 4.57:1 light and 5.10:1 dark — the only
+     `-subtle` pair that clears AA with its own hue's ink, which is why this
+     variant can exist for danger and could not for success or warning (2.82:1
+     and 3.27:1; those take `text-text-muted` instead).
+     Hover escalates to the SOLID `danger` fill rather than deepening the tint:
+     there is no darker subtle token, and it means hovering previews exactly
+     what the confirm button will look like. */
+  dangerSubtle:
+    "bg-danger-subtle text-danger transition-colors duration-100 ease-standard hover:bg-danger hover:text-text-inverse disabled:pointer-events-none disabled:opacity-60",
 } as const;
 
 const SIZE = {
