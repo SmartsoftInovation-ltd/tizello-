@@ -142,6 +142,24 @@ against demo data in `src/lib/`, never that a backend is wired.
       `statusId` + neighbours (`use-sprint-board-dnd.ts`, optimistic). Header has
       dates, days left, points and Complete sprint; filters, task drawer and
       quick add per column. No active sprint → a link to sprint planning.
+- [x] **Sprint breakdown** — `/board/sprint/breakdown` (the Breakdown row under
+      Sprint board, and the second tab on the workflow strip) renders
+      `components/sprint-breakdown/` over the SAME `loadTaskScope` the board
+      uses, so the two can never be measuring different tasks. Read-only, and a
+      **Server Component end to end — the screen ships no JavaScript**: the
+      chart is a URL param (`?chart=pie|bar|gantt`, `lib/sprint-breakdown-view.ts`),
+      not state. Three views of the running sprint: **Status share** (inline-SVG
+      donut, the projects donut pointed at task statuses), **Workload** (points
+      per person as a horizontal stacked bar, Done / In progress / To do, scaled
+      to the heaviest row), **Timeline** (a bar per task across the sprint
+      window, with a today line). All arithmetic is pure in `lib/sprint-breakdown.ts`.
+      **The per-task table sits under every chart** as the accessibility twin —
+      the `label-*` status hues fail a categorical-palette check (brown and red
+      are one colour under protanopia; all eight are under 3:1 on white), so
+      colour is recognition only and every value is real text. Per-task progress
+      is **"step N of M" through the project's own statuses**, never an invented
+      percentage. A gantt bar runs creation → due date, which is a window, not a
+      schedule — tasks carry no planned start.
 - [x] **Fixture sprint board (superseded)** — `/board/[boardId]` still renders the one ACTIVE sprint
       (SPR-13) from `demo-board.ts`: header with project, sprint, window and
       state badge; live done/total and points on the toolbar; three columns of

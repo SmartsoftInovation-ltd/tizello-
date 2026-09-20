@@ -46,7 +46,7 @@ export default async function BoardSprintPlanningPage({ searchParams }: PageProp
       </header>
 
       <div className="mt-6 border-b border-border">
-        <SprintWorkflowNav current="sprint-planning" />
+        <SprintWorkflowNav current="sprint-planning" projectId={selected?.project.id} />
       </div>
 
       {selected ? (

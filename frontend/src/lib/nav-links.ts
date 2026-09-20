@@ -82,6 +82,15 @@ const PROJECT_VIEW_CHILDREN: readonly SidebarChildItem[] = PROJECT_VIEWS.map(
 export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
   { id: "current-sprint", label: "Current sprint", href: "/board/sprint" },
   {
+    id: "sprint-breakdown",
+    label: "Breakdown",
+    /* The running sprint measured rather than worked — status share, workload
+       per person, and the timeline. It sits directly under Current sprint
+       because it is a lens on that same sprint, not a fourth stage of the
+       workflow: everything it draws is the board's own tasks, read-only. */
+    href: "/board/sprint/breakdown",
+  },
+  {
     id: "sprint-planning",
     label: "Sprint planning",
     /* The real planning screen, which picks its project from `?project=` the

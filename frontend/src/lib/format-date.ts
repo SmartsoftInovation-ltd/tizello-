@@ -24,3 +24,23 @@ const DAY_MONTH_YEAR = new Intl.DateTimeFormat("en-GB", {
 export function formatDate(iso: string): string {
   return DAY_MONTH_YEAR.format(new Date(iso));
 }
+
+const WEEKDAY_DAY_MONTH = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+/**
+ * `"2026-09-21T00:00:00.000Z"` → `"Mon 21 Sept"`. A deadline someone is
+ * planning around, rather than a stored date being reported.
+ *
+ * The weekday is in and the year is out, which is the whole difference from
+ * `formatDate`: "Mon" is what tells you whether you have a working day left,
+ * and a deadline far enough away for the year to matter is not a deadline
+ * anyone is counting hours against.
+ */
+export function formatDeadline(iso: string): string {
+  return WEEKDAY_DAY_MONTH.format(new Date(iso));
+}

@@ -1,6 +1,5 @@
 import { SprintBoardCard } from "@/components/current-sprint/sprint-board-card";
-import { STATUS_DOT } from "@/components/tasks/task-tone";
-import { cn } from "@/lib/cn";
+import { TaskStatusChip } from "@/components/tasks/task-status-chip";
 import type { Task, TaskStatusOption } from "@/types/task";
 
 /**
@@ -12,9 +11,8 @@ import type { Task, TaskStatusOption } from "@/types/task";
 export function ColumnDragPreview({ status, tasks, today }: { status: TaskStatusOption; tasks: Task[]; today: string }) {
   return (
     <div className="w-list rotate-1 scale-[1.02] cursor-grabbing rounded-lg border border-brand-500/50 bg-panel p-2 shadow-raised ring-4 ring-brand-500/15">
-      <div className="flex items-center gap-2 px-1 pb-2">
-        <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status.color])} />
-        <span className="truncate text-xs font-semibold tracking-wide text-text uppercase">{status.name}</span>
+      <div className="flex items-center gap-2 px-0.5 pb-2">
+        <TaskStatusChip status={status} />
         <span className="rounded-full bg-surface-hover px-1.5 text-2xs font-semibold text-text-muted tabular-nums">{tasks.length}</span>
       </div>
       <div className="flex flex-col gap-1.5">

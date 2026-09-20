@@ -43,7 +43,7 @@ export default async function CurrentSprintPage({ searchParams }: PageProps<"/bo
       </h1>
 
       <div className="mt-3 border-b border-border">
-        <SprintWorkflowNav current="current-sprint" />
+        <SprintWorkflowNav current="current-sprint" projectId={selected?.project.id} />
       </div>
 
       {selected ? (

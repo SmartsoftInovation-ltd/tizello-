@@ -1,5 +1,6 @@
 import { SprintCountdown } from "@/components/current-sprint/sprint-countdown";
 import { cn } from "@/lib/cn";
+import { formatDeadline } from "@/lib/format-date";
 import { daysInclusive, daysRemaining } from "@/lib/sprint-dates";
 import type { PointsByGroup } from "@/lib/sprint-plan";
 
@@ -12,6 +13,13 @@ import type { PointsByGroup } from "@/lib/sprint-plan";
  * row, a 6px bar, a caption row — and the strip centres its three cells
  * vertically, so the two bars sit on one line and the countdown panel sits
  * centred beside them rather than hanging off the bottom.
+ *
+ * TIME-LEFT IS A NUMBER IN EXACTLY ONE PLACE — the countdown. The caption
+ * under the bar names the deadline instead of counting toward it, because the
+ * two counted in different units and so disagreed on screen: "2 days left" is
+ * calendar days INCLUDING today, while the countdown runs to 23:59:59 on the
+ * end date, so the afternoon before the last day read "2 days left" beside a
+ * tile showing 1. Both were right; showing both was the bug.
  *
  * Reading work and time together is the point: 30% done at 80% of the time is
  * the sentence a stand-up needs. Segment widths are genuinely dynamic values,
@@ -108,7 +116,15 @@ export function SprintProgress({
             </>
           )
         }
-        caption={left === null ? "Set dates to track time" : late ? "Past its end date" : left === 1 ? "Last day" : `${left} days left`}
+        caption={
+          endDate === null
+            ? "Set dates to track time"
+            : late
+              ? `Ended ${formatDeadline(endDate)}`
+              : left === 1
+                ? `Last day — ends ${formatDeadline(endDate)}`
+                : `Ends ${formatDeadline(endDate)}`
+        }
       >
         <span className={cn("rounded-full transition-[width] duration-500 ease-standard", late ? "bg-danger" : "bg-brand-500")} style={{ width: `${timePercent}%` }} />
       </Cell>

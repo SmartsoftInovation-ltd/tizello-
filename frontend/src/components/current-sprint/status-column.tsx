@@ -4,16 +4,26 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { SortableSprintCard } from "@/components/current-sprint/sortable-sprint-card";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { TaskQuickAdd } from "@/components/tasks/task-quick-add";
-import { STATUS_DOT } from "@/components/tasks/task-tone";
+import { TaskStatusChip } from "@/components/tasks/task-status-chip";
+import { STATUS_COLUMN } from "@/components/tasks/task-tone";
 import { PointsIcon } from "@/components/ui/points-icon";
 import { cn } from "@/lib/cn";
 import { columnKey } from "@/lib/current-sprint";
 import type { Task, TaskStatusOption } from "@/types/task";
 
 /**
- * One status as a column: its dot, name, card count and points, the cards in
- * rank order, and a quick add that files straight into this status AND this
- * sprint.
+ * One status as a column: its pill, card count and points, the cards in rank
+ * order, and a quick add that files straight into this status AND this sprint.
+ *
+ * THE BOX IS WASHED IN THE STATUS'S OWN HUE (`STATUS_COLUMN`) and headed by
+ * the same `TaskStatusChip` the backlog, the picker and the drawer use, so a
+ * status looks like itself everywhere and the rail reads as its workflow at a
+ * glance rather than as five identical grey boxes. The wash is deliberately
+ * fainter than a card's — see the tone table for why.
+ *
+ * The brand ring for `isDragging` / `receiving` REPLACES the hue rather than
+ * layering over it: two colours arguing over one box during a drag is how you
+ * lose track of where the card is going.
  *
  * `w-list` (272px) like every column in the app, and exactly as tall as the
  * rail: the page fits the viewport, so a long column scrolls its OWN cards
@@ -75,19 +85,23 @@ export function StatusColumn({
       aria-label={status.name}
       style={{ transform: transform ? `translate3d(${transform.x}px, 0, 0)` : undefined, transition }}
       className={cn(
-        "flex h-full min-h-0 w-list shrink-0 flex-col rounded-lg border bg-panel p-2 transition-[border-color,box-shadow,background-color] duration-300 ease-standard",
+        "flex h-full min-h-0 w-list shrink-0 flex-col rounded-lg border p-2 transition-[border-color,box-shadow,background-color] duration-300 ease-standard",
         canMove && "cursor-grab active:cursor-grabbing",
+        /* Both drag states re-state `bg-panel`: the hue is a gradient over that
+           base, so a state that only set a translucent fill would let the
+           canvas through where the wash used to be. */
         isDragging
-          ? "border-dashed border-brand-500/60 bg-brand-500/5"
+          ? "border-dashed border-brand-500/60 bg-panel bg-linear-to-b from-brand-500/8 to-brand-500/8"
           : receiving
-            ? "border-brand-500/60 bg-brand-500/5 ring-4 ring-brand-500/15"
-            : "border-border",
+            ? "border-brand-500/60 bg-panel bg-linear-to-b from-brand-500/12 to-brand-500/12 ring-4 ring-brand-500/15"
+            : STATUS_COLUMN[status.color],
       )}
     >
       <div className={cn("flex min-h-0 flex-1 flex-col", isDragging && "invisible")}>
-        <header className="flex items-center gap-2 px-1 pb-2">
-          <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", STATUS_DOT[status.color])} />
-          <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide text-text uppercase">{status.name}</h2>
+        <header className="flex items-center gap-2 px-0.5 pb-2">
+          <h2 className="flex min-w-0">
+            <TaskStatusChip status={status} />
+          </h2>
           <span className="rounded-full bg-surface-hover px-1.5 text-2xs font-semibold text-text-muted tabular-nums">{tasks.length}</span>
           {points > 0 && (
             <span title="Story points in this column" className="ml-auto inline-flex items-center gap-1 text-2xs font-medium text-text-subtle tabular-nums">

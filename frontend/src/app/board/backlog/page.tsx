@@ -32,7 +32,7 @@ export default async function BoardBacklogPage({ searchParams }: PageProps<"/boa
 
   const { selected, requestedEntry, groups } = await boardProjectSelection(requested);
 
-  const tabs = <SprintWorkflowNav current="backlog" />;
+  const tabs = <SprintWorkflowNav current="backlog" projectId={selected?.project.id} />;
 
   return (
     <main className="w-full px-4 py-8 sm:px-6">

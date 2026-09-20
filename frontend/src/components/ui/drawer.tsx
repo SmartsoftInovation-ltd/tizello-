@@ -181,9 +181,23 @@ export function DrawerHeader({ className, ...props }: React.ComponentProps<"div"
   );
 }
 
-/** `flex-1` claims the space between header and footer; `overflow-y-auto` is here rather than on the panel so the two sticky bars never scroll. */
+/**
+ * `flex-1` claims the space between header and footer; `overflow-y-auto` is
+ * here rather than on the panel so the two sticky bars never scroll.
+ *
+ * NO VISIBLE SCROLLBAR (`scrollbar-hidden`), still fully scrollable — wheel,
+ * trackpad, touch, keyboard and `scrollTop` all work untouched. A panel this
+ * narrow spent 15px of its width on a grey bar running between the header and
+ * footer rules, which is the loudest vertical line in a form whose own fields
+ * are hairlines. The same choice the pickers and the filter dialog already
+ * make.
+ *
+ * It is a real trade — a hidden scrollbar is a hidden affordance — and it is
+ * paid for here by the header and footer: content clipped against two fixed
+ * bars reads as "there is more", where a free-floating region would not.
+ */
 export function DrawerBody({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("min-h-0 flex-1 overflow-y-auto px-5 py-4", className)} {...props} />;
+  return <div className={cn("scrollbar-hidden min-h-0 flex-1 overflow-y-auto px-5 py-4", className)} {...props} />;
 }
 
 /**
