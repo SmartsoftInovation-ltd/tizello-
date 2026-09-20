@@ -102,12 +102,10 @@ export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
 
 export const PRIMARY_ITEMS: readonly SidebarItem[] = [
   { id: "home", label: "Home", icon: "home", href: "/workspaces" },
-  {
-    id: "search",
-    label: "Search",
-    icon: "search",
-    hint: "Search is not built yet",
-  },
+  /* No `href`: Search opens the ⌘K palette rather than a route, so
+     `SidebarNav` renders it through `SearchSidebarItem`. It carries no `hint`
+     either — a hint is what marks a row as unavailable, and this one works. */
+  { id: "search", label: "Search", icon: "search" },
 ];
 
 export const SIDEBAR_SECTIONS: readonly SidebarSection[] = [

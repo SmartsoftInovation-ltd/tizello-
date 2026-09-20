@@ -174,6 +174,23 @@ against demo data in `src/lib/`, never that a backend is wired.
       "Complete sprint" opens a confirm that changes nothing — `closeSprint` in
       `lib/sprint.ts` is still uncalled. All `useState`: nothing persists past
       a refresh.
+- [x] **Search** — the sidebar's Search row and ⌘K / Ctrl+K anywhere open a
+      command palette (`components/search/`) over a **new backend module**
+      (`backend/src/modules/search/`, contract at `backend/docs/api/search.md`).
+      One `GET /search?q=` returns tasks, projects and sprints from **every
+      workspace the caller belongs to** — scope is resolved server-side from
+      the session, so there is no workspace id to pass and none a caller could
+      forge. Matching is substring + case-insensitive, plus an exact key match
+      when the term looks like `TIZ-12` or `SPR-4`. Debounced at 250ms with
+      **versioned responses** (a late reply for a shorter term is dropped);
+      arrows wrap, Enter opens, Esc closes. A task hit links to the board that
+      actually shows it — sprint board if it is in a sprint, backlog if not.
+      Rate-limited 60/min keyed on the USER, not the IP (`searchLimiter`) —
+      the only limiter here that is, because `contains` across three tables is
+      a scan per keystroke. **Not yet:** ranking (no relevance score; results
+      are `updatedAt desc`), task descriptions (a full-text change, not another
+      `OR`), and a `?task=` deep link — a hit lands you on the right board with
+      the task visible, but does not open its drawer.
 - [ ] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
       the three role cards, a read-only permissions matrix (14 actions in four
       areas × OWNER / ADMIN / MEMBER, from `demo-permissions.ts`) and a role

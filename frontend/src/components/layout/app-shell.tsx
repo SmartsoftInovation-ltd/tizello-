@@ -1,6 +1,7 @@
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ContentStrip } from "@/components/layout/content-strip";
 import { SidebarFrame } from "@/components/layout/sidebar-frame";
+import { SearchPalette } from "@/components/search/search-palette";
 
 /**
  * The application shell: a persistent left sidebar and a content column.
@@ -58,6 +59,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
+
+      {/* Mounted once for the whole shell: it is opened from the sidebar row
+          and from ⌘K anywhere, and a `<dialog>` in the top layer does not care
+          where in the tree it lives. */}
+      <SearchPalette />
     </div>
   );
 }

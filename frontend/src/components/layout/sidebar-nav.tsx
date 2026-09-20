@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { SearchSidebarItem } from "@/components/layout/search-sidebar-item";
 import { SidebarItem } from "@/components/layout/sidebar-item";
 import { SidebarSection } from "@/components/layout/sidebar-section";
 import { useActiveWorkspaceId } from "@/components/workspace/use-active-workspace-id";
@@ -38,6 +39,10 @@ export function SidebarNav({
     >
       <ul className="space-y-0.5">
         {primary.map((item) => {
+          /* Search opens the ⌘K palette instead of navigating — the one nav
+             row that is a button. */
+          if (item.id === "search") return <SearchSidebarItem key={item.id} item={item} />;
+
           const href = resolveHref(item, workspaceId);
           return (
             <SidebarItem

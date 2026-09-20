@@ -224,6 +224,37 @@ const uploadLimiter = failClosed(
   limiter({ name: 'upload', windowMs: 60 * 60 * 1000, max: 60, keyGenerator: ipKey })
 );
 
+/**
+ * Type-ahead search, keyed on the CALLER rather than the address.
+ *
+ * Every other limiter here keys on the IP (plus an email where the body
+ * carries one), because the caller is anonymous at the point it runs. Search
+ * sits behind `authGuard`, so `req.user.id` exists and is the better key: an
+ * office, a school or a VPN is one address and many people, and an
+ * IP-keyed budget would have the twentieth person to type a query locked out
+ * by the nineteenth. The address is kept as the fallback, since the limiter
+ * still runs if the guard is ever reordered away from in front of it.
+ *
+ * 60 a minute is deliberately generous for a HUMAN and tight for a loop: the
+ * client debounces at 250ms and refuses to ask below two characters, so a
+ * person typing continuously lands near 4 requests a minute. A caller reaching
+ * 60 is not typing.
+ *
+ * Unlike the project, task and sprint routes — which ship no limiter at all,
+ * the gap docs/api/task.md §Rate limiting records — this endpoint gets one
+ * because `contains` across three tables is a sequential scan per keystroke,
+ * so it is the cheapest expensive request in the API. docs/api/search.md
+ * §Rate limiting.
+ */
+const searchLimiter = failClosed(
+  limiter({
+    name: 'search',
+    windowMs: 60 * 1000,
+    max: 60,
+    keyGenerator: (req) => (req.user?.id ? `u:${req.user.id}` : ipKey(req)),
+  })
+);
+
 export {
   apiLimiter,
   authLimiter,
@@ -237,4 +268,5 @@ export {
   workspaceCreateLimiter,
   projectCreateLimiter,
   uploadLimiter,
+  searchLimiter,
 };

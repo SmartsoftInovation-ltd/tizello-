@@ -14,6 +14,7 @@ import {
   projectRouter as projectRoutes,
 } from "../modules/project/project.routes.js";
 import memberRoutes from "../modules/member/member.routes.js";
+import searchRoutes from "../modules/search/search.routes.js";
 import projectPropertyRoutes from "../modules/project/project-property.routes.js";
 import {
   projectRouter as sprintProjectRoutes,
@@ -64,6 +65,10 @@ router.use("/api/v1/projects/:projectId/tasks", taskProjectRoutes);
 // list are project-scoped; everything else is addressed by the sprint's own id.
 router.use("/api/v1/projects/:projectId/sprints", sprintProjectRoutes);
 router.use("/api/v1/sprints", sprintRoutes);
+// Cross-cutting, so it is mounted flat rather than under a workspace or a
+// project: its scope is every workspace the caller belongs to, resolved from
+// the session. docs/api/search.md.
+router.use("/api/v1/search", searchRoutes);
 // Everything else about a task is addressed by the task's own id — same
 // two-scope split as projects. Comments are their own router so the task
 // routes file lists tasks and nothing else.
