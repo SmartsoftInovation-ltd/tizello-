@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound, redirect } from "next/navigation";
 import { BacklogPageHeader } from "@/components/backlog/backlog-page-header";
 import { ProjectBacklog } from "@/components/tasks/project-backlog";
@@ -50,8 +51,10 @@ export default async function ProjectBacklogPage({
   if (!workspace || !project || project.workspaceId !== workspace.id) notFound();
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <BacklogPageHeader workspaceId={workspace.id} project={project} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <BacklogPageHeader workspaceId={workspace.id} project={project} />
+      </PageTop>
       <ProjectBacklog workspace={workspace} project={project} userId={user.id} />
     </main>
   );

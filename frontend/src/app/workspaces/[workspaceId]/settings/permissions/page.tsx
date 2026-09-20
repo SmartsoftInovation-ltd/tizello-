@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound } from "next/navigation";
 import { PermissionsBoard } from "@/components/permissions/permissions-board";
 import { PermissionsPageHeader } from "@/components/permissions/permissions-page-header";
@@ -51,8 +52,10 @@ export default async function PermissionsPage({
   ]);
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <PermissionsPageHeader workspace={workspace} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <PermissionsPageHeader workspace={workspace} />
+      </PageTop>
       <PermissionsBoard
         groups={groups}
         roles={roles}

@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound } from "next/navigation";
 import { ProjectGrid } from "@/components/workspace/project-grid";
 import { WorkspaceArchivedBanner } from "@/components/workspace/workspace-archived-banner";
@@ -81,8 +82,10 @@ export default async function WorkspacePage({
   };
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <WorkspaceDetailHeader workspace={workspace} workspaces={workspaces} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <WorkspaceDetailHeader workspace={workspace} workspaces={workspaces} />
+      </PageTop>
 
       {workspace.isArchived && <WorkspaceArchivedBanner role={workspace.role} />}
 

@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound, redirect } from "next/navigation";
 import { ProjectArchivedBanner } from "@/components/projects/project-archived-banner";
 import { ProjectDetailFacts } from "@/components/projects/project-detail-facts";
@@ -86,15 +87,17 @@ export default async function ProjectPage({
   };
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <ProjectDetailHeader
-        project={project}
-        workspaceName={workspace.name}
-        workspaceRole={workspace.role}
-        scope={scope}
-        members={members}
-        workspaceMembers={workspaceMembers}
-      />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <ProjectDetailHeader
+          project={project}
+          workspaceName={workspace.name}
+          workspaceRole={workspace.role}
+          scope={scope}
+          members={members}
+          workspaceMembers={workspaceMembers}
+        />
+      </PageTop>
 
       {project.isArchived && (
         <ProjectArchivedBanner

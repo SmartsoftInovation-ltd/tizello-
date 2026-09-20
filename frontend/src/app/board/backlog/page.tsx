@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BacklogProjectPicker } from "@/components/tasks/backlog-project-picker";
@@ -35,14 +36,14 @@ export default async function BoardBacklogPage({ searchParams }: PageProps<"/boa
   const tabs = <SprintWorkflowNav current="backlog" projectId={selected?.project.id} />;
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
+    <main className="w-full px-4 pb-8 sm:px-6">
       {/* Only an explicit pick moves the remembered workspace. The fallback to
           another workspace's project (the remembered one has none) must not
           overwrite the user's choice. */}
       {requestedEntry && <RememberWorkspace workspaceId={requestedEntry.workspace.id} />}
 
-      <header>
-        <div className="min-w-0">
+      <PageTop>
+        <header className="min-w-0">
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-text">
             <BacklogIcon className="size-5 shrink-0 text-text-muted" />
             Backlog
@@ -52,8 +53,8 @@ export default async function BoardBacklogPage({ searchParams }: PageProps<"/boa
               ? `Everything ${selected.project.name} might do, grouped by status. Planning is what moves a task into a sprint.`
               : "A backlog belongs to a project. Create one to start adding tasks."}
           </p>
-        </div>
-      </header>
+        </header>
+      </PageTop>
 
       {selected ? (
         /* Tabs on the left of the toolbar, the project picker beside

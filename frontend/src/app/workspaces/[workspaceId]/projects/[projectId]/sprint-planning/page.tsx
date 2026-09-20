@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound, redirect } from "next/navigation";
 import { SprintWorkflowNav } from "@/components/sprint-board/sprint-workflow-nav";
 import { PlanningPageHeader } from "@/components/sprint-planning/planning-page-header";
@@ -45,11 +46,13 @@ export default async function SprintPlanningPage({
   if (!workspace || !project || project.workspaceId !== workspace.id) notFound();
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <div className="mb-6">
-        <SprintWorkflowNav current="sprint-planning" />
-      </div>
-      <PlanningPageHeader workspaceId={workspace.id} project={project} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <div className="mb-4">
+          <SprintWorkflowNav current="sprint-planning" />
+        </div>
+        <PlanningPageHeader workspaceId={workspace.id} project={project} />
+      </PageTop>
       <ProjectSprintPlanning workspace={workspace} project={project} userId={user.id} />
     </main>
   );

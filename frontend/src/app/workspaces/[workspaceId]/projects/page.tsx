@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound, redirect } from "next/navigation";
 import { ProjectsPageHeader } from "@/components/projects/projects-page-header";
 import { ProjectsToolbar } from "@/components/projects/projects-toolbar";
@@ -102,17 +103,19 @@ export default async function ProjectsPage({
   };
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <ProjectsPageHeader workspace={workspace} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop className="pb-0">
+        <ProjectsPageHeader workspace={workspace} />
 
-      {/* The strip wraps rather than scrolls: at 360px the five view links
-          take the first line and the toolbar drops below them. */}
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-border">
-        <ProjectsViewNav workspaceId={workspace.id} view={view} filters={filters} />
-        <div className="pb-1.5">
-          <ProjectsToolbar scope={scope} view={view} filters={filters} />
+        {/* The strip wraps rather than scrolls: at 360px the five view links
+            take the first line and the toolbar drops below them. */}
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
+          <ProjectsViewNav workspaceId={workspace.id} view={view} filters={filters} />
+          <div className="pb-1.5">
+            <ProjectsToolbar scope={scope} view={view} filters={filters} />
+          </div>
         </div>
-      </div>
+      </PageTop>
 
       {/* The wrapper carries every layout preference as an attribute; the
           views inside stay server-rendered. See `projects-prefs-scope.tsx`. */}

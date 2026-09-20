@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound } from "next/navigation";
 import { MembersPageHeader } from "@/components/members/members-page-header";
 import { MembersPanel } from "@/components/members/members-panel";
@@ -48,8 +49,10 @@ export default async function MembersPage({
   ]);
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <MembersPageHeader workspace={workspace} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <MembersPageHeader workspace={workspace} />
+      </PageTop>
       <MembersPanel
         members={members}
         invitations={invitations}

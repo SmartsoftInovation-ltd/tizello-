@@ -45,6 +45,12 @@ import { SearchPalette } from "@/components/search/search-palette";
  * The sidebar has the same arrangement one level down: `AppSidebar` pins the
  * switcher and gives `SidebarNav` the scroll region, so a long nav scrolls
  * inside the column rather than moving it.
+ *
+ * A PAGE'S OWN HEADING PINS ITSELF, one level further down again: `PageTop`
+ * sticks it to the top of the scroll region this component provides. The board
+ * screens do it structurally instead (a fixed header over columns that scroll
+ * individually), which is why this is a page's choice rather than something
+ * imposed here.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (

@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -55,17 +56,19 @@ export default async function ProfilePage() {
   const name = displayName(profile);
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <Breadcrumb />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <Breadcrumb />
 
-      <header className="mt-6">
-        <h1 className="text-xl font-semibold tracking-tight text-text">
-          Your profile
-        </h1>
-        <p className="mt-1 text-sm text-text-muted">
-          How you appear to everyone in your workspaces.
-        </p>
-      </header>
+        <header className="mt-4">
+          <h1 className="text-xl font-semibold tracking-tight text-text">
+            Your profile
+          </h1>
+          <p className="mt-1 text-sm text-text-muted">
+            How you appear to everyone in your workspaces.
+          </p>
+        </header>
+      </PageTop>
 
       {/* Deliberately no `items-start`: stretch is the default, and it is what
           gives every card the row's height. */}

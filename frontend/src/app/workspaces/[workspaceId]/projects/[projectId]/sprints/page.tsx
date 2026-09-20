@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import { notFound } from "next/navigation";
 import { SprintsPageHeader } from "@/components/sprints/sprints-page-header";
 import { SprintsPanel } from "@/components/sprints/sprints-panel";
@@ -43,8 +44,10 @@ export default async function ProjectSprintsPage({
   const sprints = await getProjectSprints(projectId);
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
-      <SprintsPageHeader workspaceId={workspace.id} project={project} />
+    <main className="w-full px-4 pb-8 sm:px-6">
+      <PageTop>
+        <SprintsPageHeader workspaceId={workspace.id} project={project} />
+      </PageTop>
 
       {/* Everything below the header is interactive, so `SprintsPanel` is the
           client leaf — the header itself ships no JavaScript.

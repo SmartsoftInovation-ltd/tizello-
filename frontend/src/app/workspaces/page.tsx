@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -42,23 +43,23 @@ export default async function WorkspacesPage({ searchParams }: PageProps<"/works
   const workspaces = archived ? all.filter((workspace) => workspace.isArchived) : all;
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
+    <main className="w-full px-4 pb-8 sm:px-6">
       {query[WELCOME_PARAM] === "1" && <WelcomeFireworks />}
 
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+      <PageTop className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <header className="min-w-0">
           {/* The trail IS the page title here — its last crumb renders as the
               `<h1>`, so this heading level is not lost to a decorative row. */}
           <Breadcrumb heading label={archived ? "Archived workspaces" : "Workspaces"} />
           <p className="mt-1.5 text-sm text-text-muted">
             {user.name} · {plural(workspaces.length, "workspace", "workspaces")}
           </p>
-        </div>
+        </header>
 
         {/* The grid carries its own create tile; the list has nowhere to put
             one, and the archived view deliberately has neither. */}
         {view === "list" && !archived && <CreateWorkspaceButton />}
-      </header>
+      </PageTop>
 
       <WorkspacesToolbar view={view} archived={archived} />
 

@@ -1,3 +1,4 @@
+import { PageTop } from "@/components/layout/page-top";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SprintWorkflowNav } from "@/components/sprint-board/sprint-workflow-nav";
@@ -29,21 +30,23 @@ export default async function BoardSprintPlanningPage({ searchParams }: PageProp
   const { selected, requestedEntry, groups } = await boardProjectSelection(requested);
 
   return (
-    <main className="w-full px-4 py-8 sm:px-6">
+    <main className="w-full px-4 pb-8 sm:px-6">
       {/* Only an explicit pick moves the remembered workspace — see the backlog page. */}
       {requestedEntry && <RememberWorkspace workspaceId={requestedEntry.workspace.id} />}
 
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-text">
-          <PlanningIcon className="size-5 shrink-0 text-text-muted" />
-          Sprint planning
-        </h1>
-        <p className="mt-1 max-w-prose text-sm text-text-muted">
-          {selected
-            ? `Plan ${selected.project.name}'s sprints: drag work from the backlog into a sprint, estimate it, then start the sprint.`
-            : "Sprints belong to a project. Create one to start planning."}
-        </p>
-      </header>
+      <PageTop>
+        <header>
+          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-text">
+            <PlanningIcon className="size-5 shrink-0 text-text-muted" />
+            Sprint planning
+          </h1>
+          <p className="mt-1 max-w-prose text-sm text-text-muted">
+            {selected
+              ? `Plan ${selected.project.name}'s sprints: drag work from the backlog into a sprint, estimate it, then start the sprint.`
+              : "Sprints belong to a project. Create one to start planning."}
+          </p>
+        </header>
+      </PageTop>
 
       <div className="mt-6 border-b border-border">
         <SprintWorkflowNav current="sprint-planning" projectId={selected?.project.id} />
