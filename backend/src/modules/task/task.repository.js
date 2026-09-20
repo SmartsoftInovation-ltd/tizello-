@@ -127,6 +127,67 @@ const findTasksForProject = async (projectId, { page, limit, statusId, q, parent
   return { rows, total };
 };
 
+/*
+ * Tasks assigned to one person, across every project they can see.
+ *
+ * SCOPED BY MEMBERSHIP AS WELL AS BY ASSIGNMENT, and the second clause is not
+ * redundant. Assignment and access are different facts: someone removed from a
+ * workspace keeps their `TaskAssignee` rows, so assignment alone would keep
+ * serving them that workspace's work after they lost the right to see it. The
+ * membership join is what makes the list shrink when access does.
+ *
+ * `project.isArchived: false` matches the search module for the same reason —
+ * archiving means "stop showing me this", and a to-do list that resurfaces an
+ * archived project's work has undone it.
+ *
+ * ORDER IS DUE DATE, NULLS LAST, THEN PRIORITY, NULLS LAST. A to-do list is
+ * read top-down and answered "what is next", which is a deadline question;
+ * undated work cannot be next, so it sinks below everything dated rather than
+ * sorting as either very early or very late.
+ *
+ * Priority is `desc` and that is not a typo. Prisma orders an enum by its
+ * DECLARATION order, and `Priority` is declared LOW → URGENT, so ascending
+ * would put the least urgent work at the top of a list whose whole job is to
+ * say what to do next. `position` breaks the remaining ties, so two undated,
+ * unprioritised tasks in one project keep their backlog order.
+ */
+const findTasksAssignedTo = async (userId, { page, limit, state }) => {
+  const where = {
+    deletedAt: null,
+    assignees: { some: { userId } },
+    project: {
+      deletedAt: null,
+      isArchived: false,
+      workspace: { deletedAt: null, memberships: { some: { userId } } },
+    },
+    ...(state === 'open' ? { status: { group: { not: 'COMPLETE' } } } : {}),
+    ...(state === 'done' ? { status: { group: 'COMPLETE' } } : {}),
+  };
+
+  const [rows, total] = await Promise.all([
+    prisma.task.findMany({
+      where,
+      include: {
+        ...TASK_INCLUDE,
+        /* Overrides `TASK_INCLUDE`'s `{ key: true }`: a list that spans
+           projects has to NAME the project on every row and link to it, which
+           needs the id and the workspace it lives in. */
+        project: { select: { id: true, key: true, name: true, workspaceId: true } },
+      },
+      orderBy: [
+        { dueDate: { sort: 'asc', nulls: 'last' } },
+        { priority: { sort: 'desc', nulls: 'last' } },
+        { position: 'asc' },
+      ],
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.task.count({ where }),
+  ]);
+
+  return { rows, total };
+};
+
 /** The minimum needed to check a would-be parent and walk its ancestry. */
 const findParentLink = (id) =>
   prisma.task.findFirst({
@@ -227,6 +288,7 @@ export default {
   findTaskById,
   findTasksByIds,
   findTasksForProject,
+  findTasksAssignedTo,
   findParentLink,
   findRankLink,
   rebalancePositions,

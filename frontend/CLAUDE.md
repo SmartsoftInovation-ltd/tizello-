@@ -191,6 +191,29 @@ against demo data in `src/lib/`, never that a backend is wired.
       are `updatedAt desc`), task descriptions (a full-text change, not another
       `OR`), and a `?task=` deep link — a hit lands you on the right board with
       the task visible, but does not open its drawer.
+- [x] **My tasks** — `/my-tasks` (the sidebar's My tasks row, no longer
+      "Soon") over a new endpoint, `GET /tasks/assigned`
+      (`backend/docs/api/task.md` §2a). Everything assigned to the signed-in
+      person across every project they can see, **bucketed by deadline** —
+      Overdue / Today / Next 7 days / Later / No due date — not by project: a
+      list sorted into six project sections makes the reader merge it
+      themselves. `?state=open|done|all`, defaulting to `open`.
+      **Scope is the caller's id applied TWICE** — assignment AND workspace
+      membership — because a `TaskAssignee` row survives the assignee leaving
+      the workspace, so assignment alone would keep serving work they can no
+      longer read. Server Component end to end; the filter is three links, so
+      the screen ships no JavaScript. Ordering is due date (nulls last), then
+      priority `desc` (Prisma sorts an enum by declaration order, and
+      `Priority` is declared LOW→URGENT). **Read-only on purpose:** a row links
+      to the board the task is on, and there is no status picker — a list
+      spanning six projects cannot define "next status" for six workflows.
+      A completed task is never marked overdue. A **progress bar** heads the
+      page — Done / In progress / To do as one segmented bar in the sprint
+      strip's own three colours, counted in TASKS (points would drop every
+      unestimated task out of both sides of the ratio) and measured over the
+      WHOLE assigned list, never the selected tab. That is why the page fetches
+      `state=all` and filters client-side: a server-filtered list has no
+      denominator, and a bar under the Done tab would otherwise read 100%.
 - [ ] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
       the three role cards, a read-only permissions matrix (14 actions in four
       areas × OWNER / ADMIN / MEMBER, from `demo-permissions.ts`) and a role

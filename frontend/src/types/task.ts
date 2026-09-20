@@ -188,3 +188,26 @@ export const TASK_ERROR_COPY: Record<string, string> = {
 export function taskErrorCopy(code: string): string {
   return TASK_ERROR_COPY[code] ?? TASK_ERROR_COPY.SERVER_ERROR;
 }
+
+/**
+ * A task on the cross-project "My tasks" list — the record plus the project it
+ * lives in (`backend/docs/api/task.md` §2a).
+ *
+ * The project rides along ONLY here. Everywhere else a task is read inside a
+ * project, so naming it on every row would be repeating context the reader
+ * already has; this list spans projects and workspaces, so it is the column
+ * that makes a row make sense — and `workspaceId` is what lets it be a link.
+ */
+export type AssignedTask = Task & {
+  project: { id: string; key: string; name: string; workspaceId: string };
+};
+
+/** What a "My tasks" query asks for. `open` is everything not in a COMPLETE-group status. */
+export const ASSIGNED_STATES = ["open", "done", "all"] as const;
+export type AssignedState = (typeof ASSIGNED_STATES)[number];
+
+export const ASSIGNED_STATE_LABEL: Record<AssignedState, string> = {
+  open: "To do",
+  done: "Done",
+  all: "Everything",
+};

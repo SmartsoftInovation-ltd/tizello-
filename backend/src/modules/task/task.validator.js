@@ -164,7 +164,24 @@ const bulkUpdateTasksSchema = Joi.object({
 
 const bulkDeleteTasksSchema = Joi.object({ taskIds });
 
+/*
+ * `state` is the only filter this list takes, and that is deliberate. The
+ * per-project list already has status, search and parent filters; a to-do list
+ * that grew the same set would be the backlog again, opened from a different
+ * row in the sidebar. What it needs is one switch: what is still on my plate,
+ * what did I finish, or everything.
+ */
+const assignedTasksQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  /* 50, where a project's list allows 500: this one spans every project the
+     caller belongs to, so the ceiling is a person's realistic workload rather
+     than a whole backlog drawn in one request. */
+  limit: Joi.number().integer().min(1).max(200).default(50),
+  state: Joi.string().valid('open', 'done', 'all').default('open'),
+});
+
 export {
+  assignedTasksQuerySchema,
   createTaskSchema,
   updateTaskSchema,
   listTasksQuerySchema,

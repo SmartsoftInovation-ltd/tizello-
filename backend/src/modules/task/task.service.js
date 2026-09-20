@@ -425,7 +425,35 @@ const bulkDeleteTasks = async (project, { taskIds }) => {
  */
 const deleteTask = (task) => repository.softDeleteTask(task.id);
 
+/**
+ * Every task assigned to the caller, across every project they can still see.
+ *
+ * NO PROJECT, SO NO PROJECT GUARD — and therefore no `req.project` to pass.
+ * Scope comes from the caller's own id in two ways at once: assignment and
+ * membership (`findTasksAssignedTo`). This is the same shape the search module
+ * takes, and for the same reason: an endpoint that cannot be asked about
+ * someone else's work needs no rule saying it must not answer.
+ *
+ * `state` defaults to `open` because a to-do list is a list of things to do.
+ * Completed work is still reachable (`state=done`, or `all`), but a default
+ * that buries today's three open tasks under two hundred finished ones is a
+ * list nobody opens twice.
+ */
+const listAssignedTasks = async (user, query) => {
+  const page = query.page ?? 1;
+  const limit = query.limit ?? 50;
+
+  const { rows, total } = await repository.findTasksAssignedTo(user.id, {
+    page,
+    limit,
+    state: query.state ?? 'open',
+  });
+
+  return { tasks: rows.map(dto.toAssignedTask), page, limit, total };
+};
+
 export default {
+  listAssignedTasks,
   createTask,
   listTasks,
   getTask,

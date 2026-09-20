@@ -385,6 +385,92 @@ Only `title` is required. No `statusId` → the project's default status.
 | 404 | `NOT_FOUND` | Step 1. |
 | 422 | `VALIDATION_ERROR` | `That status does not exist in this project`; an assignee not in the workspace; parent not in the project; an attachment that is not an uploaded file; a property value that fails its type, or an unknown property id. |
 
+## 2a. `GET /api/v1/tasks/assigned`
+
+Every task assigned to the **caller**, across every project they can still
+see — the "My tasks" list. Any authenticated user; no project guard, because
+there is no project in the path.
+
+**Query**
+
+| Field | Rules |
+|---|---|
+| `page` | Optional integer ≥ 1, default `1`. |
+| `limit` | Optional integer 1–200, default `50`. |
+| `state` | Optional `open` \| `done` \| `all`, default `open`. |
+
+**Scope is the caller's id, applied twice.** `assignees.some({ userId })` AND
+`project.workspace.memberships.some({ userId })`, and the second clause is not
+redundant: **assignment and access are different facts.** A `TaskAssignee` row
+survives the assignee being removed from the workspace, so assignment alone
+would keep serving that workspace's work to someone who has lost the right to
+read it. The membership join is what makes this list shrink when access does.
+
+Deleted and archived projects are excluded, matching
+[search.md §Scoping](./search.md) — archiving means "stop showing me this", and
+a to-do list that resurfaces an archived project's work has undone the archive.
+
+**`state` defaults to `open`** (everything whose status group is not
+`COMPLETE`). A to-do list is a list of things to do; a default that buries
+today's three open tasks under two hundred finished ones is a list nobody opens
+twice. Finished work stays reachable through `done` and `all`.
+
+**Ordering: `dueDate asc nulls last`, then `priority desc nulls last`, then
+`position asc`.** The list is read top-down and answered "what is next", which
+is a deadline question — so undated work sinks below everything dated rather
+than sorting as either very early or very late. Priority is **`desc`** and that
+is not a typo: Prisma orders an enum by its declaration order and `Priority` is
+declared `LOW → URGENT`, so ascending would put the least urgent work at the
+top of a list whose entire job is to say what to do next.
+
+**Route order is load-bearing.** `/assigned` is registered **before**
+`/:taskId` in `task.routes.js`. Declared the other way round, Express captures
+the literal string `assigned` as a task id and `loadTask` answers `404` for a
+route that exists — a bug that gets debugged in the database instead of in the
+router.
+
+**200** — the standard paginated envelope. Each row is a task plus the project
+it belongs to:
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Assigned tasks fetched",
+  "data": [
+    {
+      "id": "clx7t...",
+      "key": "TIZ-12",
+      "title": "Notion-style kanban cards",
+      "dueDate": "2026-09-21T00:00:00.000Z",
+      "priority": "HIGH",
+      "status": { "id": "clx7s...", "name": "In Progress", "color": "blue", "group": "IN_PROGRESS" },
+      "project": { "id": "clx7p...", "key": "TIZ", "name": "Tizello", "workspaceId": "clx7w..." }
+    }
+  ],
+  "pagination": { "page": 1, "limit": 50, "total": 1, "totalPages": 1 }
+}
+```
+
+`project` is the one field this list adds over every other task response.
+Everywhere else a task is read **inside** a project, so the project is context
+the caller already has and repeating it per row would be noise; here the list
+spans projects and workspaces, so it is the column that makes a row make sense
+— and `workspaceId` is what lets it be a link rather than a label.
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | `state` not one of the three, or `page`/`limit` out of range. |
+| 401 | `UNAUTHORIZED` | No session. |
+
+There is no `403` and no `404`: the caller names no resource, so there is
+nothing to be refused or missing. An assignee with no tasks gets an empty list
+and a `200`.
+
+---
+
 ## 3. `GET /api/v1/tasks/:taskId`
 
 **Guards:** `authGuard`, `loadTask`. **200** — `{ task }`. **404** per step 1.

@@ -26,6 +26,7 @@ import {
   createTaskSchema,
   updateTaskSchema,
   listTasksQuerySchema,
+  assignedTasksQuerySchema,
   moveTaskSchema,
   bulkUpdateTasksSchema,
   bulkDeleteTasksSchema,
@@ -83,6 +84,22 @@ projectRouter.post(
 /* ── Task-scoped: /api/v1/tasks ─────────────────────────────────────────── */
 
 const taskRouter = express.Router();
+
+/* BEFORE `/:taskId`, AND THE ORDER IS THE WHOLE POINT. Express matches routes
+   in registration order, so `/:taskId` declared first would capture the
+   literal string "assigned" as a task id — `loadTask` would then answer 404
+   for a route that exists, which is the kind of bug that gets debugged in the
+   database instead of in the router.
+
+   It takes no `loadTask` and no project guard: there is no task and no project
+   in the path. The caller's own id is the scope, exactly as in the search
+   module — see `listAssignedTasks`. */
+taskRouter.get(
+  '/assigned',
+  authGuard,
+  validate(assignedTasksQuerySchema, 'query'),
+  asyncHandler(controller.listAssigned)
+);
 
 taskRouter.get('/:taskId', authGuard, loadTask, asyncHandler(controller.getById));
 

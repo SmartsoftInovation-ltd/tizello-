@@ -17,11 +17,22 @@ import { SearchPalette } from "@/components/search/search-palette";
  * NOTHING HERE SCROLLS EXCEPT THE CONTENT COLUMN, and each piece of that is
  * load-bearing:
  *
- * - `h-dvh overflow-hidden` on the root pins the shell to the viewport, so the
- *   document itself can never gain a scrollbar. Without the clip, anything
- *   that overflows — a wide table, a tall panel — grows `<body>` (which is
- *   `min-h-full`) and takes the top strip up with it, which is exactly the bug
- *   this replaces. The root used to be deliberately unclipped so the workspace
+ * - `fixed inset-0 overflow-hidden` on the root pins the shell to the
+ *   viewport. It was `h-dvh overflow-hidden`, which clips its own children but
+ *   still occupies flow — so anything that made `<body>` taller (which is
+ *   `min-h-full`) gave the DOCUMENT a scrollbar, and scrolling that carried
+ *   the whole shell, sidebar and top strip included, up off the screen. That
+ *   is the bug this replaces, and it showed as two vertical scrollbars on the
+ *   right: the document's and the content column's.
+ *
+ *   `fixed` means the shell contributes NO height to the document at all, so
+ *   the failure is not merely clipped, it is unrepresentable. The `:has()`
+ *   rule in `globals.css` closes the other half — the body of a shell route
+ *   cannot scroll, so nothing else can grow a second scrollbar behind it
+ *   either. Auth pages are not wrapped by this component and keep their normal
+ *   document scroll.
+ *
+ *   The root used to be deliberately unclipped so the workspace
  *   switcher's menu could escape the sidebar's width; that stopped being a
  *   reason when `DropdownMenuContent` moved to a `document.body` portal with
  *   `position: fixed`, so no menu is inside this box any more.
@@ -31,6 +42,10 @@ import { SearchPalette } from "@/components/search/search-palette";
  *   content. A flex item's default `min-height: auto` floors it at the
  *   content's height, so `overflow-y-auto` would have nothing to scroll and
  *   the overflow would push out of the shell instead.
+ * - `scrollbar-hidden` on the scroll region: the column still scrolls with
+ *   wheel, trackpad, touch and keyboard, it just draws no bar. With the shell
+ *   pinned and each page's heading sticky, a grey rail down the right edge was
+ *   the only thing still saying "this whole window scrolls".
  * - `scrollbar-gutter: stable` reserves the vertical scrollbar's track whether
  *   or not there is one to draw, and its absence was the projects board's
  *   shake. A kanban column changes height as a card enters or leaves it, so a
@@ -54,14 +69,14 @@ import { SearchPalette } from "@/components/search/search-palette";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div data-app-shell className="fixed inset-0 flex overflow-hidden">
       <SidebarFrame>
         <AppSidebar />
       </SidebarFrame>
 
       <div className="flex min-w-0 flex-1 flex-col bg-surface">
         <ContentStrip />
-        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
+        <div className="scrollbar-hidden min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
           {children}
         </div>
       </div>

@@ -367,6 +367,31 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* --------------------------------------------------------------------
+     THE APP SHELL OWNS THE SCROLLING — the document never does.
+
+     `AppShell` is `position: fixed; inset: 0`, so it contributes no height
+     of its own. This clips whatever else lands in <body> on a shell route,
+     which is what stops a SECOND vertical scrollbar appearing beside the
+     content column's — the document's own, which scrolls the shell up off
+     the screen, sidebar and top strip included.
+
+     Scoped with `:has()` rather than set on `body` outright: the `(auth)`
+     screens are not wrapped by `AppShell` and are ordinary documents that
+     must still scroll on a short window. A blanket `overflow: hidden` here
+     would silently cut the bottom off a sign-up form.
+
+     A DESCENDANT match, not `> [data-app-shell]`: the shell arrives through
+     a layout's `children`, and nothing guarantees the framework leaves it as
+     body's direct child. A child combinator would stop matching the day a
+     wrapper appears, and it would fail silently — the layout would look right
+     until a page grew tall enough to scroll.
+     -------------------------------------------------------------------- */
+  body:has([data-app-shell]) {
+    height: 100%;
+    overflow: hidden;
+  }
+
   h1,
   h2,
   h3,

@@ -76,5 +76,30 @@ const toTask = (row, definitions = null) => {
   };
 };
 
-export { toTask, toPerson };
-export default { toTask, toPerson };
+/**
+ * A task on the cross-project "My tasks" list.
+ *
+ * `toTask` plus the project it belongs to. Everywhere else a task is read
+ * INSIDE a project, so the project is context the caller already has and
+ * repeating it on every row would be noise; here the list spans projects and
+ * workspaces, so "which project is this?" is the column that makes the row
+ * make sense — and `workspaceId` is what lets it be a link rather than a label.
+ *
+ * `properties` comes back EMPTY, and that is deliberate rather than an
+ * oversight: custom properties are defined per project, so filling them for a
+ * list spanning N projects would mean N definition fetches to render columns
+ * this list does not draw. `toTask` already returns `{}` when no definitions
+ * are passed — see `liveProperties`.
+ */
+const toAssignedTask = (row) => ({
+  ...toTask(row),
+  project: {
+    id: row.project.id,
+    key: row.project.key,
+    name: row.project.name,
+    workspaceId: row.project.workspaceId,
+  },
+});
+
+export { toTask, toAssignedTask, toPerson };
+export default { toTask, toAssignedTask, toPerson };

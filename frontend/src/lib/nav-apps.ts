@@ -41,7 +41,10 @@ export const SHELL_SECTIONS: readonly SidebarSection[] = [
         id: "my-tasks",
         label: "My tasks",
         icon: "tasks",
-        hint: "Tasks assigned to you are not built yet",
+        /* The one screen here that is not workspace- or project-scoped: it is
+           everything assigned to YOU, wherever it lives, so it carries no
+           `?project=` and needs nothing resolved from the path. */
+        href: "/my-tasks",
       },
       {
         id: "templates",

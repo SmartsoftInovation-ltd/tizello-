@@ -19,6 +19,16 @@ const list = async (req, res) => {
   return ApiResponse.paginated(res, httpStatus.OK, 'Tasks fetched', tasks, page, limit, total);
 };
 
+/*
+ * `req.user` is the whole scope — there is no `req.project` here, because
+ * there is no project in the path. See `listAssignedTasks` in the service.
+ */
+const listAssigned = async (req, res) => {
+  const { tasks, page, limit, total } = await service.listAssignedTasks(req.user, req.query);
+
+  return ApiResponse.paginated(res, httpStatus.OK, 'Assigned tasks fetched', tasks, page, limit, total);
+};
+
 const create = async (req, res) => {
   const task = await service.createTask(req.project, req.body, req.user);
 
@@ -61,4 +71,4 @@ const remove = async (req, res) => {
   return ApiResponse.success(res, httpStatus.OK, 'Task deleted', null);
 };
 
-export default { list, create, getById, update, move, bulkUpdate, bulkRemove, remove };
+export default { list, listAssigned, create, getById, update, move, bulkUpdate, bulkRemove, remove };
