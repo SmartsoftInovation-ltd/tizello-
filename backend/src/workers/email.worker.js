@@ -30,6 +30,7 @@ import {
   registrationCodeEmail,
   loginCodeEmail,
   passwordResetEmail,
+  taskAssignedEmail,
 } from "../shared/utils/emailTemplates.js";
 
 const log = createLogger("email-worker");
@@ -122,6 +123,66 @@ const handlers = {
     log.info(
       { jobId: job.id, userId, email: user.email },
       "Password reset email sent",
+    );
+  },
+
+  /**
+   * "You were assigned a task."
+   *
+   * The task is read back here rather than carried in the payload, for the
+   * reason the header gives: its title may have changed between the assignment
+   * and this run, and the email should say what the task is called when it
+   * lands. The in-app notification deliberately does the opposite — see
+   * `notification.dto.js`.
+   *
+   * A missing user or task RETURNS rather than throws. Both mean the job can
+   * never succeed (the account was deleted, the task was purged), and throwing
+   * would burn every attempt on something unsendable.
+   */
+  async "send-assignment"(
+    { userId, taskId, actorName, sprintName, projectName },
+    job,
+  ) {
+    const [user, task] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      /* `key` is not a column — it is `${project.key}-${number}`, composed
+         wherever a task is rendered (`task.dto.js`). The project key is
+         immutable and the number never changes, so there is nothing to store. */
+      prisma.task.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          number: true,
+          title: true,
+          deletedAt: true,
+          projectId: true,
+          project: { select: { key: true } },
+        },
+      }),
+    ]);
+
+    if (!user || !task || task.deletedAt) {
+      log.warn(
+        { userId, taskId, jobId: job.id },
+        "User or task no longer available, skipping assignment email",
+      );
+      return;
+    }
+
+    const mail = taskAssignedEmail({
+      name: user.name,
+      actorName,
+      taskKey: `${task.project?.key ?? ''}-${task.number}`,
+      taskTitle: task.title,
+      projectName,
+      sprintName,
+      taskUrl: `${config.clientOrigin}/board/backlog?project=${encodeURIComponent(task.projectId)}&task=${encodeURIComponent(task.id)}`,
+    });
+
+    await sendMail({ to: user.email, ...mail });
+    log.info(
+      { jobId: job.id, userId, taskId },
+      "Assignment email sent",
     );
   },
 };

@@ -275,7 +275,68 @@ const passwordResetEmail = ({ name, resetUrl, expiresInHours }) => {
   return { subject, html, text };
 };
 
+/**
+ * "You were assigned a task." The one notification email the app sends about
+ * work rather than about an account.
+ *
+ * The SPRINT is in the subject when there is one, and that is the whole reason
+ * this template exists separately from a generic "something changed" digest:
+ * "in Sprint 3" is what tells somebody whether this is for this week or for
+ * later, and it is the first thing they want from the line in their inbox.
+ *
+ * `taskKey` is shown rather than the id — `TIZ-42` is what the board, the card
+ * and the URL all call it, and a cuid in an email is a string nobody can act
+ * on.
+ */
+const taskAssignedEmail = ({ name, actorName, taskKey, taskTitle, projectName, sprintName, taskUrl }) => {
+  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi,';
+  const actor = escapeHtml(actorName);
+  const key = escapeHtml(taskKey);
+  const title = escapeHtml(taskTitle);
+  const where = sprintName
+    ? `${escapeHtml(sprintName)}`
+    : projectName
+      ? `${escapeHtml(projectName)}`
+      : null;
+
+  const subject = sprintName
+    ? `${actorName} assigned you ${taskKey} in ${sprintName}`
+    : `${actorName} assigned you ${taskKey}`;
+
+  const html = layout({
+    title: 'You have a new task',
+    preheader: `${actorName} assigned you ${taskKey}: ${taskTitle}`,
+    bodyHtml: `
+      <p style="margin:0;">${greeting}</p>
+      <p style="margin:12px 0 0 0;">
+        <strong style="color:#172b4d;">${actor}</strong> assigned you
+        <strong style="color:#172b4d;">${key}</strong>.
+      </p>
+      <p style="margin:16px 0 0 0;font-size:16px;color:#172b4d;">${title}</p>
+      ${where ? `<p style="margin:6px 0 0 0;font-size:13px;color:#6b778c;">In ${where}</p>` : ''}
+      ${button({ href: taskUrl, label: 'Open the task' })}
+      <p style="margin:0;font-size:13px;color:#6b778c;">
+        You are getting this because someone put you on this task in ${BRAND}.
+      </p>`,
+  });
+
+  const text = [
+    greeting,
+    '',
+    `${actorName} assigned you ${taskKey}.`,
+    taskTitle,
+    where ? `In ${sprintName ?? projectName}` : null,
+    '',
+    taskUrl,
+  ]
+    .filter((line) => line !== null)
+    .join('\n');
+
+  return { subject, html, text };
+};
+
 export {
+  taskAssignedEmail,
   invitationEmail,
   registrationCodeEmail,
   loginCodeEmail,

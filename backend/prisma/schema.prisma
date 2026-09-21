@@ -66,6 +66,8 @@ model User {
   taskActivities      TaskActivity[]      @relation("TaskActivityActor")
   createdSprints      Sprint[]            @relation("SprintCreatedBy")
   createdRoles        WorkspaceRole[]     @relation("WorkspaceRoleCreatedBy")
+  notifications       Notification[]      @relation("NotificationRecipient")
+  actedNotifications  Notification[]      @relation("NotificationActor")
 
   @@map("users")
 }
@@ -678,7 +680,8 @@ model Task {
   properties  Json?
   createdById String?
   createdBy   User?      @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  comments    TaskComment[]
+  comments      TaskComment[]
+  notifications Notification[]
   activities  TaskActivity[]
   deletedAt   DateTime?
   createdAt   DateTime   @default(now())
@@ -698,6 +701,62 @@ model Task {
 
 // One person on one task. Cascade both ways: deleting either side leaves
 // nothing to point at, and the task itself survives a user deletion.
+// What a notification is about. One value per thing that can interrupt
+// somebody — adding a value is adding a reason to send one, which is exactly
+// the review this enum exists to force.
+enum NotificationType {
+  TASK_ASSIGNED
+}
+
+// One row PER RECIPIENT, not one event with read receipts hanging off it.
+//
+// The query this table exists to serve is "my unread count", on every page
+// load, for every user. Against a shared-event table that is a join and a
+// NOT EXISTS; here it is a covered index scan on (userId, readAt). Fan-out on
+// write is the cost, and it is paid once by the person doing the assigning
+// rather than on every read by everyone else.
+//
+// `title` and `body` are DENORMALIZED — written at send time, never recomputed.
+// A notification is a record of what someone was told, so it must not silently
+// change when the task is renamed afterwards; "You were assigned Fix login"
+// staying true is the point, even once the task is called something else.
+//
+// See docs/api/notification.md
+model Notification {
+  id     String           @id @default(cuid())
+  // Who is being told.
+  userId String
+  user   User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  type   NotificationType
+  title  String
+  body   String?
+  // Who did the thing. Null when the actor's account is gone — the
+  // notification survives them, because it still explains why the reader has
+  // the task.
+  actorId String?
+  actor   User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  // What it points at. Cascade, not SetNull: a notification whose task has
+  // been deleted is a dead link in a list whose every row is a link, and
+  // keeping it would mean every render has to handle a null target.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  // Denormalized so the bell can render a line of context without joining
+  // through task → project → workspace on every row.
+  projectName String?
+  sprintName  String?
+  // Null until read. A nullable timestamp rather than a boolean: "when" is
+  // strictly more information than "whether", and the boolean is derivable.
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  // The unread badge, and the list itself, are both (userId, …) — one index
+  // per access path rather than one wide one, because the badge never reads
+  // createdAt and the list never filters on readAt.
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
 model TaskAssignee {
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)

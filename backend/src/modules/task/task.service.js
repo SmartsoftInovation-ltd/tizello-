@@ -23,6 +23,7 @@ import statusRepository from './task-status.repository.js';
 import statusService from './task-status.service.js';
 import activityService from './task-activity.service.js';
 import sprintRepository from '../sprint/sprint.repository.js';
+import notificationService from '../notification/notification.service.js';
 import dto from './task.dto.js';
 
 /*
@@ -157,6 +158,42 @@ const completedAtFor = (previousGroup, nextGroup, patch) => {
   return undefined;
 };
 
+/**
+ * Who is NEWLY on this task, and the sprint they are being pulled into.
+ *
+ * Newly, not "everyone on it": a patch that changes a due date resends
+ * `assigneeIds` unchanged, and notifying the same three people every time
+ * anybody touches the card is how a bell becomes noise. The diff is taken
+ * against the row as it was BEFORE the write.
+ *
+ * The sprint name is read here rather than in the notification service because
+ * it is the answer to the question this feature exists for — "you were
+ * assigned something *in Sprint 3*" — and this is the layer that already knows
+ * the task, its project and its sprint.
+ */
+const notifyNewAssignees = async (before, after, project, user) => {
+  const had = new Set((before?.assignees ?? []).map((row) => row.user?.id ?? row.userId));
+  const added = (after?.assignees ?? [])
+    .map((row) => row.user?.id ?? row.userId)
+    .filter((id) => id && !had.has(id));
+
+  if (added.length === 0) return;
+
+  /* Only when the task is actually IN a sprint. A backlog assignment says
+     "you were assigned TIZ-42" and nothing more, which is the truth. */
+  const sprint = after.sprintId
+    ? await sprintRepository.findSprintById(after.sprintId).catch(() => null)
+    : null;
+
+  await notificationService.notifyTaskAssigned({
+    task: { id: after.id, key: `${project.key}-${after.number}`, title: after.title },
+    recipientIds: added,
+    actor: user,
+    projectName: project.name,
+    sprintName: sprint?.name ?? null,
+  });
+};
+
 /** `POST /projects/:projectId/tasks`. */
 const createTask = async (project, payload, user) => {
   const { properties, tags, attachments, ...rest } = payload;
@@ -203,6 +240,9 @@ const createTask = async (project, payload, user) => {
   });
 
   await activityService.recordCreated(row.id, user.id);
+  /* A task created with assignees is an assignment too — the `before` is an
+     empty set, so everyone on it is new. */
+  await notifyNewAssignees(null, row, project, user);
 
   return dto.toTask(row, definitions);
 };
@@ -288,6 +328,7 @@ const updateTask = async (task, project, patch, user = null) => {
   }
 
   if (before) await activityService.recordChanges(before, row, user?.id ?? null);
+  await notifyNewAssignees(before, row, project, user);
 
   return dto.toTask(row, definitions);
 };
@@ -402,6 +443,15 @@ const bulkUpdateTasks = async (project, { taskIds, patch }, user) => {
     updated.map((row) => [byId.get(row.id), row]),
     user.id
   );
+
+  /* Sequential, not `Promise.all`: a bulk assignment of forty tasks would
+     otherwise open forty sprint reads and forty fan-out inserts at once, and
+     none of it is on the critical path of the response. */
+  if (assigneeIds) {
+    for (const row of updated) {
+      await notifyNewAssignees(byId.get(row.id), row, project, user);
+    }
+  }
 
   return updated.map((row) => dto.toTask(row, definitions));
 };

@@ -27,6 +27,7 @@ import {
 } from "../modules/task/task.routes.js";
 import taskActivityRoutes from "../modules/task/task-activity.routes.js";
 import taskCommentRoutes from "../modules/task/task-comment.routes.js";
+import notificationRoutes from "../modules/notification/notification.routes.js";
 import roleRoutes from "../modules/role/role.routes.js";
 import taskPropertyRoutes from "../modules/task/task-property.routes.js";
 import taskStatusRoutes from "../modules/task/task-status.routes.js";
@@ -78,6 +79,10 @@ router.use("/api/v1/trash", trashRoutes);
 // Everything else about a task is addressed by the task's own id — same
 // two-scope split as projects. Comments are their own router so the task
 // routes file lists tasks and nothing else.
+// NOT workspace-scoped, and the only module here that is not. A notification
+// belongs to a person, who may be in five workspaces and wants one bell — so
+// the owner is `req.user.id` and there is no id in the path to tamper with.
+router.use("/api/v1/notifications", notificationRoutes);
 router.use("/api/v1/tasks", taskRoutes);
 router.use("/api/v1/tasks/:taskId/activity", taskActivityRoutes);
 router.use("/api/v1/tasks/:taskId/comments", taskCommentRoutes);

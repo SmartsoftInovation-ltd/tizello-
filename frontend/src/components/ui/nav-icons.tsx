@@ -126,3 +126,20 @@ export function SignOutIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/**
+ * The notification bell. A clapper, so it reads as a bell rather than an arch.
+ *
+ * It lives HERE and not in `icons.tsx` for the reason that file's header
+ * gives: this one holds the app shell's set, that one the board and menu
+ * glyphs, and the two are split because one file carrying both sits over the
+ * 150-line cap. The bell sits in the top strip, so it is shell.
+ */
+export function BellIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6.5a4 4 0 1 1 8 0c0 3 1 4 1 4H3s1-1 1-4Z" />
+      <path d="M6.5 13a1.6 1.6 0 0 0 3 0" />
+    </Icon>
+  );
+}

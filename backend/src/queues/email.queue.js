@@ -53,6 +53,25 @@ const enqueueLoginCodeEmail = ({ userId, code }) =>
 const enqueuePasswordResetEmail = ({ userId, token }) =>
   emailQueue.add('send-reset', { userId, token });
 
+// Queues "you were assigned a task" for one recipient.
+//
+// The task is passed by ID and read back by the worker, like the invitation
+// above — its title may have changed by the time the job runs, and the email
+// should say what the task is called when it lands, not when it was queued.
+// The in-app notification makes the opposite choice on purpose (it is a record
+// of what someone was told); the two differ because an email is read once and
+// a notification list is read for weeks.
+//
+// `attempts: 3`, not the queue's default 5. Nobody is blocked on this: a
+// missed assignment email is a courtesy lost, while five exponential retries
+// per recipient on a bulk assignment of forty tasks is a real load spike.
+const enqueueAssignmentEmail = ({ userId, taskId, actorName, sprintName, projectName }) =>
+  emailQueue.add(
+    'send-assignment',
+    { userId, taskId, actorName, sprintName, projectName },
+    { attempts: 3 }
+  );
+
 export {
   emailQueue,
   EMAIL_QUEUE_NAME,
@@ -61,5 +80,6 @@ export {
   enqueueRegistrationCodeEmail,
   enqueueLoginCodeEmail,
   enqueuePasswordResetEmail,
+  enqueueAssignmentEmail,
 };
 export default emailQueue;

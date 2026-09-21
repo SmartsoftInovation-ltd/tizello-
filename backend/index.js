@@ -4,6 +4,7 @@ import app from './src/app.js';
 import config from './src/config/env.js';
 import { connectDatabase, disconnectDatabase } from './src/config/db.js';
 import { connectRedis } from './src/config/redis.js';
+import { closeSocket, initSocket } from './src/config/socket.js';
 import { createLogger, flushLogger } from './src/config/logger.js';
 
 const log = createLogger('server');
@@ -29,8 +30,18 @@ const startServer = async () => {
       log.info(`Listening on port ${config.port} (${config.nodeEnv})`);
     });
 
+    // Socket.IO shares the HTTP server, and therefore the port: one origin for
+    // the browser, one CORS rule, and no second listener to expose or forget
+    // to shut down. Attached AFTER listen so the handshake path is live the
+    // moment the port is.
+    initSocket(server);
+
     const shutdown = async (signal) => {
       log.info(`${signal} received, shutting down...`);
+      /* Sockets first: `server.close` stops accepting new connections but
+         waits for open ones, and a live WebSocket never closes on its own —
+         so without this the process hangs until the orchestrator kills it. */
+      await closeSocket();
       server.close(async () => {
         await disconnectDatabase();
         await flushLogger();
