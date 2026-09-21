@@ -41,16 +41,25 @@ function revalidateMemberSurfaces(workspaceId: string): void {
  * even leaves the app: *ownership is transferred, never granted*. The same
  * three-layer arrangement `inviteMemberAction` uses for the same value.
  */
-export async function updateMemberRoleAction(input: {
-  workspaceId: string;
-  memberId: string;
-  role: WorkspaceRole;
-}): Promise<MemberActionResult<WorkspaceMember>> {
-  if (input.role !== "ADMIN" && input.role !== "MEMBER") {
+export async function updateMemberRoleAction(
+  input: { workspaceId: string; memberId: string } & (
+    | { role: WorkspaceRole; roleId?: never }
+    | { roleId: string; role?: never }
+  ),
+): Promise<MemberActionResult<WorkspaceMember>> {
+  /* A tier, if one was sent, must not be OWNER. A `roleId` needs no check
+     here: the server refuses a role whose `baseRole` is OWNER, and a workspace
+     cannot create one in the first place — the validator's list omits it. */
+  if (input.role !== undefined && input.role !== "ADMIN" && input.role !== "MEMBER") {
     return { ok: false, code: "VALIDATION_ERROR" };
   }
 
-  const result = await updateMemberRole(input.workspaceId, input.memberId, input.role);
+  const assignment =
+    input.roleId !== undefined
+      ? { roleId: input.roleId }
+      : { role: input.role as WorkspaceRole };
+
+  const result = await updateMemberRole(input.workspaceId, input.memberId, assignment);
 
   if (!result.ok) return result;
 

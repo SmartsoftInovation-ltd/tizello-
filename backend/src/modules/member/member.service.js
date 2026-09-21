@@ -39,6 +39,7 @@ import { AUTH_CODES } from '../../shared/constants/authCodes.js';
 import { ROLES } from '../../shared/constants/roles.js';
 import repository from './member.repository.js';
 import dto from './member.dto.js';
+import roleService from '../role/role.service.js';
 
 /** The one `404` every unknown-or-elsewhere membership collapses into. See rule 2. */
 const notFound = () =>
@@ -136,8 +137,17 @@ const listMembers = async (workspaceId) => {
  * token. That is why `auth.md` keeps the token payload to an identity — a role
  * in a JWT stays true for fifteen minutes after it stops being true.
  */
-const changeRole = async ({ workspaceId, memberId, role, actorMembership }) => {
+const changeRole = async ({ workspaceId, memberId, role, roleId, actorMembership }) => {
   if (role === ROLES.OWNER) {
+    throw unprocessable('Ownership is transferred, never granted by a role change.');
+  }
+
+  /* A workspace-defined role, when one was named. Resolved BEFORE any state
+     check so an unknown id answers 404 rather than passing every guard and
+     failing on the write with a foreign-key error the client cannot read. */
+  const custom = roleId ? await roleService.findAssignable(workspaceId, roleId) : null;
+
+  if (custom?.baseRole === ROLES.OWNER) {
     throw unprocessable('Ownership is transferred, never granted by a role change.');
   }
 
@@ -157,9 +167,21 @@ const changeRole = async ({ workspaceId, memberId, role, actorMembership }) => {
 
   await assertNotLastOwner(member);
 
-  if (member.role === role) return dto.toMember(member);
+  /* The tier follows the custom role's rung. Two columns, one decision: the
+     grant comes from `roleId`, the ladder from `role`, and letting them
+     disagree would mean a "Reviewer" sitting on ADMIN for `roleAtLeast` and on
+     MEMBER for everything else. An explicit `role` in the request still wins
+     when no custom role was named. */
+  const tier = custom ? custom.baseRole : role;
 
-  const updated = await repository.updateRole(member.id, role);
+  if (member.role === tier && (member.roleId ?? null) === (custom?.id ?? null)) {
+    return dto.toMember(member);
+  }
+
+  const updated = await repository.updateRole(member.id, {
+    role: tier,
+    roleId: custom?.id ?? null,
+  });
 
   return dto.toMember(updated);
 };

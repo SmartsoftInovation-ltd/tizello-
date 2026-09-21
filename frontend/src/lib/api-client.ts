@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { REFRESH_COOKIE } from "@/lib/session-cookie";
+import { ACCESS_COOKIE, REFRESH_COOKIE } from "@/lib/session-cookie";
 import { API_BASE_URL, parseSetCookies } from "@/lib/session-refresh";
 
 /*
@@ -267,9 +267,43 @@ export async function apiCallWithRefresh<T>(
     },
   });
 
-  if (!refreshed.ok) return first;
+  if (!refreshed.ok) {
+    /* THE SESSION IS OVER. A 401 from the refresh endpoint means the refresh
+       token itself is expired, revoked or already spent — there is nothing
+       left to renew with, and every later request will 401 identically.
+       Dropping both cookies here is what turns that into a sign-in redirect:
+       the next request reaches `proxy.ts` with no session cookie, fails its
+       gate and is bounced to `/sign-in?next=…`. Left in place, the dead pair
+       kept passing the proxy's presence check and the user sat on a page of
+       empty data with no way to tell they had been signed out.
+
+       Any other failure — the API unreachable (`status: 0`), a 500, a rate
+       limit — must NOT sign anybody out: the token may still be perfectly
+       good, and an outage that logs out every user is the worse bug. */
+    if (refreshed.status === 401) await clearSessionCookies();
+    return first;
+  }
 
   return apiCall<T>(path, { ...options, ...(renewed ? { cookieOverride: renewed } : {}) });
+}
+
+/**
+ * Deletes both session cookies, if this context is allowed to.
+ *
+ * Next only permits a cookie write from a Server Action or a Route Handler, so
+ * the same call from a Server Component render throws. That is not worth a 500:
+ * the render still gets its 401 and the page still redirects on a null session
+ * — the deletion is what stops the NEXT request from presenting a token that
+ * cannot work, and the proxy will reach the same conclusion on its own.
+ */
+async function clearSessionCookies(): Promise<void> {
+  try {
+    const jar = await cookies();
+    jar.delete(ACCESS_COOKIE);
+    jar.delete(REFRESH_COOKIE);
+  } catch {
+    /* Read-only cookie context — see above. */
+  }
 }
 
 export { API_BASE };

@@ -36,6 +36,7 @@ const updateRole = async (req, res) => {
     workspaceId: req.params.workspaceId,
     memberId: req.params.memberId,
     role: req.body.role,
+    roleId: req.body.roleId,
     actorMembership: req.membership,
   });
 

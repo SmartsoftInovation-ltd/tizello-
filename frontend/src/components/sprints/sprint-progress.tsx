@@ -15,7 +15,13 @@ import type { SprintRecord } from "@/types/sprint";
  * `width` is `style` because it is a computed percentage — the one dynamic
  * value the house rules allow. Everything else is a utility.
  */
-export function SprintProgress({ sprint }: { sprint: SprintRecord }) {
+export function SprintProgress({
+  sprint,
+}: {
+  /* Narrowed to what the bar reads, so the live sprints list can hand it the
+     API's counts without inventing the rest of a `SprintRecord`. */
+  sprint: Pick<SprintRecord, "doneCount" | "itemCount" | "state">;
+}) {
   const percent = donePercent(sprint);
 
   return (

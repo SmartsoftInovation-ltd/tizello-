@@ -71,13 +71,15 @@ const PROJECT_VIEW_CHILDREN: readonly SidebarChildItem[] = PROJECT_VIEWS.map(
  * `SidebarTreeItem` already hands `aria-current` down to the child for exactly
  * this reason.
  *
- * **Three, and the sprint LIST is not one of them.** These are the screens of a
- * sprint in flight — plan it, work it, and the pool the unplanned work sits in
- * — which is the workflow in `.claude/rules/workflow.md`. `/sprints` is the
- * administrative list of every sprint a project has ever had: a different job,
- * visited when a sprint is created or closed rather than during one, and it is
- * still reachable from the project itself. Putting it here made the group read
- * as "everything with the word sprint in it" instead of as one workflow.
+ * **The sprint LIST is one of them again**, as `/board/sprints`. It was left
+ * out on the argument that the archive is a different job from working a
+ * sprint in flight — true, but the consequence was that a COMPLETED sprint had
+ * nowhere to be read at all: the board draws only the ACTIVE sprint, planning
+ * filters closed ones out, and the per-project `/sprints` page it was said to
+ * be "reachable from the project itself" is fixture-backed and linked from
+ * nothing. An archive nobody can open is not a tidier workflow, it is a
+ * missing screen. It sits LAST, after the three in-flight screens, so the
+ * group still reads in the order work moves.
  */
 export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
   { id: "current-sprint", label: "Current sprint", href: "/board/sprint" },
@@ -87,7 +89,13 @@ export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
     /* The running sprint measured rather than worked — status share, workload
        per person, and the timeline. It sits directly under Current sprint
        because it is a lens on that same sprint, not a fourth stage of the
-       workflow: everything it draws is the board's own tasks, read-only. */
+       workflow: everything it draws is the board's own tasks, read-only.
+
+       TAB ONLY. That "lens, not a stage" is exactly why it earns a tab and not
+       a sidebar row: the strip is already inside the sprint board, so a lens
+       on it reads as a lens, while the sidebar lists the product's screens and
+       a row there claimed it was a destination of its own. */
+    tabOnly: true,
     href: "/board/sprint/breakdown",
   },
   {
@@ -98,7 +106,53 @@ export const PLANNING_CHILDREN: readonly SidebarChildItem[] = [
     href: "/board/sprint-planning",
   },
   { id: "backlog", label: "Backlog", href: "/board/backlog" },
+  {
+    id: "sprints",
+    label: "Sprints",
+    /* Every sprint the project has had, in state bands — the only place a
+       COMPLETED sprint can be read. Live data, read-only: each transition
+       already has its home on sprint planning. */
+    href: "/board/sprints",
+  },
 ];
+
+/**
+ * What the SIDEBAR draws — `PLANNING_CHILDREN` minus the tab-only lenses.
+ *
+ * Derived, never written out a second time: a list maintained by hand beside
+ * the first one is how a tab and a sidebar row end up pointing at two
+ * different URLs, which is the exact failure `PLANNING_CHILDREN` exists to
+ * prevent. Marking a child `tabOnly` is the only edit needed to drop it here.
+ */
+export const SIDEBAR_PLANNING_CHILDREN: readonly SidebarChildItem[] =
+  PLANNING_CHILDREN.filter((child) => !child.tabOnly);
+
+/**
+ * Which route-style child a pathname is on, by id — `undefined` when none.
+ *
+ * An exact match wins. Failing that, the child the pathname sits UNDER wins,
+ * deepest first. That second rule is what a `tabOnly` child makes necessary:
+ * `/board/sprint/breakdown` is no longer a sidebar row, so without it the
+ * Sprint board group neither opened nor lit on that page and the sidebar said
+ * the reader was nowhere. Lighting its parent screen — Current sprint, which
+ * the breakdown is a lens on — is the honest answer.
+ *
+ * The prefix test requires a trailing slash, so `/board/sprints` is NOT read as
+ * being under `/board/sprint`. Without it the archive would light the board's
+ * row, which is the kind of near-miss a plain `startsWith` invites.
+ */
+export function currentChildId(
+  children: readonly SidebarChildItem[],
+  pathname: string,
+): string | undefined {
+  const exact = children.find((child) => child.href === pathname);
+  if (exact) return exact.id;
+
+  return children
+    .filter((child) => child.href && pathname.startsWith(`${child.href}/`))
+    .sort((a, b) => (b.href?.length ?? 0) - (a.href?.length ?? 0))
+    .at(0)?.id;
+}
 
 export const PRIMARY_ITEMS: readonly SidebarItem[] = [
   { id: "home", label: "Home", icon: "home", href: "/workspaces" },
@@ -165,7 +219,8 @@ export const SIDEBAR_SECTIONS: readonly SidebarSection[] = [
         label: "Sprint board",
         icon: "sprint",
         href: "/board/sprint",
-        children: PLANNING_CHILDREN,
+        /* Everything but the tab-only lenses — see `tabOnly` in `types/nav.ts`. */
+        children: SIDEBAR_PLANNING_CHILDREN,
       },
     ],
   },

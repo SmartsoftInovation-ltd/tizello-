@@ -25,59 +25,70 @@ const OTHER_ID = 'user-other';
 /** A project owned by `OWNER_ID`, with the caller's ProjectMember rows attached. */
 const project = (members = []) => ({ id: 'project-1', ownerId: OWNER_ID, members });
 
+/**
+ * A membership on `tier`, holding no workspace-defined role.
+ *
+ * Both helpers take a MEMBERSHIP rather than a bare tier since custom roles
+ * landed: `membershipCan` resolves a role's own grant from `customRole`, and a
+ * tier string alone cannot answer for someone holding one. Passing
+ * `{ role: tier }` is exactly the shape a membership with `roleId: null` has,
+ * which is every membership that predates the feature.
+ */
+const membership = (tier) => (tier ? { role: tier } : tier);
+
 describe('canManageProject — mirrors requireProjectOwner', () => {
   it('lets a workspace OWNER manage any project in the workspace', () => {
-    assert.equal(canManageProject(project(), ROLES.OWNER, OTHER_ID), true);
+    assert.equal(canManageProject(project(), membership(ROLES.OWNER), OTHER_ID), true);
   });
 
   it('lets a workspace ADMIN manage any project — the escape hatch', () => {
     // PROJECT_MANAGE_ANY exists so an admin cannot be locked out of a project
     // in their own workspace. See roles.js.
-    assert.equal(canManageProject(project(), ROLES.ADMIN, OTHER_ID), true);
+    assert.equal(canManageProject(project(), membership(ROLES.ADMIN), OTHER_ID), true);
   });
 
   it("lets the project's own owner manage it, whatever their workspace role", () => {
-    assert.equal(canManageProject(project(), ROLES.MEMBER, OWNER_ID), true);
+    assert.equal(canManageProject(project(), membership(ROLES.MEMBER), OWNER_ID), true);
   });
 
   it('refuses a plain workspace MEMBER who does not own the project', () => {
-    assert.equal(canManageProject(project(), ROLES.MEMBER, OTHER_ID), false);
+    assert.equal(canManageProject(project(), membership(ROLES.MEMBER), OTHER_ID), false);
   });
 
   it('refuses a project MANAGER — restoring a project is the owner tier, not the write tier', () => {
-    assert.equal(canManageProject(project([{ role: 'MANAGER' }]), ROLES.MEMBER, OTHER_ID), false);
+    assert.equal(canManageProject(project([{ role: 'MANAGER' }]), membership(ROLES.MEMBER), OTHER_ID), false);
   });
 
   it('refuses when the role is missing entirely — no membership, no authority', () => {
     // `membershipFor` returns null for a non-member, and `?.role` makes that
     // `undefined`. It must deny rather than throw.
-    assert.equal(canManageProject(project(), undefined, OTHER_ID), false);
-    assert.equal(canManageProject(project(), null, OTHER_ID), false);
+    assert.equal(canManageProject(project(), membership(undefined), OTHER_ID), false);
+    assert.equal(canManageProject(project(), membership(null), OTHER_ID), false);
   });
 });
 
 describe('canContribute — mirrors requireProjectContribute', () => {
   it('lets anyone with a ProjectMember row restore a task', () => {
-    assert.equal(canContribute(project([{ role: 'COLLABORATOR' }]), ROLES.MEMBER, OTHER_ID), true);
+    assert.equal(canContribute(project([{ role: 'COLLABORATOR' }]), membership(ROLES.MEMBER), OTHER_ID), true);
   });
 
   it('lets a project MANAGER restore a task', () => {
-    assert.equal(canContribute(project([{ role: 'MANAGER' }]), ROLES.MEMBER, OTHER_ID), true);
+    assert.equal(canContribute(project([{ role: 'MANAGER' }]), membership(ROLES.MEMBER), OTHER_ID), true);
   });
 
   it('inherits everyone canManageProject allows', () => {
-    assert.equal(canContribute(project(), ROLES.ADMIN, OTHER_ID), true);
-    assert.equal(canContribute(project(), ROLES.MEMBER, OWNER_ID), true);
+    assert.equal(canContribute(project(), membership(ROLES.ADMIN), OTHER_ID), true);
+    assert.equal(canContribute(project(), membership(ROLES.MEMBER), OWNER_ID), true);
   });
 
   it('refuses a workspace MEMBER who is not on the project — read-only stays read-only', () => {
-    assert.equal(canContribute(project([]), ROLES.MEMBER, OTHER_ID), false);
+    assert.equal(canContribute(project([]), membership(ROLES.MEMBER), OTHER_ID), false);
   });
 
   it('treats a missing members array as no membership rather than throwing', () => {
     // `findDeletedTask` always selects `members`, but a caller passing a row
     // shaped some other way must be denied, not crash.
-    assert.equal(canContribute({ id: 'p', ownerId: OWNER_ID }, ROLES.MEMBER, OTHER_ID), false);
+    assert.equal(canContribute({ id: 'p', ownerId: OWNER_ID }, membership(ROLES.MEMBER), OTHER_ID), false);
   });
 });
 

@@ -249,6 +249,15 @@
   --border-strong: light-dark(var(--color-ink-400), var(--color-slate-600));
   --focus: light-dark(var(--color-brand-600), var(--color-brand-400));
 
+  /* A brand-tinted chip behind a small control, and its hover. `brand-subtle`
+     is deliberately the same value as `success-subtle` — success reuses the
+     brand ramp, so they ARE the same mint — but it is named for what it means:
+     a chip that says "create", not one that says "done". The hover deepens
+     rather than lightens in dark, so the chip keeps reading as a fill.
+     `text-brand` is the ink on both, AA-safe in either theme. */
+  --brand-subtle: light-dark(#e8faf0, #1c3329);
+  --brand-subtle-hover: light-dark(var(--color-brand-100), var(--color-brand-900));
+
   --success: light-dark(#24a866, #4bce97);
   --success-subtle: light-dark(#e8faf0, #1c3329);
   --warning: light-dark(#b57f00, #f5cd47);
@@ -336,6 +345,9 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-focus: var(--focus);
+
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-subtle-hover: var(--brand-subtle-hover);
 
   --color-success: var(--success);
   --color-success-subtle: var(--success-subtle);

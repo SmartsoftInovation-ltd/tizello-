@@ -52,9 +52,11 @@ export function asAuthError(code: string): AuthErrorCode {
 /**
  * `GET /session`. Returns null rather than throwing — callers branch on it.
  *
- * Goes through `apiCallWithRefresh`, so a 15-minute access token that expired
+ * Goes through `apiCallWithRefresh`, so a 5-minute access token that expired
  * while the user was reading a page is renewed transparently instead of
- * bouncing them to sign-in. Capped at one retry: see `api-client.ts`.
+ * bouncing them to sign-in. Capped at one retry: see `api-client.ts`. Only the
+ * refresh token's own expiry (15 days) ends the session, and when it does the
+ * cookies are dropped so the next request redirects to sign-in.
  */
 export async function getSession(): Promise<User | null> {
   const result = await apiCallWithRefresh<{ user: User }>("/auth/session");

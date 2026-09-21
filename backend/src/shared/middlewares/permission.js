@@ -9,7 +9,7 @@
 import AppError from '../utils/AppError.js';
 import httpStatus from '../constants/httpStatus.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { hasPermission, roleAtLeast } from '../constants/roles.js';
+import { membershipCan, roleAtLeast } from '../constants/roles.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
 import prisma from '../../config/db.js';
 
@@ -24,10 +24,14 @@ const loadMembership = asyncHandler(async (req, res, next) => {
     throw new AppError(httpStatus.BAD_REQUEST, 'workspaceId is required', AUTH_CODES.VALIDATION_ERROR);
   }
 
+  /* The custom role rides along, because `membershipCan` resolves the grant
+     from it and every guard downstream asks that question. One include here
+     beats a second query inside each middleware that needs it. */
   const membership = await prisma.membership.findUnique({
     where: {
       userId_workspaceId: { userId: req.user.id, workspaceId },
     },
+    include: { customRole: { select: { id: true, name: true, permissions: true, baseRole: true } } },
   });
 
   // A non-member gets 404, not 403: confirming that a workspace exists to
@@ -40,12 +44,14 @@ const loadMembership = asyncHandler(async (req, res, next) => {
   next();
 });
 
-// Requires the caller's workspace role to hold `permission` (a value from
+// Requires the caller's MEMBERSHIP to hold `permission` (a value from
 // PERMISSIONS in shared/constants/roles.js).
+//
+// Membership, not tier: a workspace-defined role carries its own grant, and
+// `membershipCan` is what resolves which of the two applies. Passing
+// `membership.role` here instead would silently ignore every custom role.
 const requirePermission = (permission) => (req, res, next) => {
-  const role = req.membership?.role;
-
-  if (!hasPermission(role, permission)) {
+  if (!membershipCan(req.membership, permission)) {
     return next(
       new AppError(
         httpStatus.FORBIDDEN,

@@ -31,7 +31,7 @@
 import AppError from '../utils/AppError.js';
 import httpStatus from '../constants/httpStatus.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { PERMISSIONS, hasPermission } from '../constants/roles.js';
+import { PERMISSIONS, membershipCan } from '../constants/roles.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
 import prisma from '../../config/db.js';
 
@@ -97,7 +97,7 @@ const loadProject = asyncHandler(async (req, res, next) => {
 
 /** Step 2 or 3 of the ladder: workspace OWNER/ADMIN, the project owner, or a MANAGER. */
 const requireProjectWrite = (req, res, next) => {
-  const escalated = hasPermission(req.membership?.role, PERMISSIONS.PROJECT_MANAGE_ANY);
+  const escalated = membershipCan(req.membership, PERMISSIONS.PROJECT_MANAGE_ANY);
   const owns = req.project?.ownerId === req.user.id;
   const manages = req.projectMember?.role === 'MANAGER';
 
@@ -108,7 +108,7 @@ const requireProjectWrite = (req, res, next) => {
 
 /** Stricter: workspace OWNER/ADMIN or the project owner. A MANAGER is not enough. */
 const requireProjectOwner = (req, res, next) => {
-  const escalated = hasPermission(req.membership?.role, PERMISSIONS.PROJECT_MANAGE_ANY);
+  const escalated = membershipCan(req.membership, PERMISSIONS.PROJECT_MANAGE_ANY);
   const owns = req.project?.ownerId === req.user.id;
 
   if (!escalated && !owns) return next(FORBIDDEN());

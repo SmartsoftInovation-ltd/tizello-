@@ -10,7 +10,8 @@ import type { ProjectSprintInput } from "@/types/project-sprint";
  * `lib/sprints.ts`, revalidate, return a code the dialog renders.
  *
  * Both planning routes are revalidated — `/board/sprint-planning` and the
- * project-scoped one — and so is the backlog, because completing or deleting a
+ * project-scoped one — plus `/board/sprints`, which is where a sprint goes
+ * once it is completed, and the backlog, because completing or deleting a
  * sprint returns tasks to it. **Permissions are not checked here**; the API's
  * `requireProjectWrite` enforces them.
  *
@@ -23,6 +24,9 @@ export type SprintActionResult = { code?: string; message?: string };
 function revalidatePlanning(workspaceId: string, projectId: string) {
   revalidatePath("/board/sprint-planning");
   revalidatePath(`/workspaces/${workspaceId}/projects/${projectId}/sprint-planning`);
+  /* The archive. Completing a sprint is exactly the write that moves a row
+     onto it, so a stale cache here would hide the sprint that just closed. */
+  revalidatePath("/board/sprints");
   revalidateBacklog(workspaceId, projectId);
 }
 

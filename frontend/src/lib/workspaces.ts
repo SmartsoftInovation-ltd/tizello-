@@ -43,6 +43,9 @@ export type WorkspaceMemberRow = {
   id: string;
   userId: string;
   role: Workspace["role"];
+  /** The workspace-defined role they hold, or null for the tier's default grant. */
+  roleId?: string | null;
+  roleName?: string | null;
   createdAt: string;
   user?: { id: string; name: string | null; email: string };
 };

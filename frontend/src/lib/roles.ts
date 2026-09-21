@@ -55,3 +55,16 @@ export function canChangeMemberRole(role: WorkspaceRole): boolean {
 export function canRemoveMember(role: WorkspaceRole): boolean {
   return role === "OWNER" || role === "ADMIN";
 }
+
+/**
+ * `POST|PATCH|DELETE /workspaces/:id/roles` — `ROLE_MANAGE`, OWNER and ADMIN.
+ *
+ * WIDER THAN `canChangeMemberRole` ABOVE, and the gap is the point: an admin
+ * may AUTHOR a role but not hand it to anybody. Authoring alone escalates
+ * nothing — the API refuses a role granting more than its author holds
+ * (`resolveGrant` in `role.service.js`) — while authoring plus assigning is
+ * how an admin would mint themselves a peer. Assigning stays with the owner.
+ */
+export function canManageRoles(role: WorkspaceRole): boolean {
+  return role === "OWNER" || role === "ADMIN";
+}

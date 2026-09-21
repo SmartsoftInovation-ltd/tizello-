@@ -5,10 +5,8 @@ import { PermissionsPageHeader } from "@/components/permissions/permissions-page
 import { getSession } from "@/lib/auth";
 import { getWorkspace } from "@/lib/workspaces";
 import { getMembers } from "@/lib/members";
-import {
-  getPermissionMatrix,
-  getWorkspaceRoles,
-} from "@/lib/demo-permissions";
+import { canManageRoles } from "@/lib/roles";
+import { getPermissionCatalog, getRoles } from "@/lib/workspace-roles";
 
 export async function generateMetadata({
   params,
@@ -40,13 +38,14 @@ export default async function PermissionsPage({
   /* All four reads happen on the server and travel down as plain props. The
      header ships no JavaScript; everything below it shares one state.
 
-     The ROSTER is real (`GET /workspaces/:id/members`); the matrix and the role
-     list are still fixtures, because the API has three roles and no endpoint
-     for defining a fourth. See `use-roles.ts` for which half of this screen
-     persists. */
+     ALL FOUR ARE REAL NOW. The matrix rows are the permission catalog the
+     server gates on (`GET .../roles/permissions`), and the roles are rows in
+     `workspace_roles` — built-ins seeded on first read, custom ones defined
+     here. Nothing on this screen is a fixture any more, which is what makes
+     the grid a description of enforcement rather than a drawing of one. */
   const [groups, roles, members, user] = await Promise.all([
-    getPermissionMatrix(workspaceId),
-    getWorkspaceRoles(workspaceId),
+    getPermissionCatalog(workspaceId),
+    getRoles(workspaceId),
     getMembers(workspaceId),
     getSession(),
   ]);
@@ -62,6 +61,9 @@ export default async function PermissionsPage({
         members={members}
         currentUserId={user?.id ?? ""}
         viewerRole={workspace.role}
+        /* Drawn from, never enforced with — `requirePermission(ROLE_MANAGE)`
+           is the control. See the mirror note in `lib/roles.ts`. */
+        canManageRoles={canManageRoles(workspace.role)}
         workspaceId={workspaceId}
       />
     </main>

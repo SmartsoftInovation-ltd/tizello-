@@ -57,6 +57,18 @@ export type SidebarChildItem = {
    */
   href?: string;
   /**
+   * Keeps this child OUT of the sidebar while leaving it in every other strip
+   * built from the same list — today that is the sprint workflow's tab row.
+   *
+   * It exists because one array is still the right source: a tab and a sidebar
+   * row that pointed at two different URLs for the same idea is the bug this
+   * list was written to prevent, and maintaining two arrays reintroduces it.
+   * What differs is only how much a nav can afford to SHOW. The sidebar is
+   * every screen in the product at once; a tab strip is already inside one
+   * screen and can carry a lens on it that does not deserve a permanent row.
+   */
+  tabOnly?: boolean;
+  /**
    * Marks this child as a route-style one whose destination could not be
    * resolved — no workspace open, no project in the URL. Set alongside a
    * missing `href` so the renderer can tell "not built yet" from "nothing to

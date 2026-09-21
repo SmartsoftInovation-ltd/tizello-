@@ -39,14 +39,17 @@ describe('ROLE_PERMISSIONS — the grant table', () => {
     assert.deepEqual([...ROLE_PERMISSIONS[ROLES.OWNER]].sort(), all);
   });
 
-  it('withholds exactly the three OWNER-only powers from ADMIN', () => {
-    // Deleting the workspace, changing roles and billing are the rows the
-    // header calls out as owner-only. Naming them explicitly means widening
-    // ADMIN is a test failure rather than a silent privilege escalation.
+  it('withholds exactly the two OWNER-only powers from ADMIN', () => {
+    // Deleting the workspace and assigning roles are the rows the header calls
+    // out as owner-only. Naming them explicitly means widening ADMIN is a test
+    // failure rather than a silent privilege escalation.
+    //
+    // Billing was the third until `workspace.billing` was removed from the
+    // catalog: it had zero enforcement sites, and a grid switch that gates
+    // nothing is a control that lies. It returns when billing does.
     const ownerOnly = [
       PERMISSIONS.WORKSPACE_DELETE,
       PERMISSIONS.MEMBER_ROLE_UPDATE,
-      PERMISSIONS.BILLING_MANAGE,
     ];
 
     for (const permission of ownerOnly) {

@@ -27,6 +27,7 @@ import {
 } from "../modules/task/task.routes.js";
 import taskActivityRoutes from "../modules/task/task-activity.routes.js";
 import taskCommentRoutes from "../modules/task/task-comment.routes.js";
+import roleRoutes from "../modules/role/role.routes.js";
 import taskPropertyRoutes from "../modules/task/task-property.routes.js";
 import taskStatusRoutes from "../modules/task/task-status.routes.js";
 import uploadRoutes from "../modules/upload/upload.routes.js";
@@ -87,6 +88,11 @@ router.use("/api/v1/workspaces/:workspaceId/invitations", invitationWorkspaceRou
 // roster's writes live in the member module, and a resource whose read is in
 // one module and whose writes are in another has two owners and therefore none.
 router.use("/api/v1/workspaces/:workspaceId/members", memberRoutes);
+// The workspace's own roles and the permission catalog they are defined
+// against. Workspace-scoped for the same reason the roster is: a role belongs
+// to one workspace, and `permission.js` needs the id in the path to resolve who
+// is asking.
+router.use("/api/v1/workspaces/:workspaceId/roles", roleRoutes);
 router.use("/api/v1/workspaces/:workspaceId/projects", projectWorkspaceRoutes);
 // The workspace's project-database schema. Workspace-scoped rather than
 // project-scoped because a definition belongs to the workspace: adding one

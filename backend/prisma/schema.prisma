@@ -65,6 +65,7 @@ model User {
   // SetNull on the activity side too: a departed user's history stays, unattributed.
   taskActivities      TaskActivity[]      @relation("TaskActivityActor")
   createdSprints      Sprint[]            @relation("SprintCreatedBy")
+  createdRoles        WorkspaceRole[]     @relation("WorkspaceRoleCreatedBy")
 
   @@map("users")
 }
@@ -120,6 +121,7 @@ model Workspace {
   invitations  Invitation[]
   projects     Project[]
   propertyDefs ProjectPropertyDef[]
+  roles        WorkspaceRole[]
 
   @@map("workspaces")
 }
@@ -128,18 +130,77 @@ model Membership {
   id          String   @id @default(cuid())
   userId      String
   workspaceId String
+  // THE TIER, and it never stops being authoritative. `roleAtLeast`,
+  // `requireRole` and every "only the OWNER may…" check walk this ladder, so a
+  // membership always has a rung even when a custom role decides its
+  // permissions. Deleting a custom role leaves this column intact, which is why
+  // dropping one cannot strand a member outside the model.
   role        Role     @default(MEMBER)
+  // The workspace-defined role this member holds, when they hold one. Null is
+  // "use the tier's default grant" — the state every membership was in before
+  // custom roles existed, and the one a deleted role returns them to
+  // (`onDelete: SetNull`, never Cascade: removing a role must not remove the
+  // people who held it).
+  roleId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customRole WorkspaceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   // Named by Prisma as `userId_workspaceId` — the compound key
   // shared/middlewares/permission.js looks a membership up by.
   @@unique([userId, workspaceId])
   @@index([workspaceId])
+  @@index([roleId])
   @@map("memberships")
+}
+
+// A role a workspace defines for itself, and the permissions it grants.
+//
+// WHY THIS IS NOT MORE VALUES ON THE `Role` ENUM. An enum is a compile-time
+// set: adding a value is a migration, and every workspace would share it. A
+// role is per-workspace data — "Reviewer" in one workspace has nothing to do
+// with "Reviewer" in another — so it is a row.
+//
+// `permissions` is a string array of PERMISSIONS keys from
+// shared/constants/roles.js, NOT a join table. The set is small, bounded and
+// always read whole (resolving one membership's grant), so a join buys nothing
+// and costs a query on the hot authorization path. An unknown key in the array
+// is ignored rather than trusted: `hasPermission` fails closed, so a permission
+// the code no longer checks simply stops meaning anything.
+//
+// `baseRole` is what keeps the ladder honest. `roleAtLeast(role, ADMIN)` has to
+// answer for a custom role too, and "Reviewer" is not on MEMBER < ADMIN < OWNER
+// by name — so every custom role declares which rung it sits on, and the
+// membership's own `role` column is set to it on assignment.
+model WorkspaceRole {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  // Which rung of ROLE_ORDER this role sits on. OWNER is refused at the
+  // validator: ownership is an identity, not a capability, and a workspace
+  // that could mint a second owner could mint one for anybody.
+  baseRole    Role     @default(MEMBER)
+  // The three the product ships. Seeded per workspace so the roles screen can
+  // list them beside custom ones, and locked: renaming or re-scoping OWNER
+  // would change what the code itself is written against.
+  builtIn     Boolean  @default(false)
+  permissions String[]
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("WorkspaceRoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  memberships Membership[]
+
+  // Two roles with one name in a workspace would make the cards unreadable and
+  // the audit trail ambiguous.
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("workspace_roles")
 }
 
 model Invitation {

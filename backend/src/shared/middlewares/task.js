@@ -26,7 +26,7 @@
 import AppError from '../utils/AppError.js';
 import httpStatus from '../constants/httpStatus.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { PERMISSIONS, hasPermission } from '../constants/roles.js';
+import { PERMISSIONS, membershipCan } from '../constants/roles.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
 import prisma from '../../config/db.js';
 
@@ -96,7 +96,7 @@ const loadTask = asyncHandler(async (req, res, next) => {
  * MANAGER and COLLABORATOR alike. Runs after `loadProject` or `loadTask`.
  */
 const requireProjectContribute = (req, res, next) => {
-  const escalated = hasPermission(req.membership?.role, PERMISSIONS.PROJECT_MANAGE_ANY);
+  const escalated = membershipCan(req.membership, PERMISSIONS.PROJECT_MANAGE_ANY);
   const owns = req.project?.ownerId === req.user.id;
   const onProject = Boolean(req.projectMember);
 
@@ -116,7 +116,7 @@ const requireProjectContribute = (req, res, next) => {
  * leaves the author comparison — which needs the comment row — to the service.
  */
 const markProjectWriter = (req, res, next) => {
-  const escalated = hasPermission(req.membership?.role, PERMISSIONS.PROJECT_MANAGE_ANY);
+  const escalated = membershipCan(req.membership, PERMISSIONS.PROJECT_MANAGE_ANY);
   const owns = req.project?.ownerId === req.user.id;
   const manages = req.projectMember?.role === 'MANAGER';
 

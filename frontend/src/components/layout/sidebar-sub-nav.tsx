@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { childHref } from "@/lib/nav-links";
+import { childHref, currentChildId } from "@/lib/nav-links";
 import { setMobileSidebarOpen } from "@/lib/sidebar";
 import type { SidebarChildItem } from "@/types/nav";
 
@@ -110,11 +110,16 @@ export function SidebarSubNav({
      default view" — it has no default; it has a child that is not built yet. */
   const routeStyle = items.some((item) => item.href);
 
+  /* Which route-style child the URL is on. Not `item.href === pathname` inline
+     any more: a `tabOnly` child is missing from this list, so its own route has
+     to light the child it is a lens on. See `currentChildId`. */
+  const currentId = routeStyle ? currentChildId(items, pathname) : undefined;
+
   return (
     <ul id={id} aria-labelledby={labelledBy} className={LIST}>
       {items.map((item) => {
         const active = routeStyle
-          ? item.href === pathname
+          ? item.id === currentId
           : onPath && (item.param ? item.param.value === current : !known);
 
         const rail = active ? RAIL_CURRENT : RAIL;

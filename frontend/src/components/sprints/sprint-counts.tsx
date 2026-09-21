@@ -17,7 +17,13 @@ import type { SprintRecord } from "@/types/sprint";
  */
 const CHIP = "bg-surface-sunken text-text-muted tabular-nums";
 
-export function SprintCounts({ sprint }: { sprint: SprintRecord }) {
+export function SprintCounts({
+  sprint,
+}: {
+  /* The two roll-ups it reads, not a whole record — so the live sprints list
+     can pass an API `ProjectSprint`'s `taskCount` under the same chip. */
+  sprint: Pick<SprintRecord, "itemCount" | "totalPoints">;
+}) {
   if (sprint.itemCount === 0) {
     return (
       <p className="text-2xs text-text-subtle italic">

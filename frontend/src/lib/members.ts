@@ -52,6 +52,8 @@ function toMember(row: WorkspaceMemberRow): WorkspaceMember {
     name: row.user?.name?.trim() || email.split("@")[0] || "Unknown",
     email,
     role: row.role,
+    roleId: row.roleId ?? null,
+    roleName: row.roleName ?? null,
   };
 }
 
@@ -84,11 +86,15 @@ export async function getMembers(workspaceId: string): Promise<WorkspaceMember[]
 export async function updateMemberRole(
   workspaceId: string,
   memberId: string,
-  role: WorkspaceRole,
+  /* EXACTLY ONE of the two. `role` sets the tier directly and clears any
+     custom role; `roleId` names a workspace-defined one, and the server takes
+     the tier from that role's own `baseRole`. The API's validator is `.xor`, so
+     sending both is a 400 rather than a quiet precedence rule. */
+  assignment: { role: WorkspaceRole } | { roleId: string },
 ): Promise<MemberResult<WorkspaceMember>> {
   const result = await apiCallWithRefresh<{ member: WorkspaceMemberRow }>(
     `/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
-    { method: "PATCH", body: { role } },
+    { method: "PATCH", body: assignment },
   );
 
   return result.ok

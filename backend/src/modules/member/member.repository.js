@@ -24,6 +24,11 @@ import { ROLES } from '../../shared/constants/roles.js';
 // reader to remember. Shared by both reads below so the two cannot drift.
 const ROSTER_USER_SELECT = { select: { id: true, name: true, email: true } };
 
+/* Just enough of the role for a roster row to name it. The permission array is
+   deliberately absent: the roster lists who holds what, and shipping every
+   member's full grant with it would be a payload nobody reads. */
+const ROSTER_ROLE_SELECT = { select: { id: true, name: true, baseRole: true } };
+
 /**
  * Everyone in the workspace, owner first.
  *
@@ -34,7 +39,7 @@ const ROSTER_USER_SELECT = { select: { id: true, name: true, email: true } };
 const findMembers = (workspaceId) =>
   prisma.membership.findMany({
     where: { workspaceId },
-    include: { user: ROSTER_USER_SELECT },
+    include: { user: ROSTER_USER_SELECT, customRole: ROSTER_ROLE_SELECT },
     orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
   });
 
@@ -54,11 +59,15 @@ const findMembershipById = (id) =>
 const countOwners = (workspaceId) =>
   prisma.membership.count({ where: { workspaceId, role: ROLES.OWNER } });
 
-const updateRole = (id, role) =>
+/* Takes the whole patch rather than a bare tier, because assigning a custom
+   role writes two columns at once: `roleId` (whose grant applies) and `role`
+   (the rung it sits on, which `roleAtLeast` still walks). Writing one without
+   the other is the bug this signature exists to make impossible. */
+const updateRole = (id, data) =>
   prisma.membership.update({
     where: { id },
-    data: { role },
-    include: { user: ROSTER_USER_SELECT },
+    data,
+    include: { user: ROSTER_USER_SELECT, customRole: ROSTER_ROLE_SELECT },
   });
 
 /**

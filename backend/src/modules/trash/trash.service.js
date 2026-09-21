@@ -27,7 +27,7 @@
 import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
-import { PERMISSIONS, hasPermission } from '../../shared/constants/roles.js';
+import { PERMISSIONS, membershipCan } from '../../shared/constants/roles.js';
 import dto from './trash.dto.js';
 import repository from './trash.repository.js';
 
@@ -39,13 +39,19 @@ const notFound = () => new AppError(httpStatus.NOT_FOUND, 'Not found in trash', 
 const forbidden = () =>
   new AppError(httpStatus.FORBIDDEN, 'You do not have permission to perform this action', AUTH_CODES.FORBIDDEN);
 
-/** Workspace OWNER/ADMIN, or the project's owner. Mirrors `requireProjectOwner`. */
-const canManageProject = (project, membershipRole, userId) =>
-  hasPermission(membershipRole, PERMISSIONS.PROJECT_MANAGE_ANY) || project.ownerId === userId;
+/**
+ * Workspace OWNER/ADMIN, or the project's owner. Mirrors `requireProjectOwner`.
+ *
+ * Takes the MEMBERSHIP, not its tier: a workspace-defined role carries its own
+ * grant, and passing `membership.role` would resolve the tier's default and
+ * quietly disagree with the endpoint that actually enforces.
+ */
+const canManageProject = (project, membership, userId) =>
+  membershipCan(membership, PERMISSIONS.PROJECT_MANAGE_ANY) || project.ownerId === userId;
 
 /** The above, plus anyone with a `ProjectMember` row. Mirrors `requireProjectContribute`. */
-const canContribute = (project, membershipRole, userId) =>
-  canManageProject(project, membershipRole, userId) || (project.members?.length ?? 0) > 0;
+const canContribute = (project, membership, userId) =>
+  canManageProject(project, membership, userId) || (project.members?.length ?? 0) > 0;
 
 /**
  * Everything the caller could put back, newest deletion first.
@@ -66,18 +72,18 @@ const listTrash = async (user, { limit }) => {
      forty tasks from three projects in one workspace is three lookups
      otherwise, and forty with the obvious loop. */
   const workspaceIds = [...new Set([...projects.map((p) => p.workspaceId), ...tasks.map((t) => t.project.workspaceId)])];
-  const roles = new Map(
+  const memberships = new Map(
     await Promise.all(
-      workspaceIds.map(async (id) => [id, (await repository.membershipFor(user.id, id))?.role ?? null])
+      workspaceIds.map(async (id) => [id, await repository.membershipFor(user.id, id)])
     )
   );
 
   return {
     projects: projects.map((project) =>
-      dto.toProjectEntry(project, canManageProject(project, roles.get(project.workspaceId), user.id))
+      dto.toProjectEntry(project, canManageProject(project, memberships.get(project.workspaceId), user.id))
     ),
     tasks: tasks.map((task) =>
-      dto.toTaskEntry(task, canContribute(task.project, roles.get(task.project.workspaceId), user.id))
+      dto.toTaskEntry(task, canContribute(task.project, memberships.get(task.project.workspaceId), user.id))
     ),
   };
 };
@@ -89,7 +95,7 @@ const loadProjectFor = async (projectId, user) => {
   if (!project) throw notFound();
 
   const membership = await repository.membershipFor(user.id, project.workspaceId);
-  if (!canManageProject(project, membership?.role, user.id)) throw forbidden();
+  if (!canManageProject(project, membership, user.id)) throw forbidden();
 
   return project;
 };
@@ -99,7 +105,7 @@ const loadTaskFor = async (taskId, user) => {
   if (!task) throw notFound();
 
   const membership = await repository.membershipFor(user.id, task.project.workspaceId);
-  if (!canContribute(task.project, membership?.role, user.id)) throw forbidden();
+  if (!canContribute(task.project, membership, user.id)) throw forbidden();
 
   return task;
 };

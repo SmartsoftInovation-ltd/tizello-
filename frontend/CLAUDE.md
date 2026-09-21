@@ -234,20 +234,35 @@ against demo data in `src/lib/`, never that a backend is wired.
       permission ladder (12 cases, including "contributing is never harder than
       managing"), and the restore/purge round-trip was verified live against
       the dev database.
-- [ ] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
-      the three role cards, a read-only permissions matrix (14 actions in four
-      areas × OWNER / ADMIN / MEMBER, from `demo-permissions.ts`) and a role
-      assignment list over the **real** roster. **The two halves of this screen
-      no longer have the same status**, which is the thing to know before
-      touching it: defining a role — create, edit, delete, every matrix cell —
-      is still `useState` over fixtures, because the API has exactly three roles
-      and no endpoint for a fourth, while assigning one of those three to a
-      member is a real `PATCH .../members/:memberId` through the same action the
-      members screen uses (`use-role-assignment.ts`). So a renamed role card is
-      gone on refresh and a changed member role is not. Assigning a *custom*
-      role is refused with a sentence rather than written, and the selects are
-      gated by `canChangeMemberRole` like the members screen. The matrix is
-      still what the screen DRAWS, never what anything enforces.
+- [x] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
+      the role cards, a read-only permission matrix and a role assignment list,
+      and **all of it is real now**. `demo-permissions.ts` is deleted. Roles are
+      rows in `workspace_roles` (`backend/docs/api/role.md`): the three
+      built-ins are seeded per workspace on first read from the same
+      `ROLE_PERMISSIONS` table the fallback uses, and a workspace defines its
+      own through `POST/PATCH/DELETE .../roles`. **The matrix IS the
+      enforcement** — its rows are the catalog served by
+      `GET .../roles/permissions`, the exact set `requirePermission` gates on,
+      so a switch on screen cannot claim a power the server does not check.
+      (Tasks are absent from it on purpose: task access is a PROJECT role, not
+      a workspace one.) A custom role carries a `baseRole` — MEMBER or ADMIN,
+      never OWNER — because `roleAtLeast` still walks the tier ladder, and
+      assigning one writes both `Membership.roleId` (the grant) and
+      `Membership.role` (the rung). Two rules are worth knowing before touching
+      this: **a role cannot grant a permission its author does not hold**
+      (`resolveGrant`), which closes the admin self-grant hole, and **an OWNER
+      is never narrowed by a custom role**, which stops the last person with
+      authority being locked out. Defining a role is `roles.manage` (owner +
+      admin); assigning one is `members.roles` (owner only) — the gap is
+      deliberate, since authoring plus assigning is how an admin would mint
+      themselves a peer. Matrix cells are read-only: against the real API a
+      per-cell toggle is a PATCH of the whole permissions array, so editing
+      happens in the dialog, which sends the set once.
+      **Tested:** `npm test` in `backend/` covers resolution
+      (`roles.custom.test.js` — 11 cases, including "never narrows an OWNER"
+      and "drops ids that are not in the catalog"), and
+      seed → create → resolve → escalation-refusal → delete was verified live
+      against the dev database.
 
 ## Stack
 

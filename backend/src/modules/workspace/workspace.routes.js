@@ -43,7 +43,25 @@ router.get(
   asyncHandler(controller.list)
 );
 
-router.get('/:workspaceId', authGuard, loadMembership, asyncHandler(controller.getById));
+/*
+ * `WORKSPACE_VIEW` is a real gate, not decoration. It was `loadMembership`
+ * alone — membership WAS the whole check — which left the permission declared,
+ * granted to all three tiers and read by nothing. The roles screen drew it as
+ * a switch, and unticking it did nothing at all.
+ *
+ * `loadMembership` still 404s a non-member (confirming a workspace exists to
+ * someone outside it is its own leak); this is the second question, for
+ * someone who IS a member under a role that does not include reading the
+ * workspace itself. An OWNER is never narrowed by a custom role
+ * (`permissionsFor`), so this cannot lock the last authority out.
+ */
+router.get(
+  '/:workspaceId',
+  authGuard,
+  loadMembership,
+  requirePermission(PERMISSIONS.WORKSPACE_VIEW),
+  asyncHandler(controller.getById)
+);
 
 /*
  * The roster is NOT here. `GET /workspaces/:workspaceId/members` moved to

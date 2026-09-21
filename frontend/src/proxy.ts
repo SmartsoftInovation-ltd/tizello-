@@ -75,5 +75,12 @@ export const config = {
   // an unauthenticated call to the real API 401s, and without this guard that
   // read as "you have zero workspaces" instead of a sign-in redirect.
   // `/profile` for the same reason — it reads the session's own record.
-  matcher: ["/board/:path*", "/workspaces/:path*", "/profile/:path*"],
+  //
+  // `/my-tasks` and `/trash` were missing. Both call `getSession()` and
+  // redirect on null, so they were never READABLE signed out — but an
+  // unmatched route gets no proactive renewal, so the access token was left to
+  // lapse and be refreshed from inside a render instead. That is the rotation
+  // hazard `lib/session-refresh.ts` describes, and a 5-minute token makes it
+  // the common case rather than a rare one.
+  matcher: ["/board/:path*", "/workspaces/:path*", "/profile/:path*", "/my-tasks/:path*", "/trash/:path*"],
 };

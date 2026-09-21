@@ -22,7 +22,10 @@ export function SprintWindow({
   sprint,
   today,
 }: {
-  sprint: SprintRecord;
+  /* Narrowed to the three fields the line reads. A caller holding an API
+     `ProjectSprint` must check both dates first: they are nullable there, and
+     this component is only honest about a sprint that HAS a time-box. */
+  sprint: Pick<SprintRecord, "startDate" | "endDate" | "state">;
   /** The app's pinned today, threaded down from the page. */
   today: string;
 }) {

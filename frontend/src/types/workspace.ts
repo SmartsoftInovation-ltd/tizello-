@@ -94,7 +94,20 @@ export type WorkspaceMember = {
   userId: string;
   name: string;
   email: string;
+  /**
+   * The TIER — MEMBER, ADMIN or OWNER. Always present, and still what every
+   * ladder check reads: a workspace-defined role sits ON a tier rather than
+   * replacing it.
+   */
   role: WorkspaceRole;
+  /**
+   * The workspace-defined role they hold, or `null` to fall back to the tier's
+   * default grant. `null` rather than absent, so "no custom role" is
+   * distinguishable from "this field was not selected".
+   */
+  roleId?: string | null;
+  /** That role's name, for the roster chip. Null when they hold none. */
+  roleName?: string | null;
 };
 
 /**

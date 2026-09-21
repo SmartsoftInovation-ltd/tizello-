@@ -7,6 +7,7 @@ import { SidebarSubNav } from "@/components/layout/sidebar-sub-nav";
 import { ChevronDownIcon, MoreIcon, PlusIcon } from "@/components/ui/icons";
 import { LockedControl } from "@/components/ui/locked-control";
 import { cn } from "@/lib/cn";
+import { currentChildId } from "@/lib/nav-links";
 import { setMobileSidebarOpen } from "@/lib/sidebar";
 import type { SidebarItem as SidebarItemData } from "@/types/nav";
 
@@ -70,6 +71,20 @@ const LINK = "flex min-w-0 flex-1 items-center py-1.5 text-left text-sm";
 const ICON_BUTTON =
   "size-6 rounded-sm text-text-muted hover:bg-surface-sunken hover:text-text";
 
+/* The `+` carries the brand, the `⋯` stays neutral.
+ *
+ * One of the two row actions CREATES and the other only opens a menu, so
+ * tinting both would spend the accent on the pair and say nothing. A soft mint
+ * chip behind the glyph is enough: it names the create affordance at a glance
+ * without adding a solid button to a 256px column.
+ *
+ * `brand-subtle` is a semantic token, not `brand-100`, and the two are not
+ * interchangeable: a raw ramp utility does not flip with the theme, so
+ * `bg-brand-100` would stay near-white in dark mode. Both it and its hover are
+ * defined in `globals.css`; `text-brand` is the AA-safe brand ink either way. */
+const ADD_BUTTON =
+  "size-6 rounded-sm bg-brand-subtle text-brand hover:bg-brand-subtle-hover";
+
 /* The shared 16px slot. `grid place-items-center` stacks the icon and the
    chevron on one another so neither is in the other's flow, and the fade is on
    opacity alone — a swap that moved anything would shift the label beside it. */
@@ -126,7 +141,7 @@ export function SidebarTreeItem({
      around. */
   /* True when one of the children IS the current page — only possible for a
      route-style group, since a param-style child shares the parent's path. */
-  const childIsCurrent = children.some((child) => child.href === pathname);
+  const childIsCurrent = currentChildId(children, pathname) !== undefined;
 
   const [open, setOpen] = useState(defaultOpen || active || childIsCurrent);
 
@@ -173,7 +188,7 @@ export function SidebarTreeItem({
             <LockedControl
               reason="Creating a project from the sidebar is not built yet"
               label={`New project in ${item.label}`}
-              className={cn(ICON_BUTTON, ROW_ACTION)}
+              className={cn(ADD_BUTTON, ROW_ACTION)}
             >
               <PlusIcon className="size-3.5" />
             </LockedControl>

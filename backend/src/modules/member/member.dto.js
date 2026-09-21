@@ -20,7 +20,13 @@
 const toMember = (row) => ({
   id: row.id,
   userId: row.userId,
+  // The TIER, always present. It is what `roleAtLeast` walks and what every
+  // client that predates custom roles reads, so it keeps its name and meaning.
   role: row.role,
+  // The workspace-defined role, when they hold one. `null` — not absent — so a
+  // client can tell "falls back to the tier" from "this field was not selected".
+  roleId: row.roleId ?? null,
+  roleName: row.customRole?.name ?? null,
   createdAt: row.createdAt,
   ...(row.user
     ? { user: { id: row.user.id, name: row.user.name, email: row.user.email } }

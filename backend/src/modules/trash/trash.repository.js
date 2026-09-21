@@ -113,8 +113,14 @@ const findDeletedTask = (taskId, userId) =>
     select: taskSelect(userId),
   });
 
+/* The custom role comes with it: `membershipCan` resolves a workspace-defined
+   role's grant from it, and a membership read without it silently falls back to
+   the tier's default — which is the wrong answer for anyone holding one. */
 const membershipFor = (userId, workspaceId) =>
-  prisma.membership.findUnique({ where: { userId_workspaceId: { userId, workspaceId } } });
+  prisma.membership.findUnique({
+    where: { userId_workspaceId: { userId, workspaceId } },
+    include: { customRole: { select: { permissions: true } } },
+  });
 
 /* `deletedAt: null` is the whole restore — nothing else was changed on the way
    out, which is what makes a soft delete worth having. */

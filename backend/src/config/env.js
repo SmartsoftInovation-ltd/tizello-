@@ -34,7 +34,7 @@ const config = {
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL,
   jwtSecret: process.env.JWT_SECRET,
-  jwtExpiry: process.env.JWT_EXPIRY || '15m',
+  jwtExpiry: process.env.JWT_EXPIRY || '5m',
   // Browser origin allowed through CORS. Optional — a dev machine without it
   // boots permissive rather than refusing to start.
   clientOrigin: process.env.CLIENT_ORIGIN || '*',
@@ -69,7 +69,7 @@ const config = {
   auth: {
     // The refresh token is opaque CSPRNG bytes, not a JWT — nothing signs it,
     // so its lifetime is enforced by the row, not by a claim.
-    refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 30,
+    refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS) || 15,
     // Six digits is only 10^6, so the attempt cap — not the length — is what
     // makes the code safe. Both are enforced on the LoginCode row.
     loginCodeTtlMinutes: Number(process.env.LOGIN_CODE_TTL_MINUTES) || 10,

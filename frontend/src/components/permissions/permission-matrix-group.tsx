@@ -1,5 +1,3 @@
-"use client";
-
 import { PermissionCell } from "@/components/permissions/permission-cell";
 import { TableRow } from "@/components/ui/table";
 import type { PermissionGroup, RoleDefinition } from "@/types/permissions";
@@ -21,11 +19,9 @@ const ROW_HEAD =
 export function PermissionMatrixGroup({
   group,
   roles,
-  onToggle,
 }: {
   group: PermissionGroup;
   roles: RoleDefinition[];
-  onToggle: (roleId: string, actionId: string) => void;
 }) {
   return (
     <>
@@ -44,9 +40,7 @@ export function PermissionMatrixGroup({
             <PermissionCell
               key={role.id}
               role={role}
-              actionLabel={action.label}
-              allowed={role.allowed.includes(action.id)}
-              onToggle={() => onToggle(role.id, action.id)}
+              allowed={role.permissions.includes(action.id)}
             />
           ))}
         </TableRow>

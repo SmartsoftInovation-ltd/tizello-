@@ -66,11 +66,34 @@ const baseOptions = {
   domain: config.cookieDomain,
 };
 
+/**
+ * `JWT_EXPIRY` as milliseconds, so the cookie cannot outlive the token inside
+ * it — or die before it.
+ *
+ * It was hard-coded at 15 minutes while the token's own lifetime came from the
+ * environment, so lowering `JWT_EXPIRY` left the browser holding a cookie that
+ * was valid for three times as long as its contents. Every request in that gap
+ * presented a dead token and cost a refresh round trip, and the proxy's
+ * `accessTokenNeedsRefresh` was the only thing keeping it from being visible.
+ *
+ * Unparseable input falls back to the token's own default rather than throwing:
+ * a typo in `JWT_EXPIRY` is already caught by `jsonwebtoken` at sign time, and
+ * refusing to boot over a cookie attribute would be a worse failure.
+ */
+function expiryToMs(expiry) {
+  const match = /^(\d+)\s*([smhd])$/.exec(String(expiry).trim());
+  if (!match) return 5 * MINUTE;
+
+  const amount = Number(match[1]);
+  const unit = { s: 1000, m: MINUTE, h: 60 * MINUTE, d: DAY }[match[2]];
+  return amount * unit;
+}
+
 const accessCookieOptions = {
   ...baseOptions,
   sameSite: 'lax',
   path: '/',
-  maxAge: 15 * MINUTE,
+  maxAge: expiryToMs(config.jwtExpiry),
 };
 
 const refreshCookieOptions = {
