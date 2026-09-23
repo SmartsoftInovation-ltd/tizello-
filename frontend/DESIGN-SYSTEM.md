@@ -378,8 +378,8 @@ keep it that way.
 - **Add tokens in the right layer.** See *Adding a semantic token* above.
 - **Anything with a surface or text colour must use a semantic token.** A raw
   ramp utility (`bg-ink-0`, `text-ink-900`) is frozen in the light palette and
-  will be unreadable in dark. The reference page at `/` is the audit: flip to
-  dark and anything that stays put is a bug.
+  will be unreadable in dark. The reference page at `/design-system` is the
+  audit: flip to dark and anything that stays put is a bug.
 - **Reach for `dark:` last.** Semantic tokens flip on their own, so a `dark:`
   utility usually means a token is missing. Add the token instead.
 
@@ -387,6 +387,7 @@ keep it that way.
 
 ## Reference page
 
-`/` renders every token — type scale, both ramps, buttons, radii, elevation, and
-a board preview. Keep it in sync when tokens change; delete the route once the
-real board UI lands (`src/app/page.tsx`).
+`/design-system` renders every token — type scale, both ramps, buttons, radii,
+elevation, and a board preview. Keep it in sync when tokens change
+(`src/app/design-system/page.tsx`). It used to sit on `/`, which meant starting
+the server landed on it instead of the app; `/` now redirects to sign-in or home.

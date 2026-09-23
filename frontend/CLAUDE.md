@@ -17,7 +17,8 @@ frontend-only and fixture-backed: a checked box means the UI exists and works
 against demo data in `src/lib/`, never that a backend is wired.
 
 - [x] **Design system + theming** — tokens in `globals.css`, every colour a
-      `light-dark()` pair, `ThemeToggle`. The reference page still occupies `/`.
+      `light-dark()` pair, `ThemeToggle`. The reference page is at
+      `/design-system`; `/` redirects to sign-in or home.
 - [x] **Auth** — sign-in (email → password or code), sign-up, forgot/reset
       password, verify email, sign-out. Server Actions over `auth-fixtures.ts`;
       `proxy.ts` does the optimistic cookie check.
@@ -350,11 +351,12 @@ is usually missing — add the token instead. Full mechanics, both neutral ramps
 and the hydration constraints are in
 [DESIGN-SYSTEM.md § Themes](./DESIGN-SYSTEM.md#themes).
 
-To check work: open `/` and flip the toggle. Anything that doesn't re-theme is
-reaching past the semantic layer.
+To check work: open `/design-system` and flip the toggle. Anything that doesn't
+re-theme is reaching past the semantic layer.
 
-`/` currently renders the design-system reference page. Delete it once the real
-board UI lands.
+The design-system reference page lives at `/design-system`. `/` itself only
+redirects — to `/sign-in` when there is no session cookie, to `HOME`
+(`/workspaces`) when there is.
 
 ## Rules
 
@@ -394,5 +396,6 @@ src/
   types/          # shared domain types
 ```
 
-Routes so far: `/` design-system reference · `/board/[boardId]` the board —
+Routes so far: `/` redirect to sign-in/home · `/design-system` the reference
+page · `/board/[boardId]` the board —
 `/board/sprint` is the sprint board, `/board/backlog` the flat one.

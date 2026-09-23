@@ -9,7 +9,7 @@ import { SearchPalette } from "@/components/search/search-palette";
  * Applied through `layout.tsx` — one under `/workspaces`, one under `/board` —
  * rather than rendered by each page, so navigating between the two routes never
  * tears the sidebar down. `(auth)` has its own split shell and is not wrapped
- * by this one; neither is `/`, the design-system reference.
+ * by this one; neither is `/design-system`, the reference page.
  *
  * Everything here is a Server Component. The only parts that ship JavaScript
  * are the collapse frame, the nav list and the small controls in the strip.

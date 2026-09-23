@@ -1,57 +1,25 @@
-import Link from "next/link";
-import { BoardPreview } from "@/components/design-system/board-preview";
-import { Media } from "@/components/design-system/media";
-import {
-  BrandPalette,
-  NeutralPalettes,
-  StatusPalette,
-} from "@/components/design-system/palette";
-import { Buttons, RadiusAndElevation } from "@/components/design-system/surfaces";
-import { TypeScale } from "@/components/design-system/typography";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { ACCESS_COOKIE, HOME, REFRESH_COOKIE } from "@/lib/session-cookie";
 
 /**
- * Design-system reference page. Every value below is a token — nothing is
- * hard-coded. Delete this route once the real board UI lands.
+ * The entry point: nothing renders here, the visitor is sent on.
  *
- * A Server Component: ThemeToggle is the only interactive part, and it is its
- * own client leaf.
+ * Signed in they land on `HOME` (the workspace list, what the sidebar calls
+ * Home); signed out, on `/sign-in`, which returns them to `HOME` once the
+ * credential is proved. The design-system reference that used to occupy this
+ * route now lives at `/design-system`.
+ *
+ * The check is cookie *presence* only — the same optimistic gate `proxy.ts`
+ * makes, and for the same reason: this picks a destination, it does not
+ * authorise a read, and `/workspaces` does the real `getSession()` check on
+ * arrival. Calling the API from here would add a round trip to every visit to
+ * `/`, and would refresh the access token inside a render — the rotation
+ * hazard `lib/session-refresh.ts` describes.
  */
-export default function DesignSystemPage() {
-  return (
-    <main className="mx-auto max-w-5xl space-y-14 px-6 py-14">
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <span className="inline-flex items-center rounded-xs bg-brand-100 px-2 py-0.5 text-2xs font-semibold tracking-widest text-brand-800 uppercase">
-            Design system
-          </span>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/board/sprint"
-              className="text-xs font-semibold text-text-brand transition-colors duration-100 ease-standard hover:text-brand-600"
-            >
-              Open the board &rarr;
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-        <h1 className="text-4xl font-semibold">Tizello</h1>
-        <p className="max-w-xl text-base text-text-muted">
-          Trello&rsquo;s structure and greys, reduced to a minimal token set and
-          re-branded around fresh mint. Inter stands in for Atlassian&rsquo;s
-          proprietary Charlie typeface. Every colour below is a semantic token,
-          so the whole page re-themes from one attribute on &lt;html&gt;.
-        </p>
-      </header>
+export default async function RootPage() {
+  const store = await cookies();
+  const signedIn = store.has(ACCESS_COOKIE) || store.has(REFRESH_COOKIE);
 
-      <TypeScale />
-      <BrandPalette />
-      <NeutralPalettes />
-      <StatusPalette />
-      <Buttons />
-      <RadiusAndElevation />
-      <Media />
-      <BoardPreview />
-    </main>
-  );
+  redirect(signedIn ? HOME : "/sign-in");
 }
