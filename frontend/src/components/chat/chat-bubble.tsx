@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { ChatAttachments } from "@/components/chat/chat-attachments";
 import { ChatAvatar } from "@/components/chat/chat-avatar";
-import { ChatBubbleEditor } from "@/components/chat/chat-bubble-editor";
 import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
 import { clockTime, type ChatRow } from "@/lib/chat-grouping";
 import { isPending } from "@/lib/chat-messages";
@@ -31,22 +30,33 @@ import { cn } from "@/lib/cn";
  * name in its tooltip and accessible name. If a written name is wanted back, it
  * belongs ABOVE the first bubble of a turn, not inside every one of them.
  *
- * THE CLOCK SHARES THE TEXT'S ROW, as its last column rather than its own
- * line: a flex row with the text flexible and the time fixed puts "HI  12:45"
- * on one line and drops the time to the bottom-right of a paragraph, which is
- * the one arrangement that reads well at both lengths. A floated span got the
- * short case right and left long messages ragged; a separate line got the long
- * case right and made short ones square.
+ * THE CLOCK IS ITS OWN LINE, under the text and aligned to the end of the
+ * bubble. It has been all three ways now — floated into the last line, sharing
+ * the row as a second column, and here — and this is the one that stays: a
+ * message and the time it was sent are two different things, and a clock
+ * sitting immediately after the last word reads as part of the sentence.
  *
  * EVERY MESSAGE HAS AN AVATAR, the sender's own, on the side their bubble is.
  * Only the last bubble of a turn draws it — a run of four messages with four
  * identical discs beside them is a column of noise — and a spacer holds the
  * rest of the run in line.
  *
- * Edit and Delete are NOT in the bubble: they are a ⋮ menu outside it
- * (`chat-bubble-menu.tsx`), because three unrelated things on one line is what
- * made this row hard to read.
+ * EDIT AND DELETE BELONG TO THE AUTHOR, so the ⋮ menu is drawn on the reader's
+ * own messages and on nothing else. A workspace OWNER used to get Delete on
+ * everybody's; that is gone from the API too (`chat.service.js#deleteMessage`),
+ * so a control here would have been a lie rather than an optimism.
+ *
+ * The menu opens a DIALOG (`chat-message-dialogs.tsx`) rather than editing in
+ * place: this component therefore holds no editing state at all, and asks its
+ * parent instead.
  */
+
+/* A photo or a clip with no caption gets NO bubble at all — no fill, no
+   padding, no shadow. A picture is already a rectangle with edges; wrapping it
+   in a tinted card with 8px of padding draws a frame around a frame, which is
+   what made image messages look boxed-in. The clock still needs somewhere to
+   sit, so it goes back over the media's bottom edge. */
+const BARE = "bg-transparent p-0 shadow-none";
 
 const OWN = "bg-brand-100 text-brand-950";
 /* NO BORDER, matching the reader's own bubble: a hairline on one side of the
@@ -71,21 +81,32 @@ function TurnAvatar({ row, isOwn }: { row: ChatRow; isOwn: boolean }) {
 export function ChatBubble({
   row,
   isOwn,
-  canDelete,
   onEdit,
   onDelete,
 }: {
   row: ChatRow;
   isOwn: boolean;
-  canDelete: boolean;
-  onEdit: (id: string, content: string) => void;
-  onDelete: (id: string) => void;
+  /** Asks the thread to open the edit dialog for this message. */
+  onEdit: (message: ChatRow["message"]) => void;
+  /** Asks the thread to open the delete confirm for this message. */
+  onDelete: (message: ChatRow["message"]) => void;
 }) {
   const { message, endsTurn } = row;
-  const [editing, setEditing] = useState(false);
   const pending = isPending(message);
 
-  const actionable = !message.deleted && !pending && !editing;
+  /* A message still on its way to the server has no id the server knows, so
+     there is nothing to edit or delete yet. */
+  const actionable = isOwn && !message.deleted && !pending;
+
+  /* Media with no words — see `BARE`. A document is NOT media: its row is a
+     chip that needs the bubble behind it to read as part of the message. */
+  const mediaOnly =
+    !message.deleted &&
+    !message.content &&
+    message.attachments.length > 0 &&
+    message.attachments.every(
+      (file) => file.mime.startsWith("image/") || file.mime.startsWith("video/"),
+    );
 
   return (
     <li
@@ -99,15 +120,13 @@ export function ChatBubble({
           thread reads; a spacer keeps the rest of the run aligned under it. */}
       {!isOwn && <TurnAvatar row={row} isOwn={false} />}
 
-      {/* Own messages put the menu on the left of the bubble and everybody
-          else's on the right, so it always opens into the empty half of the
-          row rather than over the conversation. */}
-      {isOwn && actionable && (
+      {/* On the left of the bubble, which for an own message is the empty half
+          of the row — so the menu opens into space rather than over the
+          conversation. */}
+      {actionable && (
         <ChatBubbleMenu
-          canEdit
-          canDelete
-          onEdit={() => setEditing(true)}
-          onDelete={() => onDelete(message.id)}
+          onEdit={() => onEdit(message)}
+          onDelete={() => onDelete(message)}
         />
       )}
 
@@ -116,9 +135,12 @@ export function ChatBubble({
           SHAPE,
           "max-w-[min(34rem,76%)] min-w-0 text-sm leading-snug shadow-card",
           message.deleted ? "border border-border bg-transparent" : isOwn ? OWN : THEIRS,
+          mediaOnly && BARE,
           /* The tail, on the corner where the turn ends. */
           endsTurn && (isOwn ? "rounded-br-xs" : "rounded-bl-xs"),
-          pending && "opacity-60",
+          /* A LIGHT dim, not a fade: the message is written, it is simply not
+             acknowledged yet, and at 60% it read as disabled. */
+          pending && "opacity-90",
         )}
       >
         {message.deleted ? (
@@ -128,48 +150,48 @@ export function ChatBubble({
               {clockTime(message.createdAt)}
             </span>
           </p>
-        ) : editing ? (
-          <ChatBubbleEditor
-            content={message.content ?? ""}
-            onCancel={() => setEditing(false)}
-            onSave={(next) => {
-              if (next && next !== message.content) onEdit(message.id, next);
-              setEditing(false);
-            }}
-          />
         ) : (
-          <div className="flex items-end gap-2">
-            <p className="min-w-0 flex-1 break-words whitespace-pre-wrap">
-              {message.content}
-            </p>
+          <>
+            <ChatAttachments attachments={message.attachments} isOwn={isOwn} />
+
+            {/* A message may be files with no text — the API allows it and the
+                composer sends it, so this has to not draw an empty line. */}
+            {message.content && (
+              <p className="break-words whitespace-pre-wrap">{message.content}</p>
+            )}
 
             {/* `select-none` so copying a message does not carry a timestamp
-                into the paste. `translate-y-px` drops it onto the text's
-                baseline rather than its line box, which at 10px against 14px
-                otherwise sits visibly high. */}
+                into the paste. */}
             <span
               className={cn(
-                "flex shrink-0 translate-y-px select-none items-center gap-1 text-[10px] leading-none",
-                isOwn ? "text-brand-700" : "text-text-subtle",
+                "flex select-none items-center justify-end gap-1 text-[10px] leading-none",
+                /* Over the media's bottom edge when there is no bubble to sit
+                   in, and legible on whatever the photo happens to be there. */
+                mediaOnly
+                  ? "-mt-6 mr-2 rounded-xs bg-ink-950/60 px-1.5 py-0.5 text-ink-0"
+                  : "mt-1",
+                !mediaOnly && (isOwn ? "text-brand-700" : "text-text-subtle"),
               )}
             >
               {message.editedAt && <span>edited</span>}
-              {pending ? <span aria-label="Sending">⋯</span> : clockTime(message.createdAt)}
+              {/* A CLOCK, NOT A SPINNER, while the server confirms. The time
+                  shown is this client's own guess and will be corrected within
+                  a round trip; a spinner in its place made an instant action
+                  look like work, and it span for the whole of a reconnect —
+                  which is a normal five-minute event here, not a failure. */}
+              {pending && (
+                <svg viewBox="0 0 16 16" className="size-3" aria-label="Sending">
+                  <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              )}
+              {clockTime(message.createdAt)}
             </span>
-          </div>
+          </>
         )}
       </div>
 
       {isOwn && <TurnAvatar row={row} isOwn />}
-
-      {!isOwn && actionable && canDelete && (
-        <ChatBubbleMenu
-          canEdit={false}
-          canDelete
-          onEdit={() => undefined}
-          onDelete={() => onDelete(message.id)}
-        />
-      )}
     </li>
   );
 }

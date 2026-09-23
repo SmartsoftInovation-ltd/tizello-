@@ -39,12 +39,22 @@ import { AUTH_CODES } from '../constants/authCodes.js';
  * No SVG: it is an XML document that can carry script, and serving one from
  * the app's own origin is a stored-XSS primitive. PNG, JPEG and WebP cover the
  * images anybody attaches to a project.
+ *
+ * MP4 AND WEBM were added for chat, where "+" shares a photo or a clip. Only
+ * those two: they are what every browser plays without a codec conversation,
+ * and `config.upload.maxBytes` (10 MB) is the real limit on what a video can
+ * be here — a few seconds of phone footage. Anything longer belongs behind a
+ * proper media pipeline, which this is not. QuickTime (`video/quicktime`) is
+ * deliberately absent: Safari records it, most browsers will not play it back,
+ * and storing something nobody can open is worse than refusing it.
  */
 const ALLOWED_TYPES = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
   'image/gif': 'gif',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
   'application/pdf': 'pdf',
   'text/plain': 'txt',
   'text/csv': 'csv',

@@ -1,5 +1,6 @@
 import { AccountMenuTrigger } from "@/components/layout/account-menu-trigger";
-import { avatarSrc, displayName, getProfile } from "@/lib/profile";
+import { getProfile } from "@/lib/profile";
+import { avatarSrc, displayName } from "@/lib/profile-display";
 
 /**
  * Replaces `SidebarAccount`, which pinned this to the sidebar's bottom edge —

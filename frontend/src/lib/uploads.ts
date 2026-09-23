@@ -61,6 +61,11 @@ export function isImage(mime: string): boolean {
   return mime.startsWith("image/");
 }
 
+/** Chat's "+" button sends these; `ui/app-image.tsx` cannot render one. */
+export function isVideo(mime: string): boolean {
+  return mime.startsWith("video/");
+}
+
 export function isPdf(mime: string): boolean {
   return mime === "application/pdf";
 }

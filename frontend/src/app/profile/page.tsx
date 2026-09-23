@@ -6,7 +6,8 @@ import { ProfileCard } from "@/components/profile/profile-card";
 import { ProfileFacts } from "@/components/profile/profile-facts";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ProfileIdentityCard } from "@/components/profile/profile-identity-card";
-import { avatarSrc, displayName, getProfile } from "@/lib/profile";
+import { getProfile } from "@/lib/profile";
+import { avatarSrc, displayName } from "@/lib/profile-display";
 
 export const metadata: Metadata = {
   title: "Profile",

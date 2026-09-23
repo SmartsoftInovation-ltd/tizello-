@@ -1,7 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ChatBubble } from "@/components/chat/chat-bubble";
+import {
+  ChatDeleteDialog,
+  ChatEditDialog,
+} from "@/components/chat/chat-message-dialogs";
 import { Button } from "@/components/ui/button";
 import { groupMessages } from "@/lib/chat-grouping";
 import type { ChatMessage } from "@/types/chat";
@@ -30,7 +34,6 @@ const NEAR_BOTTOM_PX = 80;
 export function ChatThread({
   messages,
   viewerId,
-  canModerate,
   hasOlder,
   ready,
   onEdit,
@@ -39,9 +42,10 @@ export function ChatThread({
 }: {
   messages: ChatMessage[];
   viewerId: string | null;
-  canModerate: boolean;
   hasOlder: boolean;
   ready: boolean;
+  /* Applied to the thread immediately and confirmed behind the reader, so
+     neither returns anything to wait on. */
   onEdit: (id: string, content: string) => void;
   onDelete: (id: string) => void;
   onLoadOlder: () => void;
@@ -49,6 +53,12 @@ export function ChatThread({
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const rows = groupMessages(messages);
+
+  /* ONE DIALOG PAIR FOR THE WHOLE THREAD, holding WHICH message is open rather
+     than a boolean per bubble — a hundred messages would otherwise be a
+     hundred `<dialog>` elements, ninety-nine of them closed. */
+  const [editing, setEditing] = useState<ChatMessage | null>(null);
+  const [deleting, setDeleting] = useState<ChatMessage | null>(null);
 
   useEffect(() => {
     const element = scroller.current;
@@ -103,13 +113,23 @@ export function ChatThread({
             <ChatBubble
               row={row}
               isOwn={row.message.sender?.id === viewerId}
-              canDelete={canModerate}
-              onEdit={onEdit}
-              onDelete={onDelete}
+              onEdit={setEditing}
+              onDelete={setDeleting}
             />
           </Fragment>
         ))}
       </ul>
+
+      <ChatEditDialog
+        message={editing}
+        onCancel={() => setEditing(null)}
+        onSave={onEdit}
+      />
+      <ChatDeleteDialog
+        message={deleting}
+        onCancel={() => setDeleting(null)}
+        onConfirm={onDelete}
+      />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { apiCallWithRefresh } from "@/lib/api-client";
-import { uploadUrl } from "@/lib/uploads";
 import type { Profile, ProfileInput } from "@/types/profile";
 
 /*
@@ -48,41 +47,4 @@ export async function updateProfile(
   return result.ok
     ? { ok: true, data: result.data.profile }
     : { ok: false, code: result.code };
-}
-
-/**
- * The public URL of a profile photo, or `null`.
- *
- * The stored value is a path (`/uploads/<uuid>.png`), not a URL: the origin
- * differs per environment, so storing one would pin the row to a deploy. This
- * strips the leading segment and hands the stored name to `uploadUrl`, which
- * re-checks its shape and joins it onto `NEXT_PUBLIC_UPLOADS_URL`.
- */
-export function avatarSrc(avatarUrl: string | null): string | null {
-  if (!avatarUrl) return null;
-
-  const storedName = avatarUrl.replace(/^\/uploads\//, "");
-
-  return uploadUrl(storedName);
-}
-
-/**
- * What to call someone, in one place.
- *
- * Nickname first — it is the name a person chose for themselves, which is the
- * point of having the field. Then the full name, then the address's local part,
- * which is what an account created by accepting an invitation has until it sets
- * one. `lib/members.ts` makes the same fallback for the same reason; the
- * difference is that this one also knows about nicknames.
- */
-export function displayName(profile: {
-  nickname: string | null;
-  name: string | null;
-  email: string;
-}): string {
-  return (
-    profile.nickname?.trim() ||
-    profile.name?.trim() ||
-    profile.email.split("@")[0]
-  );
 }

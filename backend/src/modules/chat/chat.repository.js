@@ -16,7 +16,13 @@ import prisma from '../../config/db.js';
    fetched whole and trimmed afterwards: a chat page is 30 joins, and `include`
    without `select` would carry every user column — password hash included —
    into process memory on each one. */
-const SENDER = { select: { id: true, name: true, email: true, avatarUrl: true } };
+/* Nickname and photo travel with every message because the bubble draws the
+   person, not a row: `nickname` is the name they chose for themselves (the
+   same precedence `lib/profile.ts#displayName` applies), and `avatarUrl` is
+   what the disc beside the bubble shows instead of an initial. */
+const SENDER = {
+  select: { id: true, name: true, nickname: true, email: true, avatarUrl: true },
+};
 
 const findMessages = ({ workspaceId, limit, cursor }) =>
   prisma.message.findMany({
@@ -44,9 +50,16 @@ const findMessageById = (messageId) =>
     include: { sender: SENDER },
   });
 
-const createMessage = ({ workspaceId, senderId, content }) =>
+/* `attachments` is stored as NULL when there are none — see the migration on
+   why an empty array would be a JSONB document on every text message. */
+const createMessage = ({ workspaceId, senderId, content, attachments }) =>
   prisma.message.create({
-    data: { workspaceId, senderId, content },
+    data: {
+      workspaceId,
+      senderId,
+      content,
+      attachments: attachments?.length ? attachments : undefined,
+    },
     include: { sender: SENDER },
   });
 

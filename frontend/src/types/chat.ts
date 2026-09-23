@@ -14,8 +14,29 @@
 export type ChatSender = {
   id: string;
   name: string | null;
+  /** What they chose to be called. Preferred over `name` wherever one word fits. */
+  nickname: string | null;
   email: string;
+  /** A stored PATH (`/uploads/<name>`), not a URL — `lib/profile.ts#avatarSrc`
+   *  joins it onto this deploy's uploads origin. */
   avatarUrl: string | null;
+};
+
+/**
+ * A file sent with a message — exactly what `POST /uploads` answered for it.
+ *
+ * Stored as JSON on the message rather than in a table of its own: nothing
+ * queries inside it and every read wants the whole array. `url` is the API's
+ * path (`/uploads/<storedName>`), which `lib/uploads.ts#uploadUrl` joins onto
+ * this deploy's origin — the row must not carry one.
+ */
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  storedName: string;
+  url: string;
+  size: number;
+  mime: string;
 };
 
 export type ChatMessage = {
@@ -23,6 +44,8 @@ export type ChatMessage = {
   workspaceId: string;
   content: string | null;
   deleted: boolean;
+  /** Empty for a text-only message, and always empty on a tombstone. */
+  attachments: ChatAttachment[];
   editedAt: string | null;
   createdAt: string;
   sender: ChatSender | null;

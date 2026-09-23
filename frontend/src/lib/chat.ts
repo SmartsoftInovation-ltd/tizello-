@@ -72,7 +72,11 @@ export async function markChannelRead(
 ): Promise<ChatResult<{ lastReadAt: string }>> {
   const result = await apiCallWithRefresh<{ lastReadAt: string }>(
     `${base(workspaceId)}/read`,
-    { method: "POST", body: JSON.stringify({}) },
+    /* `body` is the VALUE, not a string: `apiCall` does the `JSON.stringify`.
+       Passing `JSON.stringify({})` sent the string `"{}"` as a JSON document,
+       which the API's body parser rejected — every mark-read was answering
+       400 with "Unexpected token" in the server log. */
+    { method: "POST", body: {} },
   );
 
   return result.ok

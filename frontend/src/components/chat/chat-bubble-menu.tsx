@@ -27,18 +27,12 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu-item";
  */
 
 export function ChatBubbleMenu({
-  canEdit,
-  canDelete,
   onEdit,
   onDelete,
 }: {
-  canEdit: boolean;
-  canDelete: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  if (!canEdit && !canDelete) return null;
-
   return (
     <DropdownMenu className="self-center opacity-0 transition-opacity duration-100 ease-standard group-hover:opacity-100 group-focus-within:opacity-100">
       <DropdownMenuTrigger
@@ -53,12 +47,10 @@ export function ChatBubbleMenu({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-36">
-        {canEdit && <DropdownMenuItem onSelect={onEdit}>Edit</DropdownMenuItem>}
-        {canDelete && (
-          <DropdownMenuItem variant="danger" onSelect={onDelete}>
-            Delete
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onSelect={onEdit}>Edit</DropdownMenuItem>
+        <DropdownMenuItem variant="danger" onSelect={onDelete}>
+          Delete
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

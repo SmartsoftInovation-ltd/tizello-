@@ -7,9 +7,10 @@
  * only defence that scales is having one place where the rules are.
  *
  * **ONE CHANNEL PER WORKSPACE, AND EVERY MEMBER IS IN IT.** That is the whole
- * access model — there is no per-project chat and no narrower tier. The only
- * thing above membership is moderation: deleting somebody else's message takes
- * OWNER or ADMIN, the same pair that may remove a member.
+ * access model — there is no per-project chat, no narrower tier, and no wider
+ * one: **a message belongs to whoever wrote it**, so only its author may edit
+ * or delete it, workspace OWNER included. See `deleteMessage` for what that
+ * costs and how to put moderation back.
  *
  * **PERSIST, THEN BROADCAST.** `sendMessage` returns a saved row and never
  * emits; the namespace emits what it returns. Broadcast-first is faster and
@@ -49,8 +50,10 @@ const forbidden = (message) =>
  * for. The refusal is `404`, never `403`: a `403` would confirm the
  * conversation exists to somebody with no access to it.
  *
- * Returns the workspace plus `canModerate`, who may delete somebody else's
- * message.
+ * Returns the workspace plus `canModerate` — OWNER or ADMIN. **Nothing in this
+ * module reads it any more** now that deletion is author-only; it is kept
+ * because it is the flag moderation would come back through, and because
+ * `workspace-access.js` computes it for callers generally.
  */
 const requireChannel = async (userId, workspaceId) => {
   const access = await resolveWorkspaceAccess(userId, workspaceId);
@@ -142,10 +145,15 @@ const markRead = async (userId, workspaceId, { at } = {}) => {
  * mid-session writing into it until they refreshed. It is one indexed lookup
  * against a channel that is not high-throughput.
  */
-const sendMessage = async (userId, workspaceId, content) => {
+const sendMessage = async (userId, workspaceId, { content, attachments }) => {
   await requireChannel(userId, workspaceId);
 
-  const row = await repository.createMessage({ workspaceId, senderId: userId, content });
+  const row = await repository.createMessage({
+    workspaceId,
+    senderId: userId,
+    content,
+    attachments,
+  });
 
   return dto.toMessage(row);
 };
@@ -165,6 +173,7 @@ const loadForWrite = async (userId, messageId) => {
   if (!access) throw notFound('Message');
 
   return { message, canModerate: access.canModerate };
+
 };
 
 /**
@@ -188,17 +197,28 @@ const editMessage = async (userId, { messageId, content }) => {
 };
 
 /**
- * Soft-deletes a message. The author, or a workspace OWNER/ADMIN.
+ * Soft-deletes a message. **THE AUTHOR ONLY.**
+ *
+ * Deletion used to admit a workspace OWNER/ADMIN as well, on the argument that
+ * somebody has to be able to remove an abusive message. That escape hatch is
+ * gone at the product's request: what you said is yours, and nobody else edits
+ * or removes it.
+ *
+ * **The consequence is real and should be known:** there is now no way to take
+ * a message down except as its author. If moderation is wanted back, this is
+ * the one branch to restore — `resolveWorkspaceAccess` still computes
+ * `canModerate` for exactly that, and it is still what the UI would draw a
+ * control from.
  *
  * Deleting an already-deleted message returns the tombstone rather than a
- * `409`. Two moderators clicking at once is not a conflict anybody can act on,
- * and the second click's answer is the state they wanted.
+ * `409`: a double-click is not a conflict anybody can act on, and the second
+ * click's answer is the state they wanted.
  */
 const deleteMessage = async (userId, { messageId }) => {
-  const { message, canModerate } = await loadForWrite(userId, messageId);
+  const { message } = await loadForWrite(userId, messageId);
 
-  if (message.senderId !== userId && !canModerate) {
-    throw forbidden('Only the author or a workspace admin can delete a message');
+  if (message.senderId !== userId) {
+    throw forbidden('Only the author can delete a message');
   }
 
   if (message.deletedAt) return dto.toMessage(message);

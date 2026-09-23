@@ -41,6 +41,37 @@ export const createChatSocket = (): Socket =>
 
 export type ChatError = { event: string; code: string; message: string };
 
+/** How long a write waits for the server before the UI stops holding the door. */
+const ACK_TIMEOUT_MS = 8000;
+
+/**
+ * Emits and resolves WHEN THE SERVER HAS ANSWERED — what lets a dialog hold a
+ * spinner and stay open until the change is real. Emitting and closing
+ * immediately is what made an edit look like it had failed: the dialog
+ * vanished and the bubble kept the old text until the broadcast landed.
+ *
+ * A REFUSAL NEVER ACKS. The server answers `chat:error` and returns nothing,
+ * so a rejected write would leave this pending forever and a spinner turning
+ * after the error had already been shown. Hence the timeout, which resolves
+ * `false`: the caller closes, and `chat:error` is what explains it.
+ */
+export function requestAck<T>(
+  socket: Socket | null,
+  event: string,
+  payload: object,
+): Promise<T | null> {
+  if (!socket) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ACK_TIMEOUT_MS);
+
+    socket.emit(event, payload, (ack: T) => {
+      clearTimeout(timer);
+      resolve(ack ?? null);
+    });
+  });
+}
+
 export type ChatHandlers = {
   onMessage: (message: ChatMessage) => void;
   onEdited: (message: ChatMessage) => void;

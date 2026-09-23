@@ -35,6 +35,39 @@ const IDENTITY_IS_NOT_INPUT = {
 
 const content = Joi.string().trim().min(1).max(CONTENT_MAX).required();
 
+/** 10 MB, matching the upload endpoint's own cap (`docs/api/upload.md`). */
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+/* At most five per message: the composer uploads them one at a time and the
+   thread renders them in a row, and a message carrying thirty files is a
+   folder, which this is not. */
+const MAX_ATTACHMENTS = 5;
+
+/**
+ * ONE ATTACHMENT, AS `POST /uploads` DESCRIBED IT.
+ *
+ * **These fields are echoed by the client, so they are shape-checked and not
+ * believed.** `storedName` is the only one that reaches the filesystem, and it
+ * is the one the download route re-validates before serving anything; `name`,
+ * `mime` and `size` are display values, and the worst a lie about them does is
+ * mislabel a file in a bubble. The alternative — re-reading each upload from
+ * disk on every send — would put a stat call per file on the hot path to
+ * re-derive what the server itself returned seconds earlier.
+ */
+const attachment = Joi.object({
+  id: Joi.string().max(128).required(),
+  name: Joi.string().max(255).required(),
+  /* `<uuid>.<ext>`, which is what the upload service generates. Anything with
+     a slash or a `..` in it is refused here rather than at the filesystem. */
+  storedName: Joi.string()
+    .max(255)
+    .pattern(/^[A-Za-z0-9._-]+$/)
+    .required(),
+  url: Joi.string().max(512).required(),
+  size: Joi.number().integer().min(0).max(MAX_ATTACHMENT_BYTES).required(),
+  mime: Joi.string().max(128).required(),
+});
+
 /* --- REST -------------------------------------------------------------- */
 
 const workspaceParamsSchema = Joi.object({
@@ -78,9 +111,18 @@ const channelPayloadSchema = Joi.object({
   ...IDENTITY_IS_NOT_INPUT,
 });
 
+/* A message needs SOMETHING: text, files, or both. Empty content with no
+   attachments is not a message, and the check has to be at the object level
+   because neither field alone can see the other. */
+const notEmpty = (value, helpers) =>
+  value.content?.trim() || value.attachments?.length ? value : helpers.error('any.custom');
+
 const sendMessageSchema = Joi.object({
   workspaceId: id.required(),
-  content,
+  /* Optional HERE, unlike an edit: a message that is only a photo is a normal
+     thing to send, and a message edited down to nothing is not. */
+  content: Joi.string().trim().max(CONTENT_MAX).allow('').default(''),
+  attachments: Joi.array().items(attachment).max(MAX_ATTACHMENTS).default([]),
   /* An opaque string the sender generates and the broadcast echoes, so the
      sender's client can reconcile its optimistic bubble with the real row
      instead of rendering the message twice. The server never interprets it and
@@ -89,7 +131,9 @@ const sendMessageSchema = Joi.object({
      amplification. */
   clientId: Joi.string().max(64),
   ...IDENTITY_IS_NOT_INPUT,
-});
+})
+  .custom(notEmpty)
+  .messages({ 'any.custom': 'A message needs text or a file' });
 
 const editMessageSchema = Joi.object({
   messageId: id.required(),
@@ -104,6 +148,7 @@ const deleteMessageSchema = Joi.object({
 
 export {
   CONTENT_MAX,
+  MAX_ATTACHMENTS,
   workspaceParamsSchema,
   historyQuerySchema,
   markReadSchema,

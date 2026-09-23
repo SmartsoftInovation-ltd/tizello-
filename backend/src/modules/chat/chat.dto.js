@@ -18,7 +18,11 @@
  * See docs/api/chat.md §4 and .claude/skills/module-consistency/SKILL.md
  */
 
-const SENDER_FIELDS = ['id', 'name', 'email', 'avatarUrl'];
+/* `nickname` is what the UI shows when it has one — the name the person chose
+   for themselves — and `avatarUrl` is a PATH (`/uploads/<name>`), not a URL:
+   the origin differs per environment, so a stored URL would pin the row to a
+   deploy. The client joins it onto its own uploads base. */
+const SENDER_FIELDS = ['id', 'name', 'nickname', 'email', 'avatarUrl'];
 
 const toSender = (sender) =>
   sender
@@ -33,6 +37,10 @@ const toMessage = (row) => {
     workspaceId: row.workspaceId,
     // See the header: a tombstone never carries its text out of this function.
     content: deleted ? null : row.content,
+    /* Same rule as the text: a deleted message carries no files out of here,
+       even though the rows and the bytes both survive. NULL reads as `[]`, so
+       no client branches on which it was. */
+    attachments: deleted ? [] : (row.attachments ?? []),
     deleted,
     editedAt: row.editedAt,
     createdAt: row.createdAt,

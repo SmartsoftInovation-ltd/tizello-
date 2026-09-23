@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ChatScreen } from "@/components/chat/chat-screen";
 import { getSession } from "@/lib/auth";
-import { canRemoveMember } from "@/lib/roles";
+import { getProfile } from "@/lib/profile";
 import { getWorkspace } from "@/lib/workspaces";
 
 export const metadata: Metadata = {
@@ -37,7 +37,10 @@ export default async function WorkspaceChatPage({
   const user = await getSession();
   if (!user) redirect(`/sign-in?next=/workspaces/${workspaceId}/chat`);
 
-  const workspace = await getWorkspace(workspaceId);
+  /* The session says WHO is asking; the profile says what they look like.
+     `getSession` carries no nickname and no photo, and the reader's own disc
+     beside their own messages has to be the same face everybody else sees. */
+  const [workspace, profile] = await Promise.all([getWorkspace(workspaceId), getProfile()]);
   if (!workspace) notFound();
 
   return (
@@ -46,15 +49,11 @@ export default async function WorkspaceChatPage({
       workspaceName={workspace.name}
       viewer={{
         id: user.id,
-        name: user.name,
+        name: profile?.name ?? user.name,
+        nickname: profile?.nickname ?? null,
         email: user.email,
-        avatarUrl: null,
+        avatarUrl: profile?.avatarUrl ?? null,
       }}
-      /* Deleting somebody else's message is deliberately the same tier that
-         may remove a member — OWNER or ADMIN — so `canRemoveMember` is reused
-         rather than a second predicate that means the same thing. The API
-         applies the same rule and refuses regardless of what this renders. */
-      canModerate={canRemoveMember(workspace.role)}
     />
   );
 }

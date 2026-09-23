@@ -97,11 +97,13 @@ export function optimisticMessage(
   clientId: string,
   content: string,
   sender: ChatMessage["sender"],
+  attachments: ChatMessage["attachments"] = [],
 ): ChatMessage {
   return {
     id: `pending:${clientId}`,
     workspaceId,
     content,
+    attachments,
     deleted: false,
     editedAt: null,
     createdAt: new Date().toISOString(),

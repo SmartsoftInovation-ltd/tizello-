@@ -8,11 +8,11 @@ import {
   type ChatError,
 } from "@/components/chat/chat-socket-events";
 import { loadMessagesAction } from "@/lib/actions/chat-actions";
+import { useChatActions } from "@/components/chat/use-chat-actions";
+import { withTypist } from "@/lib/chat-typists";
 import {
   appendMessage,
-  dropPending,
   mergeOlder,
-  optimisticMessage,
   replaceMessage,
   tombstoneMessage,
 } from "@/lib/chat-messages";
@@ -40,6 +40,7 @@ import type { ChatMessage, ChatPresence, ChatSender } from "@/types/chat";
 
 const MAX_AUTH_RETRIES = 3;
 
+
 export type { ChatError };
 
 export function useChatSocket(workspaceId: string, viewer: ChatSender | null) {
@@ -51,6 +52,17 @@ export function useChatSocket(workspaceId: string, viewer: ChatSender | null) {
   const [error, setError] = useState<ChatError | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
+  /* The current thread, for the writes that need the row they are changing —
+     an edit keeps the old text so a refusal can put it back. A ref rather than
+     a dependency: `edit` and `remove` must not be rebuilt on every message.
+     Written in an effect, never during render: a ref assigned while rendering
+     is the `react-hooks/refs` mistake, and it makes a component that reads it
+     mid-render non-idempotent. */
+  const messagesRef = useRef<ChatMessage[]>([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const authFailures = useRef(0);
 
   /* The first page is read through a Server Action rather than fetched here:
@@ -82,6 +94,8 @@ export function useChatSocket(workspaceId: string, viewer: ChatSender | null) {
        here rather than silently kept in the room. */
     const join = () => {
       authFailures.current = 0;
+      /* A connection notice is stale the moment the connection is back. */
+      setError((held) => (held?.code === "OFFLINE" ? null : held));
       socket.emit(
         "channel:join",
         { workspaceId },
@@ -102,13 +116,7 @@ export function useChatSocket(workspaceId: string, viewer: ChatSender | null) {
       onDeleted: (id) => setMessages((held) => tombstoneMessage(held, id)),
       onPresence: setPresence,
       onTyping: (userId, name, typing) =>
-        setTyping((held) => {
-          const without = held.filter((who) => who.id !== userId);
-
-          return typing
-            ? [...without, { id: userId, name, email: "", avatarUrl: null }]
-            : without;
-        }),
+        setTyping((held) => withTypist(held, userId, name, typing)),
       onError: setError,
     });
 
@@ -126,43 +134,14 @@ export function useChatSocket(workspaceId: string, viewer: ChatSender | null) {
     };
   }, [workspaceId]);
 
-  const send = useCallback(
-    (content: string) => {
-      const clientId = crypto.randomUUID();
-
-      setError(null);
-      setMessages((held) =>
-        appendMessage(held, optimisticMessage(workspaceId, clientId, content, viewer)),
-      );
-
-      socketRef.current?.emit(
-        "message:send",
-        { workspaceId, content, clientId },
-        (ack: { message?: ChatMessage } | undefined) => {
-          /* No ack means the send was refused — `chat:error` carries the
-             reason, and the bubble has to go rather than sit there looking
-             sent. */
-          if (!ack?.message) setMessages((held) => dropPending(held, clientId));
-        },
-      );
-    },
-    [workspaceId, viewer],
-  );
-
-  const edit = useCallback((messageId: string, content: string) => {
-    socketRef.current?.emit("message:edit", { messageId, content });
-  }, []);
-
-  const remove = useCallback((messageId: string) => {
-    socketRef.current?.emit("message:delete", { messageId });
-  }, []);
-
-  const signalTyping = useCallback(
-    (active: boolean) => {
-      socketRef.current?.emit(active ? "typing:start" : "typing:stop", { workspaceId });
-    },
-    [workspaceId],
-  );
+  const { send, edit, remove, signalTyping } = useChatActions({
+    socketRef,
+    messagesRef,
+    workspaceId,
+    viewer,
+    setMessages,
+    setError,
+  });
 
   const loadOlder = useCallback(async () => {
     if (!cursor) return;

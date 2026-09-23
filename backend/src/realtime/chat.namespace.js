@@ -241,7 +241,9 @@ const registerHandlers = (nsp, socket) => {
     return { workspaceId, users };
   });
 
-  handle(socket, 'message:send', sendMessageSchema, async ({ workspaceId, content, clientId }) => {
+  handle(socket, 'message:send', sendMessageSchema, async (payload) => {
+    const { workspaceId, content, attachments, clientId } = payload;
+
     /* An `AppError`, the same class the services throw, so `handle` has one
        kind of failure to translate and the client sees `RATE_LIMITED` in the
        same envelope as every other refusal. */
@@ -255,7 +257,10 @@ const registerHandlers = (nsp, socket) => {
 
     /* The row first. Only what the service returns is broadcast, so a failed
        insert cannot put a message on anybody's screen. */
-    const message = await service.sendMessage(socket.data.userId, workspaceId, content);
+    const message = await service.sendMessage(socket.data.userId, workspaceId, {
+      content,
+      attachments,
+    });
 
     clearTyping(socket, workspaceId);
     broadcastTyping(socket, workspaceId, false);

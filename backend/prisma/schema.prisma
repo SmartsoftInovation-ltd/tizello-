@@ -913,6 +913,22 @@ model Message {
   // error, rather than the column's, where it produces a 500.
   content String @db.Text
 
+  /// Files sent with the message: `[{ id, name, storedName, url, size, mime }]`,
+  /// exactly what `POST /uploads` answered for each one.
+  ///
+  /// JSON RATHER THAN A TABLE, for the reason `Project.properties` gives:
+  /// nothing queries inside it, every read wants the whole array with its
+  /// message, and a row per file would be a join on the one query this module
+  /// runs. The shape is enforced by `chat.validator.js`, which is the only
+  /// writer.
+  ///
+  /// The files themselves live in the upload directory and are NOT deleted
+  /// when a message is — a soft delete keeps the row, and an attachment whose
+  /// bytes were shredded would leave a tombstone that lies about what it was.
+  /// Reaping orphans is a job nobody has written yet; docs/api/chat.md §5 says
+  /// so rather than pretending otherwise.
+  attachments Json?
+
   workspaceId String
   // Cascade: deleting a workspace deletes its conversation. A channel outliving
   // its workspace is unreachable by every read path in the module.
