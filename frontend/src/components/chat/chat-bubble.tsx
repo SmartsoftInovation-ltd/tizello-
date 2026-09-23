@@ -6,6 +6,7 @@ import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
 import { clockTime, type ChatRow } from "@/lib/chat-grouping";
 import { isPending } from "@/lib/chat-messages";
 import { cn } from "@/lib/cn";
+import type { ChatAttachment } from "@/types/chat";
 
 /*
  * One message, WhatsApp-shaped: the reader's own on the right in a tinted
@@ -50,13 +51,6 @@ import { cn } from "@/lib/cn";
  * parent instead.
  */
 
-/* A photo or a clip with no caption gets NO bubble at all — no fill, no
-   padding, no shadow. A picture is already a rectangle with edges; wrapping it
-   in a tinted card with 8px of padding draws a frame around a frame, which is
-   what made image messages look boxed-in. The clock still needs somewhere to
-   sit, so it goes back over the media's bottom edge. */
-const BARE = "bg-transparent p-0 shadow-none";
-
 const OWN = "bg-brand-500 text-on-brand";
 /* NO BORDER, matching the reader's own bubble: a hairline on one side of the
    thread and none on the other made received messages look like a different
@@ -67,6 +61,42 @@ const THEIRS = "bg-surface text-text";
 /* Roomier than the 8px card radius the rest of the app uses: a chat bubble is
    the one surface here that should read as soft. */
 const SHAPE = "rounded-xl px-3 py-2";
+
+/** "edited", the sending glyph and the time — under the text, or over bare media. */
+function MessageClock({
+  message,
+  pending,
+  className,
+}: {
+  message: ChatRow["message"];
+  pending: boolean;
+  className: string;
+}) {
+  return (
+    /* `select-none` so copying a message does not carry a timestamp into the
+       paste. */
+    <span
+      className={cn(
+        "flex select-none items-center justify-end gap-1 text-[10px] leading-none",
+        className,
+      )}
+    >
+      {message.editedAt && <span>edited</span>}
+      {/* A CLOCK, NOT A SPINNER, while the server confirms. The time shown is
+          this client's own guess and will be corrected within a round trip; a
+          spinner in its place made an instant action look like work, and it
+          span for the whole of a reconnect — which is a normal five-minute
+          event here, not a failure. */}
+      {pending && (
+        <svg viewBox="0 0 16 16" className="size-3" aria-label="Sending">
+          <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      )}
+      {clockTime(message.createdAt)}
+    </span>
+  );
+}
 
 /** The sender's disc, drawn once per turn with a spacer holding the rest. */
 function TurnAvatar({ row, isOwn }: { row: ChatRow; isOwn: boolean }) {
@@ -97,15 +127,19 @@ export function ChatBubble({
      there is nothing to edit or delete yet. */
   const actionable = isOwn && !message.deleted && !pending;
 
-  /* Media with no words — see `BARE`. A document is NOT media: its row is a
-     chip that needs the bubble behind it to read as part of the message. */
-  const mediaOnly =
-    !message.deleted &&
-    !message.content &&
-    message.attachments.length > 0 &&
-    message.attachments.every(
-      (file) => file.mime.startsWith("image/") || file.mime.startsWith("video/"),
-    );
+  /* PHOTOS AND CLIPS SIT OUTSIDE THE BUBBLE. A picture is already a
+     rectangle with edges; wrapping it in a coloured card draws a frame around
+     a frame — which is what the green border round every captioned photo was.
+     So media is drawn bare, and the caption (plus any documents) gets its own
+     bubble underneath. A document is NOT media: its row is a chip that needs
+     the bubble behind it to read as part of the message. */
+  const isMedia = (file: ChatAttachment) =>
+    file.mime.startsWith("image/") || file.mime.startsWith("video/");
+  const media = message.deleted ? [] : message.attachments.filter(isMedia);
+  const docs = message.deleted ? [] : message.attachments.filter((file) => !isMedia(file));
+
+  /* Nothing but media — no bubble at all; the clock goes over the picture. */
+  const mediaOnly = media.length > 0 && docs.length === 0 && !message.content;
 
   return (
     <li
@@ -131,62 +165,63 @@ export function ChatBubble({
 
       <div
         className={cn(
-          SHAPE,
-          "max-w-[min(34rem,76%)] min-w-0 text-sm leading-snug shadow-card",
-          message.deleted ? "border border-border bg-transparent" : isOwn ? OWN : THEIRS,
-          mediaOnly && BARE,
-          /* The tail, on the corner where the turn ends. */
-          endsTurn && (isOwn ? "rounded-br-xs" : "rounded-bl-xs"),
+          "flex max-w-[min(34rem,76%)] min-w-0 flex-col gap-1",
+          isOwn ? "items-end" : "items-start",
           /* A LIGHT dim, not a fade: the message is written, it is simply not
              acknowledged yet, and at 60% it read as disabled. */
           pending && "opacity-90",
         )}
       >
-        {message.deleted ? (
-          <p className="text-xs text-text-subtle italic">
-            This message was deleted
-            <span className="ml-2 text-[10px] not-italic">
-              {clockTime(message.createdAt)}
-            </span>
-          </p>
-        ) : (
-          <>
-            <ChatAttachments attachments={message.attachments} isOwn={isOwn} />
-
-            {/* A message may be files with no text — the API allows it and the
-                composer sends it, so this has to not draw an empty line. */}
-            {message.content && (
-              <p className="break-words whitespace-pre-wrap">{message.content}</p>
+        {media.length > 0 && (
+          <div className="relative max-w-full">
+            <ChatAttachments attachments={media} isOwn={isOwn} />
+            {/* With no bubble to sit in, the clock goes over the media's
+                bottom edge, legible on whatever the photo has there. */}
+            {mediaOnly && (
+              <MessageClock
+                message={message}
+                pending={pending}
+                className="absolute right-2 bottom-2 rounded-xs bg-ink-950/60 px-1.5 py-0.5 text-ink-0"
+              />
             )}
+          </div>
+        )}
 
-            {/* `select-none` so copying a message does not carry a timestamp
-                into the paste. */}
-            <span
-              className={cn(
-                "flex select-none items-center justify-end gap-1 text-[10px] leading-none",
-                /* Over the media's bottom edge when there is no bubble to sit
-                   in, and legible on whatever the photo happens to be there. */
-                mediaOnly
-                  ? "-mt-6 mr-2 rounded-xs bg-ink-950/60 px-1.5 py-0.5 text-ink-0"
-                  : "mt-1",
-                !mediaOnly && (isOwn ? "text-on-brand/70" : "text-text-subtle"),
-              )}
-            >
-              {message.editedAt && <span>edited</span>}
-              {/* A CLOCK, NOT A SPINNER, while the server confirms. The time
-                  shown is this client's own guess and will be corrected within
-                  a round trip; a spinner in its place made an instant action
-                  look like work, and it span for the whole of a reconnect —
-                  which is a normal five-minute event here, not a failure. */}
-              {pending && (
-                <svg viewBox="0 0 16 16" className="size-3" aria-label="Sending">
-                  <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              )}
-              {clockTime(message.createdAt)}
-            </span>
-          </>
+        {!mediaOnly && (
+          <div
+            className={cn(
+              SHAPE,
+              "max-w-full min-w-0 text-sm leading-snug shadow-card",
+              message.deleted ? "border border-border bg-transparent" : isOwn ? OWN : THEIRS,
+              /* The tail, on the corner where the turn ends. */
+              endsTurn && (isOwn ? "rounded-br-xs" : "rounded-bl-xs"),
+            )}
+          >
+            {message.deleted ? (
+              <p className="text-xs text-text-subtle italic">
+                This message was deleted
+                <span className="ml-2 text-[10px] not-italic">
+                  {clockTime(message.createdAt)}
+                </span>
+              </p>
+            ) : (
+              <>
+                <ChatAttachments attachments={docs} isOwn={isOwn} />
+
+                {/* A message may be files with no text — the API allows it and
+                    the composer sends it, so this has to not draw an empty line. */}
+                {message.content && (
+                  <p className="break-words whitespace-pre-wrap">{message.content}</p>
+                )}
+
+                <MessageClock
+                  message={message}
+                  pending={pending}
+                  className={cn("mt-1", isOwn ? "text-on-brand/70" : "text-text-subtle")}
+                />
+              </>
+            )}
+          </div>
         )}
       </div>
 
