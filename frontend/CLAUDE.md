@@ -245,8 +245,11 @@ against demo data in `src/lib/`, never that a backend is wired.
       shipped, lasted a day and was removed, because the narrower channel kept
       excluding the people a message was about.
       **WhatsApp-shaped** (`components/chat/`): own messages right in a
-      `brand-100` bubble, everyone else's left on `surface` with the sender's
-      name, a squared corner as the tail on the first bubble of a turn, day
+      `brand-100` bubble, everyone else's left on `surface`, **the sender's
+      name on every message** (your own reads "You") with a colour-coded
+      initial disc beside other people's — the hue is hashed from the user id,
+      so one person is one colour in every tab and after every reload — a
+      squared corner as the tail on the first bubble of a turn, day
       dividers ("Today" / "Yesterday" / a date), messages from one person inside
       five minutes grouped as one turn with a single clock, presence faces in
       the header, a typing line, and a pill composer with a send disc (Enter

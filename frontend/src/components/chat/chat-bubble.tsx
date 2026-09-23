@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ChatAvatar } from "@/components/chat/chat-avatar";
 import { ChatBubbleEditor } from "@/components/chat/chat-bubble-editor";
+import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
 import { clockTime, type ChatRow } from "@/lib/chat-grouping";
 import { isPending } from "@/lib/chat-messages";
 import { cn } from "@/lib/cn";
@@ -10,24 +12,61 @@ import { cn } from "@/lib/cn";
  * One message, WhatsApp-shaped: the reader's own on the right in a tinted
  * bubble, everybody else's on the left on `surface`.
  *
- * WHY A TINT AND NOT THE BRAND FILL. `bg-brand-100 text-brand-800` is the pair
+ * WHY A TINT AND NOT THE BRAND FILL. `bg-brand-100` with brand ink is the pair
  * DESIGN-SYSTEM.md measures as safe, and — unlike the semantic tokens — the
  * brand ramp is identical in both themes, so one declaration is readable in
  * light and dark alike. `bg-brand-500` would need `text-on-brand` and would
  * make every one of your own messages shout.
  *
- * THE TAIL IS ONE CORNER, not an SVG notch: the bubble at the START of a turn
- * squares off the corner nearest its author and the rest of the run stays
- * fully rounded. That is what makes a run read as one turn, and it costs a
- * class instead of a pseudo-element.
+ * THE TAIL IS ONE CORNER, not an SVG notch: the LAST bubble of a turn squares
+ * off the bottom corner nearest its author and the rest of the run stays fully
+ * rounded, so a run reads as one turn and the tail lands where the turn ends.
+ * It costs a class instead of a pseudo-element.
  *
- * The timestamp sits inside the bubble, bottom-right, and only on the LAST
- * message of a turn. A clock on every line is noise when four of them arrived
- * in the same minute.
+ * NO NAME ROW ON EITHER SIDE. It went from every message, to other people's
+ * only, to nowhere: a label above two characters of text was the single thing
+ * making both sides of the thread tall and uneven, and the question it answered
+ * is answered better beside the bubble. The sender is the coloured disc — one
+ * hue per person (`lib/chat-colors.ts`), their initial on it, and their full
+ * name in its tooltip and accessible name. If a written name is wanted back, it
+ * belongs ABOVE the first bubble of a turn, not inside every one of them.
+ *
+ * THE CLOCK SHARES THE TEXT'S ROW, as its last column rather than its own
+ * line: a flex row with the text flexible and the time fixed puts "HI  12:45"
+ * on one line and drops the time to the bottom-right of a paragraph, which is
+ * the one arrangement that reads well at both lengths. A floated span got the
+ * short case right and left long messages ragged; a separate line got the long
+ * case right and made short ones square.
+ *
+ * EVERY MESSAGE HAS AN AVATAR, the sender's own, on the side their bubble is.
+ * Only the last bubble of a turn draws it — a run of four messages with four
+ * identical discs beside them is a column of noise — and a spacer holds the
+ * rest of the run in line.
+ *
+ * Edit and Delete are NOT in the bubble: they are a ⋮ menu outside it
+ * (`chat-bubble-menu.tsx`), because three unrelated things on one line is what
+ * made this row hard to read.
  */
 
-const OWN = "bg-brand-100 text-brand-900";
-const THEIRS = "border border-border bg-surface text-text";
+const OWN = "bg-brand-100 text-brand-950";
+/* NO BORDER, matching the reader's own bubble: a hairline on one side of the
+   thread and none on the other made received messages look like a different
+   component. `surface` on `canvas` is already a step of contrast in both
+   themes, and `shadow-card` does the rest of the lifting. */
+const THEIRS = "bg-surface text-text";
+
+/* Roomier than the 8px card radius the rest of the app uses: a chat bubble is
+   the one surface here that should read as soft. */
+const SHAPE = "rounded-xl px-3 py-2";
+
+/** The sender's disc, drawn once per turn with a spacer holding the rest. */
+function TurnAvatar({ row, isOwn }: { row: ChatRow; isOwn: boolean }) {
+  return row.endsTurn ? (
+    <ChatAvatar sender={row.message.sender} isOwn={isOwn} />
+  ) : (
+    <span aria-hidden="true" className="size-7 shrink-0" />
+  );
+}
 
 export function ChatBubble({
   row,
@@ -42,38 +81,53 @@ export function ChatBubble({
   onEdit: (id: string, content: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const { message, startsTurn, endsTurn } = row;
+  const { message, endsTurn } = row;
   const [editing, setEditing] = useState(false);
   const pending = isPending(message);
+
+  const actionable = !message.deleted && !pending && !editing;
 
   return (
     <li
       className={cn(
-        "group flex px-3",
-        endsTurn ? "pb-2" : "pb-0.5",
+        "group flex items-end gap-2 px-3",
+        endsTurn ? "pb-2.5" : "pb-1",
         isOwn ? "justify-end" : "justify-start",
       )}
     >
+      {/* The disc sits level with the last line of a turn, the way a group
+          thread reads; a spacer keeps the rest of the run aligned under it. */}
+      {!isOwn && <TurnAvatar row={row} isOwn={false} />}
+
+      {/* Own messages put the menu on the left of the bubble and everybody
+          else's on the right, so it always opens into the empty half of the
+          row rather than over the conversation. */}
+      {isOwn && actionable && (
+        <ChatBubbleMenu
+          canEdit
+          canDelete
+          onEdit={() => setEditing(true)}
+          onDelete={() => onDelete(message.id)}
+        />
+      )}
+
       <div
         className={cn(
-          "max-w-[min(32rem,78%)] rounded-lg px-3 py-1.5 text-sm shadow-card",
+          SHAPE,
+          "max-w-[min(34rem,76%)] min-w-0 text-sm leading-snug shadow-card",
           message.deleted ? "border border-border bg-transparent" : isOwn ? OWN : THEIRS,
-          /* The tail. Squared on the side the author is on, and only on the
-             first bubble of a run. */
-          startsTurn && (isOwn ? "rounded-tr-xs" : "rounded-tl-xs"),
+          /* The tail, on the corner where the turn ends. */
+          endsTurn && (isOwn ? "rounded-br-xs" : "rounded-bl-xs"),
           pending && "opacity-60",
         )}
       >
-        {/* Group chat needs a name on other people's messages and never on
-            your own — you know who you are. */}
-        {startsTurn && !isOwn && !message.deleted && (
-          <p className="text-2xs font-semibold text-text-brand">
-            {message.sender?.name ?? message.sender?.email ?? "Deleted user"}
-          </p>
-        )}
-
         {message.deleted ? (
-          <p className="text-xs text-text-subtle italic">This message was deleted</p>
+          <p className="text-xs text-text-subtle italic">
+            This message was deleted
+            <span className="ml-2 text-[10px] not-italic">
+              {clockTime(message.createdAt)}
+            </span>
+          </p>
         ) : editing ? (
           <ChatBubbleEditor
             content={message.content ?? ""}
@@ -84,44 +138,38 @@ export function ChatBubble({
             }}
           />
         ) : (
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
-        )}
+          <div className="flex items-end gap-2">
+            <p className="min-w-0 flex-1 break-words whitespace-pre-wrap">
+              {message.content}
+            </p>
 
-        <p
-          className={cn(
-            "mt-0.5 flex items-center justify-end gap-1.5 text-[10px] leading-none",
-            isOwn && !message.deleted ? "text-brand-800" : "text-text-subtle",
-          )}
-        >
-          {/* The controls live in the metadata row so they cannot reflow the
-              text, and appear on hover or keyboard focus — `focus-within`
-              matters, or they are unreachable without a pointer. */}
-          {!message.deleted && !pending && !editing && (isOwn || canDelete) && (
-            <span className="opacity-0 transition-opacity duration-100 ease-standard group-hover:opacity-100 group-focus-within:opacity-100">
-              {isOwn && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="mr-1.5 underline decoration-dotted"
-                >
-                  Edit
-                </button>
+            {/* `select-none` so copying a message does not carry a timestamp
+                into the paste. `translate-y-px` drops it onto the text's
+                baseline rather than its line box, which at 10px against 14px
+                otherwise sits visibly high. */}
+            <span
+              className={cn(
+                "flex shrink-0 translate-y-px select-none items-center gap-1 text-[10px] leading-none",
+                isOwn ? "text-brand-700" : "text-text-subtle",
               )}
-              <button
-                type="button"
-                onClick={() => onDelete(message.id)}
-                className="underline decoration-dotted"
-              >
-                Delete
-              </button>
+            >
+              {message.editedAt && <span>edited</span>}
+              {pending ? <span aria-label="Sending">⋯</span> : clockTime(message.createdAt)}
             </span>
-          )}
-
-          {message.editedAt && !message.deleted && <span>edited</span>}
-          {(endsTurn || message.deleted) && <span>{clockTime(message.createdAt)}</span>}
-          {pending && <span aria-label="Sending">⋯</span>}
-        </p>
+          </div>
+        )}
       </div>
+
+      {isOwn && <TurnAvatar row={row} isOwn />}
+
+      {!isOwn && actionable && canDelete && (
+        <ChatBubbleMenu
+          canEdit={false}
+          canDelete
+          onEdit={() => undefined}
+          onDelete={() => onDelete(message.id)}
+        />
+      )}
     </li>
   );
 }

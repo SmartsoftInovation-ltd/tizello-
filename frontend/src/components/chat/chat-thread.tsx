@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { ChatBubble } from "@/components/chat/chat-bubble";
 import { Button } from "@/components/ui/button";
 import { groupMessages } from "@/lib/chat-grouping";
@@ -81,16 +81,24 @@ export function ChatThread({
       )}
 
       <ul>
+        {/* A Fragment, not a wrapping <div>: only <li> is a valid child of
+            <ul>, and a div here quietly breaks the list semantics a screen
+            reader announces. The divider is therefore its own <li>. */}
         {rows.map((row) => (
-          <div key={row.message.id}>
+          <Fragment key={row.message.id}>
             {row.dayLabel && (
-              <p className="my-3 flex justify-center">
-                {/* A pill, not a rule with text: the divider has to read as a
-                    label at 11px on a busy background. */}
-                <span className="rounded-xs bg-chip px-2 py-0.5 text-2xs font-semibold tracking-wide text-text-muted uppercase shadow-card">
+              /* A pill BETWEEN two rules: the rules say "everything below is a
+                 new day" at a glance, and the pill keeps the label legible at
+                 11px over whatever is behind it. `aria-hidden` on the rules so
+                 a screen reader hears the date once, not twice with two
+                 separators. */
+              <li className="my-4 flex items-center gap-3 px-6">
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                <span className="rounded-xs bg-chip px-2.5 py-1 text-2xs font-semibold tracking-widest text-text-muted uppercase shadow-card">
                   {row.dayLabel}
                 </span>
-              </p>
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              </li>
             )}
             <ChatBubble
               row={row}
@@ -99,7 +107,7 @@ export function ChatThread({
               onEdit={onEdit}
               onDelete={onDelete}
             />
-          </div>
+          </Fragment>
         ))}
       </ul>
     </div>
