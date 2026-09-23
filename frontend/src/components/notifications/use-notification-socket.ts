@@ -65,6 +65,20 @@ export function useNotificationSocket() {
       router.refresh();
     });
 
+    /* A chat message somewhere the reader is a member. Same nudge, with two
+       differences: it is skipped on that workspace's own chat page, whose
+       mark-read already revalidates the shell; and it is coalesced, because
+       a busy channel sends one per message and one refresh per burst is
+       enough to settle the badge. */
+    let chatRefresh: ReturnType<typeof setTimeout> | undefined;
+    socket.on("chat:unread", ({ workspaceId }: { workspaceId?: string } = {}) => {
+      if (workspaceId && window.location.pathname === `/workspaces/${workspaceId}/chat`) {
+        return;
+      }
+      clearTimeout(chatRefresh);
+      chatRefresh = setTimeout(() => router.refresh(), 400);
+    });
+
     socket.on("connect_error", (error) => {
       if (error.message !== "UNAUTHENTICATED") return;
 
@@ -81,6 +95,7 @@ export function useNotificationSocket() {
     });
 
     return () => {
+      clearTimeout(chatRefresh);
       socket.removeAllListeners();
       socket.disconnect();
     };

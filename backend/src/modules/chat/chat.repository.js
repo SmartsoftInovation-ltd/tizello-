@@ -116,6 +116,36 @@ const countUnread = ({ workspaceId, userId, lastReadAt }) =>
 const findUserSummary = (userId) =>
   prisma.user.findUnique({ where: { id: userId }, select: SENDER.select });
 
+/**
+ * Every live workspace the user belongs to, with their watermark in it — the
+ * input to the bell's cross-workspace unread summary. One query for the list;
+ * the counts are per workspace (a person is in a handful, not hundreds).
+ */
+const findMembershipsWithReadState = (userId) =>
+  prisma.membership.findMany({
+    where: { userId, workspace: { deletedAt: null } },
+    select: {
+      workspace: {
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          messageReads: { where: { userId }, select: { lastReadAt: true } },
+        },
+      },
+    },
+  });
+
+/** Everyone in the workspace but `exceptUserId` — who a new message is news to. */
+const findMemberIds = async (workspaceId, exceptUserId) => {
+  const rows = await prisma.membership.findMany({
+    where: { workspaceId, userId: { not: exceptUserId } },
+    select: { userId: true },
+  });
+
+  return rows.map((row) => row.userId);
+};
+
 const findReadState = (userId, workspaceId) =>
   prisma.messageRead.findUnique({ where: { userId_workspaceId: { userId, workspaceId } } });
 
@@ -139,6 +169,8 @@ export default {
   softDeleteMessage,
   countUnread,
   findUserSummary,
+  findMembershipsWithReadState,
+  findMemberIds,
   findReadState,
   upsertRead,
 };

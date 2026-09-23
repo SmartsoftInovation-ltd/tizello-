@@ -14,6 +14,7 @@ import {
   projectRouter as projectRoutes,
 } from "../modules/project/project.routes.js";
 import chatRoutes from "../modules/chat/chat.routes.js";
+import chatMeRoutes from "../modules/chat/chat.me.routes.js";
 import memberRoutes from "../modules/member/member.routes.js";
 import searchRoutes from "../modules/search/search.routes.js";
 import trashRoutes from "../modules/trash/trash.routes.js";
@@ -84,6 +85,8 @@ router.use("/api/v1/trash", trashRoutes);
 // belongs to a person, who may be in five workspaces and wants one bell — so
 // the owner is `req.user.id` and there is no id in the path to tamper with.
 router.use("/api/v1/notifications", notificationRoutes);
+// Chat unread across every workspace the caller is in — the bell's badge.
+router.use("/api/v1/chat", chatMeRoutes);
 router.use("/api/v1/tasks", taskRoutes);
 router.use("/api/v1/tasks/:taskId/activity", taskActivityRoutes);
 router.use("/api/v1/tasks/:taskId/comments", taskCommentRoutes);

@@ -110,7 +110,7 @@ export function ChatAttachments({
               target="_blank"
               rel="noreferrer"
               className={`flex items-center gap-2 rounded-sm px-2 py-1.5 transition-colors duration-100 ease-standard ${
-                isOwn ? "bg-brand-200/60 hover:bg-brand-200" : "bg-chip hover:bg-surface-hover"
+                isOwn ? "bg-on-brand/10 hover:bg-on-brand/15" : "bg-chip hover:bg-surface-hover"
               }`}
             >
               <ClipGlyph className="size-4 shrink-0" />

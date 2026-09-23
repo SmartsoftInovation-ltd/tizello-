@@ -10,11 +10,13 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BellIcon } from "@/components/ui/nav-icons";
 import { cn } from "@/lib/cn";
 import { plural } from "@/lib/plural";
+import type { ChatUnread } from "@/types/chat";
 import type { AppNotification } from "@/types/notification";
 
 /*
@@ -42,11 +44,20 @@ const BADGE =
 export function NotificationMenu({
   notifications,
   unreadCount,
+  chatUnread,
 }: {
   notifications: AppNotification[];
   unreadCount: number;
+  /** Workspaces with unread chat. Each is a row that opens that chat. */
+  chatUnread: ChatUnread[];
 }) {
   const [isPending, startTransition] = useTransition();
+
+  /* The badge counts both: an unread message is as much "something new" as a
+     task assignment. "Mark all read" still means notifications only — chat is
+     read by opening it, which moves the channel's watermark. */
+  const chatCount = chatUnread.reduce((sum, row) => sum + row.count, 0);
+  const badgeCount = unreadCount + chatCount;
 
   /* Realtime. The socket only calls `router.refresh()`, so everything below
      keeps reading the same server-rendered props it did before — see
@@ -72,17 +83,17 @@ export function NotificationMenu({
       <DropdownMenuTrigger
         className={TRIGGER}
         aria-label={
-          unreadCount > 0
-            ? `Notifications, ${plural(unreadCount, "unread", "unread")}`
+          badgeCount > 0
+            ? `Notifications, ${plural(badgeCount, "unread", "unread")}`
             : "Notifications"
         }
       >
         <BellIcon className="size-4" />
-        {unreadCount > 0 && (
+        {badgeCount > 0 && (
           /* `aria-hidden`: the count is already in the trigger's accessible
              name above, and announcing it twice is noise. */
           <span aria-hidden="true" className={BADGE}>
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {badgeCount > 9 ? "9+" : badgeCount}
           </span>
         )}
       </DropdownMenuTrigger>
@@ -110,10 +121,33 @@ export function NotificationMenu({
           )}
         </div>
 
+        {chatUnread.length > 0 && (
+          <div className="border-b border-border p-1">
+            {chatUnread.map((row) => (
+              <DropdownMenuItem
+                key={row.workspaceId}
+                href={`/workspaces/${encodeURIComponent(row.workspaceId)}/chat`}
+                icon={
+                  <span aria-hidden="true" className="w-4 text-center">
+                    {row.icon ?? "💬"}
+                  </span>
+                }
+              >
+                <span className="font-medium text-text">
+                  {plural(row.count, "new message", "new messages")}
+                </span>{" "}
+                in {row.name}
+              </DropdownMenuItem>
+            ))}
+          </div>
+        )}
+
         {notifications.length === 0 ? (
-          <p className="px-3 py-8 text-center text-xs text-text-subtle">
-            Nothing yet. You will hear about tasks assigned to you.
-          </p>
+          chatUnread.length === 0 && (
+            <p className="px-3 py-8 text-center text-xs text-text-subtle">
+              Nothing yet. You will hear about tasks assigned to you.
+            </p>
+          )
         ) : (
           <ul className={cn("max-h-96 overflow-y-auto", isPending && "opacity-60")}>
             {notifications.map((notification) => (

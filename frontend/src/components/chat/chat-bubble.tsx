@@ -11,11 +11,10 @@ import { cn } from "@/lib/cn";
  * One message, WhatsApp-shaped: the reader's own on the right in a tinted
  * bubble, everybody else's on the left on `surface`.
  *
- * WHY A TINT AND NOT THE BRAND FILL. `bg-brand-100` with brand ink is the pair
- * DESIGN-SYSTEM.md measures as safe, and — unlike the semantic tokens — the
- * brand ramp is identical in both themes, so one declaration is readable in
- * light and dark alike. `bg-brand-500` would need `text-on-brand` and would
- * make every one of your own messages shout.
+ * THE BRAND FILL, WITH BRAND INK. Own messages are the primary green
+ * (`bg-brand-500`) carrying `text-on-brand` — the same pair the primary button
+ * uses, 7.1:1 and identical in both themes because neither token flips. White
+ * text on brand-500 is 2.2:1, so never swap the ink for `text-ink-0`.
  *
  * THE TAIL IS ONE CORNER, not an SVG notch: the LAST bubble of a turn squares
  * off the bottom corner nearest its author and the rest of the run stays fully
@@ -58,7 +57,7 @@ import { cn } from "@/lib/cn";
    sit, so it goes back over the media's bottom edge. */
 const BARE = "bg-transparent p-0 shadow-none";
 
-const OWN = "bg-brand-100 text-brand-950";
+const OWN = "bg-brand-500 text-on-brand";
 /* NO BORDER, matching the reader's own bubble: a hairline on one side of the
    thread and none on the other made received messages look like a different
    component. `surface` on `canvas` is already a step of contrast in both
@@ -170,7 +169,7 @@ export function ChatBubble({
                 mediaOnly
                   ? "-mt-6 mr-2 rounded-xs bg-ink-950/60 px-1.5 py-0.5 text-ink-0"
                   : "mt-1",
-                !mediaOnly && (isOwn ? "text-brand-700" : "text-text-subtle"),
+                !mediaOnly && (isOwn ? "text-on-brand/70" : "text-text-subtle"),
               )}
             >
               {message.editedAt && <span>edited</span>}

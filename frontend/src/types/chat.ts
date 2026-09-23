@@ -69,3 +69,11 @@ export type ChatPage = {
 
 /** Who is currently connected to a channel, deduplicated by person. */
 export type ChatPresence = ChatSender;
+
+/** A workspace with unread chat, for the bell — `GET /chat/unread`. */
+export type ChatUnread = {
+  workspaceId: string;
+  name: string;
+  icon: string | null;
+  count: number;
+};

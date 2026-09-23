@@ -32,10 +32,16 @@ const unreadCount = async (req, res) => {
   return ApiResponse.success(res, httpStatus.OK, 'Unread count fetched', { count });
 };
 
+const unreadSummary = async (req, res) => {
+  const workspaces = await service.getUnreadSummary(req.user.id);
+
+  return ApiResponse.success(res, httpStatus.OK, 'Unread summary fetched', { workspaces });
+};
+
 const markRead = async (req, res) => {
   const data = await service.markRead(req.user.id, req.params.workspaceId, req.body);
 
   return ApiResponse.success(res, httpStatus.OK, 'Channel marked read', data);
 };
 
-export default { list, unreadCount, markRead };
+export default { list, unreadCount, unreadSummary, markRead };

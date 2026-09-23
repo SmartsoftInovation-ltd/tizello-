@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChatAttachButton } from "@/components/chat/chat-attach-button";
 import { ChatComposerAttachments } from "@/components/chat/chat-composer-attachments";
 import { ClipGlyph, PlusGlyph } from "@/components/chat/chat-icons";
+import { useChatDraft } from "@/components/chat/use-chat-draft";
 import { useTypingSignal } from "@/components/chat/use-typing-signal";
 import { EmojiPickerPopover } from "@/components/workspace/emoji-picker-popover";
 import { CONTENT_MAX } from "@/lib/chat-limits";
@@ -69,9 +70,12 @@ const PILL =
   "flex flex-1 items-end gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 transition-colors duration-100 ease-standard focus-within:border-border-strong";
 
 export function ChatComposer({
+  workspaceId,
   onSend,
   onTyping,
 }: {
+  /** Whose draft this is — the unsent text is remembered per workspace. */
+  workspaceId: string;
   onSend: (content: string, attachments: ChatAttachment[]) => void;
   onTyping: (active: boolean) => void;
 }) {
@@ -79,6 +83,11 @@ export function ChatComposer({
   const [files, setFiles] = useState<ChatAttachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const typing = useTypingSignal(onTyping);
+
+  useChatDraft(workspaceId, { text: value, files }, (draft) => {
+    setValue(draft.text);
+    setFiles(draft.files.slice(0, MAX_FILES));
+  });
 
   const handleChange = (next: string) => {
     setValue(next);

@@ -37,6 +37,7 @@ import { AUTH_CODES } from '../shared/constants/authCodes.js';
 import { createLogger } from '../config/logger.js';
 import { disconnectAtExpiry, handshakeAuth } from './auth.js';
 import { channelRoom } from './rooms.js';
+import { emitToUser } from './emit.js';
 
 const log = createLogger('chat-socket');
 
@@ -272,6 +273,16 @@ const registerHandlers = (nsp, socket) => {
     nsp
       .to(channelRoom(workspaceId))
       .emit('message:new', { ...message, clientId: clientId ?? null });
+
+    /* A nudge to everyone else's bell, on the ROOT namespace via their user
+       room — most members are not on the chat page, so they are not in the
+       channel room above. Like `notification:new` it carries no data: the
+       client re-reads the summary. Not awaited, and a failure is logged, never
+       thrown: the message is saved and broadcast, which is what the ack means. */
+    service
+      .recipientsOf(workspaceId, socket.data.userId)
+      .then((ids) => ids.forEach((id) => emitToUser(id, 'chat:unread', { workspaceId })))
+      .catch((error) => log.warn({ err: error, workspaceId }, 'chat:unread nudge failed'));
 
     return { message, clientId: clientId ?? null };
   });

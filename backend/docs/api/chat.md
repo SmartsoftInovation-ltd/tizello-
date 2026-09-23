@@ -344,6 +344,21 @@ itself a leak.
 watermark, excluding their own and excluding tombstones. No watermark yet means
 the whole channel counts as unread.
 
+### `GET /api/v1/chat/unread`
+
+The bell's summary: every workspace the caller is a member of that has unread
+messages. Person-scoped, no id in the path, no limiter (ambient, like
+`/notifications`).
+
+```json
+{ "workspaces": [{ "workspaceId": "…", "name": "Acme", "icon": "🚀", "count": 3 }] }
+```
+
+Workspaces with nothing unread are omitted. Kept fresh by the `chat:unread`
+nudge: after a `message:send` is persisted and broadcast, every other member of
+the workspace gets `chat:unread` `{ workspaceId }` on the ROOT namespace (their
+`user:<id>` room), and the client re-reads this endpoint.
+
 ### `POST /api/v1/workspaces/:workspaceId/messages/read`
 
 

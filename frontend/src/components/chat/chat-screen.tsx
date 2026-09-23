@@ -80,7 +80,11 @@ export function ChatScreen({
         onLoadOlder={chat.loadOlder}
       />
 
-      <ChatComposer onSend={chat.send} onTyping={chat.signalTyping} />
+      <ChatComposer
+        workspaceId={workspaceId}
+        onSend={chat.send}
+        onTyping={chat.signalTyping}
+      />
     </section>
   );
 }

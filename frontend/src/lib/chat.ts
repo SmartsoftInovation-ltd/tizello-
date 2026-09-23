@@ -1,5 +1,5 @@
 import { apiCallWithRefresh } from "@/lib/api-client";
-import type { ChatPage } from "@/types/chat";
+import type { ChatPage, ChatUnread } from "@/types/chat";
 
 /*
  * The chat API — `backend/docs/api/chat.md`.
@@ -60,6 +60,17 @@ export async function getUnreadCount(workspaceId: string): Promise<number> {
   );
 
   return result.ok ? result.data.count : 0;
+}
+
+/**
+ * `GET /chat/unread`. Every workspace the caller is in that has unread
+ * messages; empty when there are none. Empty on failure too — a bell that
+ * cannot load chat still shows the notifications it could.
+ */
+export async function getChatUnread(): Promise<ChatUnread[]> {
+  const result = await apiCallWithRefresh<{ workspaces: ChatUnread[] }>("/chat/unread");
+
+  return result.ok ? result.data.workspaces : [];
 }
 
 /**
