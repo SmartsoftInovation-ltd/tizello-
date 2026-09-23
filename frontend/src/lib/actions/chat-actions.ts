@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getMessages, markChannelRead } from "@/lib/chat";
-import type { ChatPage } from "@/types/chat";
+import { getSession } from "@/lib/auth";
+import { getChannel, getMessages, getUnreadCount, markChannelRead } from "@/lib/chat";
+import type { ChatChannel, ChatPage, ChatSender, ChatTarget } from "@/types/chat";
 
 /*
  * Chat's server boundary. Thin by rule: call a plain function from
@@ -22,10 +23,46 @@ import type { ChatPage } from "@/types/chat";
 
 /** One page of a channel, for the panel's first draw and for scrolling up. */
 export async function loadMessagesAction(
-  projectId: string,
+  target: ChatTarget,
   cursor?: string | null,
 ): Promise<ChatPage> {
-  return getMessages(projectId, { cursor });
+  return getMessages(target, { cursor });
+}
+
+/** The channel behind a target, so the client can join its socket room. */
+export async function loadChannelAction(
+  target: ChatTarget,
+): Promise<ChatChannel | null> {
+  return getChannel(target);
+}
+
+/**
+ * The unread count for a channel, for a launcher that has no server parent to
+ * fetch it — the sidebar's row, which is a client leaf inside a client nav.
+ *
+ * Zero when the caller may not use the channel, which is the same answer as an
+ * empty one: a sidebar badge is not the place to report a permission.
+ */
+export async function loadUnreadCountAction(target: ChatTarget): Promise<number> {
+  return getUnreadCount(target);
+}
+
+/**
+ * Who is asking, in the shape the message list needs to mark a message as the
+ * reader's own.
+ *
+ * It exists for the same reason as the action above: the sidebar row cannot be
+ * handed the session as a prop, because the nav it sits in is a client tree
+ * fed by plain serialisable data. Returning the session rather than trusting a
+ * client-supplied id is the point — an id a client could choose would decide
+ * which messages it may edit.
+ */
+export async function loadChatViewerAction(): Promise<ChatSender | null> {
+  const user = await getSession();
+
+  return user
+    ? { id: user.id, name: user.name, email: user.email, avatarUrl: null }
+    : null;
 }
 
 /**
@@ -37,9 +74,9 @@ export async function loadMessagesAction(
  * `notification-actions.ts` makes for the bell.
  */
 export async function markChannelReadAction(
-  projectId: string,
+  target: ChatTarget,
 ): Promise<{ ok: boolean }> {
-  const result = await markChannelRead(projectId);
+  const result = await markChannelRead(target);
   if (!result.ok) return { ok: false };
 
   revalidatePath("/", "layout");

@@ -1,18 +1,22 @@
 /**
- * Chat's business rules — ALL of them, for both transports.
+ * Chat's business rules — ALL of them, for both transports and both kinds of
+ * channel.
  *
- * The REST controller and the `/chat` socket namespace are two doors into this
- * file. Neither holds a permission rule of its own: a rule enforced on one and
- * forgotten on the other is the single most likely way this feature leaks a
- * conversation, and the only defence that scales is having one place where the
- * rules are.
+ * The REST controllers and the `/chat` socket namespace are doors into this
+ * file. None of them holds a permission rule: a rule enforced on one door and
+ * forgotten on another is the likeliest way this feature leaks a conversation,
+ * and the only defence that scales is having one place where the rules are.
  *
- * **PERSIST, THEN BROADCAST.** `sendMessage` returns a saved row and nothing
- * else; the namespace broadcasts what it returns. Broadcast-first is faster and
+ * TWO AUDIENCES, ONE PIPE. A workspace channel is every member of the
+ * workspace; a project channel is the project's contributors. That is the ONLY
+ * difference between them, and `resolveChannel` is where it lives — everything
+ * below this comment works on a resolved channel and cannot tell which kind it
+ * has. Adding a third kind is a branch in one function.
+ *
+ * **PERSIST, THEN BROADCAST.** `sendMessage` returns a saved row and never
+ * emits; the namespace emits what it returns. Broadcast-first is faster and
  * wrong — a failed insert leaves a message on every screen in the room that no
- * history load will ever return, and the only way to notice is to reload.
- * Nothing in this file emits, which is what makes the ordering structural
- * rather than a convention to remember.
+ * history load will ever return.
  *
  * **THE SENDER IS THE CALLER.** Every write takes a `userId` resolved from the
  * session — `req.user.id` or `socket.data.userId` — and the payload's own
@@ -21,8 +25,7 @@
  * Throws `AppError` with an `AUTH_CODES` code, never touches `res`, never
  * imports Prisma.
  *
- * See docs/api/chat.md, .claude/plan/chat.md and
- * .claude/skills/module-consistency/SKILL.md
+ * See docs/api/chat.md and .claude/plan/chat.md
  */
 
 import repository from './chat.repository.js';
@@ -31,32 +34,85 @@ import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
 import { resolveProjectAccess } from '../../shared/services/project-access.js';
+import { resolveWorkspaceAccess } from '../../shared/services/workspace-access.js';
 
 /* A channel nobody may see and a channel that does not exist are one answer.
-   Confirming a project exists to somebody with no access to it is itself the
-   leak — the same rule `loadProject` applies. */
-const notFound = (what = 'Project') =>
+   Confirming a workspace or project exists to somebody with no access to it is
+   itself the leak — the same rule `loadProject` and `loadMembership` apply. */
+const notFound = (what = 'Channel') =>
   new AppError(httpStatus.NOT_FOUND, `${what} not found`, AUTH_CODES.NOT_FOUND);
 
 const forbidden = (message) =>
   new AppError(httpStatus.FORBIDDEN, message, AUTH_CODES.FORBIDDEN);
 
 /**
- * Resolves the caller's access to a channel, or throws.
- *
- * `null` from the resolver — no such project, soft-deleted, or a workspace the
- * caller is not in — is a `404`. A resolved project the caller may only read
- * at project level is ALSO a `404` rather than a `403`: a workspace member who
- * is not on the project can see the project and must not learn what its channel
- * contains, and `403` would tell them there is one. docs/api/chat.md §1.
+ * A channel target, as every caller names one: `{ workspaceId }` or
+ * `{ projectId }`, never both. The validators enforce the XOR; this reads it.
  */
-const requireChannel = async (userId, projectId) => {
-  const access = await resolveProjectAccess(userId, projectId);
+const targetOf = ({ workspaceId, projectId }) =>
+  workspaceId
+    ? { kind: 'WORKSPACE', workspaceId }
+    : projectId
+      ? { kind: 'PROJECT', projectId }
+      : null;
 
+/**
+ * Resolves a target to a channel the caller may use, or throws.
+ *
+ * WORKSPACE: any member, because that is what a workspace channel is for.
+ * PROJECT: the contribute tier — a workspace member who is not on the project
+ * may see the project and may not read its channel (docs/api/chat.md §1).
+ *
+ * Both refusals are `404`, never `403`: a `403` would confirm the conversation
+ * exists to somebody with no access to it.
+ *
+ * Returns the channel row plus `canModerate` — who may delete somebody else's
+ * message. The row is created on first use; see `ensureChannel`.
+ */
+const resolveChannel = async (userId, target) => {
+  const named = targetOf(target ?? {});
+  if (!named) throw notFound();
+
+  if (named.kind === 'WORKSPACE') {
+    const access = await resolveWorkspaceAccess(userId, named.workspaceId);
+    if (!access) throw notFound();
+
+    const channel = await repository.ensureChannel(named);
+
+    return { channel, canModerate: access.canModerate, name: access.workspace.name };
+  }
+
+  const access = await resolveProjectAccess(userId, named.projectId);
   if (!access || !access.canContribute) throw notFound();
 
-  return access;
+  const channel = await repository.ensureChannel(named);
+
+  return { channel, canModerate: access.canWrite, name: access.project.name };
 };
+
+/**
+ * The same resolution, from a channel id a socket already holds.
+ *
+ * Every socket event after `channel:join` names its channel by id, and this is
+ * what stops that id being trusted: the row is loaded, its target is read, and
+ * the caller's access to that target is proved again. A client that joined one
+ * channel and then sent to another's id gets the same `404` a stranger would.
+ */
+const resolveChannelById = async (userId, channelId) => {
+  const channel = await repository.findChannelById(channelId);
+  if (!channel) throw notFound();
+
+  return accessToChannel(userId, channel);
+};
+
+/** The same resolution, from a channel row a message already carried. */
+const accessToChannel = (userId, channel) =>
+  resolveChannel(
+    userId,
+    channel.kind === 'WORKSPACE'
+      ? { workspaceId: channel.workspaceId }
+      : { projectId: channel.projectId },
+  );
 
 /* --- reads -------------------------------------------------------------- */
 
@@ -64,11 +120,11 @@ const requireChannel = async (userId, projectId) => {
  * One page of history, newest first.
  *
  * `nextCursor` is null at the beginning of the channel, and specifically when
- * the page came back shorter than `limit` — a client that keeps requesting
- * after that is paging past the start.
+ * the page came back shorter than `limit` — a client that keeps asking after
+ * that is paging past the start.
  */
-const listMessages = async (userId, projectId, { limit, cursor } = {}) => {
-  await requireChannel(userId, projectId);
+const listMessages = async (userId, target, { limit, cursor } = {}) => {
+  const { channel } = await resolveChannel(userId, target);
 
   const decoded = cursor ? dto.decodeCursor(cursor) : null;
 
@@ -81,7 +137,11 @@ const listMessages = async (userId, projectId, { limit, cursor } = {}) => {
     ]);
   }
 
-  const rows = await repository.findMessages({ projectId, limit, cursor: decoded });
+  const rows = await repository.findMessages({
+    channelId: channel.id,
+    limit,
+    cursor: decoded,
+  });
 
   return {
     messages: rows.map(dto.toMessage),
@@ -89,12 +149,15 @@ const listMessages = async (userId, projectId, { limit, cursor } = {}) => {
   };
 };
 
-const getUnreadCount = async (userId, projectId) => {
-  await requireChannel(userId, projectId);
+const getUnreadCount = async (userId, target) => {
+  const { channel } = await resolveChannel(userId, target);
+  const state = await repository.findReadState(userId, channel.id);
 
-  const state = await repository.findReadState(userId, projectId);
-
-  return repository.countUnread({ projectId, userId, lastReadAt: state?.lastReadAt ?? null });
+  return repository.countUnread({
+    channelId: channel.id,
+    userId,
+    lastReadAt: state?.lastReadAt ?? null,
+  });
 };
 
 /* --- watermark ---------------------------------------------------------- */
@@ -104,24 +167,24 @@ const getUnreadCount = async (userId, projectId) => {
  *
  * **IT NEVER MOVES BACKWARDS.** A late request from a tab that was behind must
  * not un-read what another tab already read, so the stored value wins whenever
- * it is the later of the two. That is also why this is an upsert of a
- * timestamp rather than a counter: two tabs racing on a counter disagree, two
- * tabs racing on `max(stored, incoming)` cannot.
+ * it is the later of the two. That is also why this is a timestamp rather than
+ * a counter: two tabs racing on a counter disagree, two racing on
+ * `max(stored, incoming)` cannot.
  *
  * A future `at` is clamped to now. Without the clamp one request marks the
  * channel unread-proof forever, including for messages nobody has written yet.
  */
-const markRead = async (userId, projectId, { at } = {}) => {
-  await requireChannel(userId, projectId);
+const markRead = async (userId, target, { at } = {}) => {
+  const { channel } = await resolveChannel(userId, target);
 
   const now = new Date();
   const requested = at ? new Date(at) : now;
   const clamped = requested > now ? now : requested;
 
-  const state = await repository.findReadState(userId, projectId);
+  const state = await repository.findReadState(userId, channel.id);
   const next = state && state.lastReadAt > clamped ? state.lastReadAt : clamped;
 
-  const row = await repository.upsertRead({ userId, projectId, at: next });
+  const row = await repository.upsertRead({ userId, channelId: channel.id, at: next });
 
   return { lastReadAt: row.lastReadAt };
 };
@@ -131,48 +194,50 @@ const markRead = async (userId, projectId, { at } = {}) => {
 /**
  * Writes a message and returns it. Broadcasting is the caller's job.
  *
- * **Membership is re-checked here, not trusted from the socket's earlier
- * join.** Join-only would leave somebody removed from a project mid-session
- * broadcasting into it until they refreshed. It is one indexed lookup against
- * a channel that is not high-throughput.
+ * **Access is re-checked here, not trusted from the socket's earlier join.**
+ * Join-only would leave somebody removed from a workspace or project
+ * mid-session writing into it until they refreshed. It is one indexed lookup
+ * against a channel that is not high-throughput.
  */
-const sendMessage = async (userId, { projectId, content }) => {
-  await requireChannel(userId, projectId);
+const sendMessage = async (userId, channelId, content) => {
+  const { channel } = await resolveChannelById(userId, channelId);
 
-  const row = await repository.createMessage({ projectId, senderId: userId, content });
+  const row = await repository.createMessage({
+    channelId: channel.id,
+    senderId: userId,
+    content,
+  });
 
   return dto.toMessage(row);
 };
 
 /**
- * Loads a message and the caller's standing in its project, or throws.
+ * Loads a message and the caller's standing in its channel, or throws.
  *
  * The `404` for a message in a channel the caller cannot see is the same `404`
- * as a message id that never existed — otherwise the endpoint is an oracle for
- * "is this id live in some project I am not in".
+ * as an id that never existed — otherwise the endpoint is an oracle for "is
+ * this id live somewhere I have no access to".
  */
 const loadForWrite = async (userId, messageId) => {
   const message = await repository.findMessageById(messageId);
-
   if (!message) throw notFound('Message');
 
-  const access = await resolveProjectAccess(userId, message.projectId);
+  const access = await accessToChannel(userId, message.channel).catch(() => null);
+  if (!access) throw notFound('Message');
 
-  if (!access || !access.canContribute) throw notFound('Message');
-
-  return { message, access };
+  return { message, canModerate: access.canModerate };
 };
 
 /**
  * Edits a message. **The author only, with no escape hatch.**
  *
  * An admin who can rewrite somebody's words is a worse property than an admin
- * who cannot remove them — deletion is visible to everyone in the room, an
+ * who cannot remove them — a deletion is visible to everyone in the room, an
  * edit is not. So this tier is deliberately narrower than `deleteMessage`'s.
  *
  * Editing a deleted message is `404`, not a resurrection: the tombstone is a
- * record that something was removed, and un-deleting by writing new text would
- * make that record a lie.
+ * record that something was removed, and writing new text into it would make
+ * that record a lie.
  */
 const editMessage = async (userId, { messageId, content }) => {
   const { message } = await loadForWrite(userId, messageId);
@@ -180,42 +245,33 @@ const editMessage = async (userId, { messageId, content }) => {
   if (message.deletedAt) throw notFound('Message');
   if (message.senderId !== userId) throw forbidden('Only the author can edit a message');
 
-  const row = await repository.updateMessage(messageId, content);
-
-  return dto.toMessage(row);
+  return dto.toMessage(await repository.updateMessage(messageId, content));
 };
 
 /**
- * Soft-deletes a message. The author, or anyone who could manage the project —
- * `canWrite`: workspace OWNER/ADMIN, the project's owner, or a MANAGER.
+ * Soft-deletes a message. The author, or whoever moderates that channel —
+ * workspace OWNER/ADMIN for a workspace channel, the project-write ladder for
+ * a project one.
  *
- * There is no project ADMIN in this schema (`ProjectRole` is
- * OWNER/MANAGER/COLLABORATOR; ADMIN is a workspace tier), so "OWNER/ADMIN" from
- * the brief maps onto exactly this ladder — the same one `requireProjectWrite`
- * applies everywhere else. docs/api/chat.md §3.
- *
- * Deleting an already-deleted message returns the tombstone unchanged rather
- * than a `409`. Two moderators clicking at once is not a conflict anybody can
- * act on, and the second click's answer is the state they wanted.
+ * Deleting an already-deleted message returns the tombstone rather than a
+ * `409`. Two moderators clicking at once is not a conflict anybody can act on,
+ * and the second click's answer is the state they wanted.
  */
 const deleteMessage = async (userId, { messageId }) => {
-  const { message, access } = await loadForWrite(userId, messageId);
+  const { message, canModerate } = await loadForWrite(userId, messageId);
 
-  const isAuthor = message.senderId === userId;
-
-  if (!isAuthor && !access.canWrite) {
-    throw forbidden('Only the author or a project manager can delete a message');
+  if (message.senderId !== userId && !canModerate) {
+    throw forbidden('Only the author or a moderator can delete a message');
   }
 
   if (message.deletedAt) return dto.toMessage(message);
 
-  const row = await repository.softDeleteMessage(messageId);
-
-  return dto.toMessage(row);
+  return dto.toMessage(await repository.softDeleteMessage(messageId));
 };
 
 export default {
-  requireChannel,
+  resolveChannel,
+  resolveChannelById,
   listMessages,
   getUnreadCount,
   markRead,

@@ -6,7 +6,7 @@ import { ChatMessageList } from "@/components/chat/chat-message-list";
 import { useChatSocket } from "@/components/chat/use-chat-socket";
 import { Drawer } from "@/components/ui/drawer";
 import { markChannelReadAction } from "@/lib/actions/chat-actions";
-import type { ChatSender } from "@/types/chat";
+import type { ChatSender, ChatTarget } from "@/types/chat";
 
 /*
  * The slide-over channel: the project's conversation over whatever screen the
@@ -16,6 +16,11 @@ import type { ChatSender } from "@/types/chat";
  * board and the channel at once, and you cannot link somebody to a channel.
  * `ui/drawer.tsx` is a native `<dialog>`, so focus trapping, Esc and the top
  * layer come for free.
+ *
+ * ONE PANEL, BOTH KINDS OF CHANNEL. It takes a `ChatTarget` — the workspace
+ * or the project — and nothing below here knows which it has; the server owns
+ * the difference in who may read and write. That is why the workspace channel
+ * cost a launcher and a nav row rather than a second panel.
  *
  * THE SOCKET LIVES AND DIES WITH THE PANEL. `useChatSocket` is called from
  * here, which is only mounted while `open`, so a closed panel holds no
@@ -28,34 +33,36 @@ import type { ChatSender } from "@/types/chat";
  */
 
 export function ChatPanel({
-  projectId,
-  projectName,
+  target,
+  title,
   viewer,
   canModerate,
   open,
   onOpenChange,
 }: {
-  projectId: string;
-  projectName: string;
+  target: ChatTarget;
+  /** The workspace's or project's name — whose conversation this is. */
+  title: string;
   viewer: ChatSender | null;
   /** Draws the delete control on other people's messages; the API re-checks. */
   canModerate: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const chat = useChatSocket(projectId, viewer);
+  const chat = useChatSocket(target, viewer);
+  const targetKey = JSON.stringify(target);
 
   useEffect(() => {
-    void markChannelReadAction(projectId);
-  }, [projectId, chat.messages.length]);
+    void markChannelReadAction(JSON.parse(targetKey));
+  }, [targetKey, chat.messages.length]);
 
   const typists = chat.typing.filter((who) => who.id !== viewer?.id);
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} aria-label={`${projectName} chat`}>
+    <Drawer open={open} onOpenChange={onOpenChange} aria-label={`${title} chat`}>
       <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-text">{projectName}</h2>
+          <h2 className="truncate text-sm font-semibold text-text">{title}</h2>
           <p className="text-2xs text-text-subtle">
             {chat.presence.length === 1
               ? "Only you here"

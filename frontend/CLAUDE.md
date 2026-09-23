@@ -235,6 +235,28 @@ against demo data in `src/lib/`, never that a backend is wired.
       permission ladder (12 cases, including "contributing is never harder than
       managing"), and the restore/purge round-trip was verified live against
       the dev database.
+- [x] **Chat** — real-time, over a new backend module
+      (`backend/src/modules/chat/`, `backend/src/realtime/`, contract at
+      `backend/docs/api/chat.md`). **Two channels, one panel.** The sidebar's
+      **Chat** row opens the WORKSPACE channel — every member of the workspace,
+      which is what it is for — and a floating **Chat** button on every project
+      screen opens that PROJECT's channel, which only its contributors may read.
+      Both render `components/chat/chat-panel.tsx` in a right-hand `Drawer`, so
+      the board stays readable behind the conversation; the trade is that a
+      channel has no URL to share. Live over Socket.IO (`use-chat-socket.ts`):
+      send, edit (author only), delete (author or a moderator), typing
+      indicator, presence, and "Load earlier messages" over a cursor.
+      **Messages live in the hook, not in a `router.refresh()`** — unlike the
+      notification bell, because refreshing a route per message would re-run
+      every Server Component on the page and lose the scroll position. A sent
+      message draws an optimistic bubble reconciled by `clientId`, dimmed until
+      the server confirms it. History and the read watermark go through Server
+      Actions (`lib/actions/chat-actions.ts`): the API cookie is `httpOnly` and
+      same-origin, so the browser has no credential to fetch with directly. The
+      panel mounts only while open, so a closed launcher holds no socket.
+      **Verified** against the running app — 18 socket/REST checks on the
+      workspace channel and 25 on the project one, including that a held
+      channel id is not a permission.
 - [x] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
       the role cards, a read-only permission matrix and a role assignment list,
       and **all of it is real now**. `demo-permissions.ts` is deleted. Roles are

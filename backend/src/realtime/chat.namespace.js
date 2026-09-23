@@ -29,6 +29,7 @@ import {
   channelPayloadSchema,
   deleteMessageSchema,
   editMessageSchema,
+  joinChannelSchema,
   sendMessageSchema,
 } from '../modules/chat/chat.validator.js';
 import AppError from '../shared/utils/AppError.js';
@@ -36,7 +37,7 @@ import httpStatus from '../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../shared/constants/authCodes.js';
 import { createLogger } from '../config/logger.js';
 import { disconnectAtExpiry, handshakeAuth } from './auth.js';
-import { projectRoom } from './rooms.js';
+import { channelRoom } from './rooms.js';
 
 const log = createLogger('chat-socket');
 
@@ -147,9 +148,9 @@ const handle = (socket, event, schema, handler) => {
   });
 };
 
-/** Every distinct user in a project's room, three tabs counted once. */
-const presenceOf = async (nsp, projectId) => {
-  const sockets = await nsp.in(projectRoom(projectId)).fetchSockets();
+/** Every distinct user in a channel's room, three tabs counted once. */
+const presenceOf = async (nsp, channelId) => {
+  const sockets = await nsp.in(channelRoom(channelId)).fetchSockets();
   const byUser = new Map();
 
   for (const member of sockets) {
@@ -161,23 +162,23 @@ const presenceOf = async (nsp, projectId) => {
   return [...byUser.values()];
 };
 
-/** Clears a project's typing timer, if this socket has one running. */
-const clearTyping = (socket, projectId) => {
-  const timer = socket.data.typingTimers?.get(projectId);
+/** Clears a channel's typing timer, if this socket has one running. */
+const clearTyping = (socket, channelId) => {
+  const timer = socket.data.typingTimers?.get(channelId);
 
   if (!timer) return;
 
   clearTimeout(timer);
-  socket.data.typingTimers.delete(projectId);
+  socket.data.typingTimers.delete(channelId);
 };
 
 /**
  * Broadcasts a typing state to the room, EXCLUDING the sender: a client that
  * saw its own indicator would render "you are typing" to the person typing.
  */
-const broadcastTyping = (socket, projectId, typing) => {
-  socket.to(projectRoom(projectId)).emit('typing', {
-    projectId,
+const broadcastTyping = (socket, channelId, typing) => {
+  socket.to(channelRoom(channelId)).emit('typing', {
+    channelId,
     userId: socket.data.userId,
     name: socket.data.user?.name ?? null,
     typing,
@@ -186,58 +187,61 @@ const broadcastTyping = (socket, projectId, typing) => {
 
 const registerHandlers = (nsp, socket) => {
   socket.data.typingTimers = new Map();
-  /* The rooms this socket joined, tracked separately from `socket.rooms`
+  /* The channels this socket joined, tracked separately from `socket.rooms`
      because `socket.rooms` is already empty by the time `disconnect` fires and
      the remaining members still have to be told who left. */
-  socket.data.joinedProjects = new Set();
+  socket.data.joinedChannels = new Set();
 
   /* Membership is proved here and re-proved on every write — see
      `chat.service.js#sendMessage`. Join-only would leave somebody removed from
      a project mid-session broadcasting into it until they refreshed. */
-  handle(socket, 'channel:join', channelPayloadSchema, async ({ projectId }) => {
-    await service.requireChannel(socket.data.userId, projectId);
+  handle(socket, 'channel:join', joinChannelSchema, async (target) => {
+    /* The ONE call that takes a workspace or a project rather than a channel
+       id: the client cannot know an id it has never been told, and this is
+       where it is told. The access rule per kind lives in the service. */
+    const { channel, name } = await service.resolveChannel(socket.data.userId, target);
 
-    await socket.join(projectRoom(projectId));
-    socket.data.joinedProjects.add(projectId);
+    await socket.join(channelRoom(channel.id));
+    socket.data.joinedChannels.add(channel.id);
 
     /* Everyone already in the room learns who arrived, and the joiner gets the
        full list — one event shape, two audiences, so a client has one code path
        for "who is here". */
-    const users = await presenceOf(nsp, projectId);
+    const users = await presenceOf(nsp, channel.id);
 
-    nsp.to(projectRoom(projectId)).emit('presence', { projectId, users });
+    nsp.to(channelRoom(channel.id)).emit('presence', { channelId: channel.id, users });
 
-    return { projectId, users };
+    return { channelId: channel.id, kind: channel.kind, name, users };
   });
 
   /* No permission check: leaving is giving something up, and a socket that may
      not be in a room is a socket that should not stay in it. */
-  handle(socket, 'channel:leave', channelPayloadSchema, async ({ projectId }) => {
-    clearTyping(socket, projectId);
-    socket.data.joinedProjects.delete(projectId);
-    await socket.leave(projectRoom(projectId));
+  handle(socket, 'channel:leave', channelPayloadSchema, async ({ channelId }) => {
+    clearTyping(socket, channelId);
+    socket.data.joinedChannels.delete(channelId);
+    await socket.leave(channelRoom(channelId));
 
-    nsp.to(projectRoom(projectId)).emit('presence', {
-      projectId,
-      users: await presenceOf(nsp, projectId),
+    nsp.to(channelRoom(channelId)).emit('presence', {
+      channelId,
+      users: await presenceOf(nsp, channelId),
     });
 
-    return { projectId };
+    return { channelId };
   });
 
-  handle(socket, 'presence:list', channelPayloadSchema, async ({ projectId }) => {
-    await service.requireChannel(socket.data.userId, projectId);
+  handle(socket, 'presence:list', channelPayloadSchema, async ({ channelId }) => {
+    await service.resolveChannelById(socket.data.userId, channelId);
 
-    const users = await presenceOf(nsp, projectId);
+    const users = await presenceOf(nsp, channelId);
 
     /* Answered to the asker alone, not broadcast: nobody else's screen changes
        because one client asked a question. */
-    socket.emit('presence', { projectId, users });
+    socket.emit('presence', { channelId, users });
 
-    return { projectId, users };
+    return { channelId, users };
   });
 
-  handle(socket, 'message:send', sendMessageSchema, async ({ projectId, content, clientId }) => {
+  handle(socket, 'message:send', sendMessageSchema, async ({ channelId, content, clientId }) => {
     /* An `AppError`, the same class the services throw, so `handle` has one
        kind of failure to translate and the client sees `RATE_LIMITED` in the
        same envelope as every other refusal. */
@@ -251,16 +255,16 @@ const registerHandlers = (nsp, socket) => {
 
     /* The row first. Only what the service returns is broadcast, so a failed
        insert cannot put a message on anybody's screen. */
-    const message = await service.sendMessage(socket.data.userId, { projectId, content });
+    const message = await service.sendMessage(socket.data.userId, channelId, content);
 
-    clearTyping(socket, projectId);
-    broadcastTyping(socket, projectId, false);
+    clearTyping(socket, channelId);
+    broadcastTyping(socket, channelId, false);
 
     /* To the whole room INCLUDING the sender, and carrying the sender's own
        `clientId` back: that echo is what lets their client reconcile the
        optimistic bubble it already drew with the real row instead of rendering
        the message twice. The server never interprets or stores it. */
-    nsp.to(projectRoom(projectId)).emit('message:new', { ...message, clientId: clientId ?? null });
+    nsp.to(channelRoom(channelId)).emit('message:new', { ...message, clientId: clientId ?? null });
 
     return { message, clientId: clientId ?? null };
   });
@@ -268,7 +272,7 @@ const registerHandlers = (nsp, socket) => {
   handle(socket, 'message:edit', editMessageSchema, async ({ messageId, content }) => {
     const message = await service.editMessage(socket.data.userId, { messageId, content });
 
-    nsp.to(projectRoom(message.projectId)).emit('message:edited', message);
+    nsp.to(channelRoom(message.channelId)).emit('message:edited', message);
 
     return { message };
   });
@@ -278,9 +282,9 @@ const registerHandlers = (nsp, socket) => {
 
     /* The id, so clients drop the bubble. The tombstone itself is what history
        returns; a live client does not need the empty row to remove a line. */
-    nsp.to(projectRoom(message.projectId)).emit('message:deleted', {
+    nsp.to(channelRoom(message.channelId)).emit('message:deleted', {
       id: message.id,
-      projectId: message.projectId,
+      channelId: message.channelId,
     });
 
     return { id: message.id };
@@ -290,27 +294,27 @@ const registerHandlers = (nsp, socket) => {
      only broadcast into a room it was admitted to, and admission is where the
      check belongs. Storing "is typing" would be storing something already
      stale. */
-  handle(socket, 'typing:start', channelPayloadSchema, async ({ projectId }) => {
-    if (!socket.rooms.has(projectRoom(projectId))) return undefined;
+  handle(socket, 'typing:start', channelPayloadSchema, async ({ channelId }) => {
+    if (!socket.rooms.has(channelRoom(channelId))) return undefined;
     if (!takeToken(socket, 'typing')) return undefined;
 
-    broadcastTyping(socket, projectId, true);
+    broadcastTyping(socket, channelId, true);
 
-    clearTyping(socket, projectId);
+    clearTyping(socket, channelId);
     socket.data.typingTimers.set(
-      projectId,
+      channelId,
       setTimeout(() => {
-        socket.data.typingTimers.delete(projectId);
-        broadcastTyping(socket, projectId, false);
+        socket.data.typingTimers.delete(channelId);
+        broadcastTyping(socket, channelId, false);
       }, TYPING_TIMEOUT_MS)
     );
 
     return undefined;
   });
 
-  handle(socket, 'typing:stop', channelPayloadSchema, async ({ projectId }) => {
-    clearTyping(socket, projectId);
-    broadcastTyping(socket, projectId, false);
+  handle(socket, 'typing:stop', channelPayloadSchema, async ({ channelId }) => {
+    clearTyping(socket, channelId);
+    broadcastTyping(socket, channelId, false);
 
     return undefined;
   });
@@ -320,13 +324,13 @@ const registerHandlers = (nsp, socket) => {
        after disconnect they are not — so this is the only moment the remaining
        members can be told who left. */
     for (const room of socket.rooms) {
-      if (!room.startsWith('project:')) continue;
+      if (!room.startsWith('channel:')) continue;
 
-      const projectId = room.slice('project:'.length);
+      const channelId = room.slice('channel:'.length);
 
-      clearTyping(socket, projectId);
+      clearTyping(socket, channelId);
       socket.to(room).emit('typing', {
-        projectId,
+        channelId,
         userId: socket.data.userId,
         name: socket.data.user?.name ?? null,
         typing: false,
@@ -338,10 +342,10 @@ const registerHandlers = (nsp, socket) => {
     /* Presence AFTER the leave has taken effect, so `fetchSockets` no longer
        counts this connection — broadcasting from `disconnecting` would send a
        list that still contains the person who just left. */
-    for (const projectId of socket.data.joinedProjects) {
-      nsp.to(projectRoom(projectId)).emit('presence', {
-        projectId,
-        users: await presenceOf(nsp, projectId),
+    for (const channelId of socket.data.joinedChannels) {
+      nsp.to(channelRoom(channelId)).emit('presence', {
+        channelId,
+        users: await presenceOf(nsp, channelId),
       });
     }
 

@@ -16,7 +16,7 @@
  */
 
 import { getIo } from './server.js';
-import { projectRoom, userRoom } from './rooms.js';
+import { channelRoom, userRoom } from './rooms.js';
 
 /** One person, on every tab they have open. The notification bell. */
 const emitToUser = (userId, event, payload) => {
@@ -28,20 +28,20 @@ const emitToUser = (userId, event, payload) => {
 };
 
 /**
- * Everyone currently joined to a project's channel, on the `/chat` namespace.
+ * Everyone currently joined to a channel, on the `/chat` namespace.
  *
- * The namespace is explicit: a project room exists on `/chat` and nowhere
+ * The namespace is explicit: a channel room exists on `/chat` and nowhere
  * else, so `io.to(...)` on the root namespace would reach nobody. That failure
  * is silent, which is why this function exists instead of the call being
  * spelled out at each site.
  */
-const emitToProject = (projectId, event, payload) => {
+const emitToChannel = (channelId, event, payload) => {
   const io = getIo();
 
-  if (!io || !projectId) return;
+  if (!io || !channelId) return;
 
-  io.of('/chat').to(projectRoom(projectId)).emit(event, payload);
+  io.of('/chat').to(channelRoom(channelId)).emit(event, payload);
 };
 
-export { emitToUser, emitToProject };
-export default { emitToUser, emitToProject };
+export { emitToUser, emitToChannel };
+export default { emitToUser, emitToChannel };

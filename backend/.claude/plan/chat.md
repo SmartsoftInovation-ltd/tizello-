@@ -322,7 +322,31 @@ that sprint existing.
 Not built, and still not: notifications for chat messages (§7.5 below),
 attachments, and per-message read receipts.
 
-## 8. Open questions — answered during the build
+## 8. Widened: the workspace channel
+
+Asked for after the project channel shipped — "a common chat for the whole
+workspace, in the sidebar, where every member can talk". It is the same feature
+with a second audience, and it cost one table, one resolver and a nav row.
+
+**§2.4's rule survives unchanged and is now visibly a choice rather than the
+only option.** A workspace member who is not on a project still cannot read
+that project's channel — and now has somewhere they CAN talk to the same
+people, which is what made the narrower rule defensible in the first place.
+
+The premise this plan and the contract both argued — "`projectId` IS the
+channel, so there is no Channel table" — did not survive, and
+`docs/api/chat.md` §0 is the record of why: with two kinds of target, the XOR
+has to live somewhere, and the choice was between the channel row and two
+nullable columns on the two tables that are read on every page. The second
+would also have needed partial unique indexes for the watermark, which Prisma
+cannot declare.
+
+Free of data migration because it shipped with zero messages written. That is
+stated at the top of `20260923120000_workspace_channels/migration.sql`, because
+the same change on a populated database needs a channel per distinct project
+first.
+
+## 9. Open questions — answered during the build
 
 1. **§2.2** — cursor changed from `before=<ISO>` to an opaque `cursor`. **Done**,
    and verified against two messages written in the same millisecond.

@@ -30,7 +30,11 @@ const toMessage = (row) => {
 
   return {
     id: row.id,
-    projectId: row.projectId,
+    /* The channel, not the workspace or project behind it. A client joins a
+       room by channel id and every broadcast names one, so a message that
+       carried its project instead would make the client resolve the same
+       mapping the server already has. */
+    channelId: row.channelId,
     // See the header: a tombstone never carries its text out of this function.
     content: deleted ? null : row.content,
     deleted,

@@ -1,12 +1,46 @@
 # `chat` — API + events contract
 
-**Module:** `src/modules/chat/` · **REST prefix:**
+**Module:** `src/modules/chat/` · **REST prefixes:**
+`/api/v1/workspaces/:workspaceId/messages` and
 `/api/v1/projects/:projectId/messages` · **Socket namespace:** `/chat`
 
-> **STATUS: SHIPPED.** Written as a proposal before any code existed, and
-> reconciled against the build. Where the two differed, the difference is noted
-> in place rather than quietly edited away — three of them: the REST guard chain
-> (§4), the cursor (§4), and one file in the realtime layout (§2).
+> **STATUS: SHIPPED**, then widened. It began as one channel per project;
+> workspace-wide chat was added afterwards and turned the conversation target
+> into a first-class `Channel` — see §0, which is the honest record of a premise
+> this document used to argue for and no longer holds.
+>
+> Written as a proposal before any code existed and reconciled against the
+> build: where the two differed the difference is noted in place rather than
+> quietly edited away.
+
+---
+
+## 0. Two kinds of channel, and the table that was not supposed to exist
+
+**A workspace channel is every member of the workspace. A project channel is
+that project's contributors.** Those are the only two, and the difference
+between them is one function — `chat.service.js#resolveChannel`.
+
+This document originally argued that `projectId` on the message WAS the
+channel, and that a `Channel` table would be a second thing to keep in sync
+with the projects it mirrored. That argument was right while a project was the
+only possible audience. It stopped being right the moment a second audience
+existed: with two kinds of target, "which conversation is this" became a real
+question, and the alternatives to answering it with a row were worse.
+
+| Option | Why not |
+|---|---|
+| Two nullable columns on `messages` | Puts the XOR on the table read on every page load, and on `message_reads` too — where the watermark's uniqueness would then need two PARTIAL unique indexes, which Prisma cannot declare. |
+| A second table for workspace messages | Two of every query, two DTOs, and a permission rule that has to be remembered twice. |
+| **A `Channel` row** | One `channelId` on both hot tables, one unique constraint, one index, one socket room shape. The XOR lives on the channel, where it is checked once per conversation rather than once per message. |
+
+Channels are created **lazily**, on first read — a project nobody has chatted
+in has no row, and no migration has to backfill one.
+
+The restructure was free of data migration: it shipped with zero messages
+written. `prisma/migrations/20260923120000_workspace_channels` says so at the
+top, because on a populated database the same migration would need a channel
+per distinct `projectId` first.
 
 > **Sibling-contract check.** Response envelope, `AppError` shape,
 > validation-error shape, guard middleware names and rate-limiter precedent all
@@ -46,8 +80,15 @@ timestamp; §4 says why.
 
 ## 1. Access control, stated once
 
-**A project member may read and write that project's channel. Nobody else may
-do either.** "Member" is exactly what `shared/middlewares/project.js` already
+**Workspace channel: every member of the workspace, with no further test.**
+That is the point of it — the place the whole team can talk — and it is
+deliberately a wider audience than any project channel. Membership is resolved
+by `shared/services/workspace-access.js`; the only tier above it is moderation
+(OWNER or ADMIN may delete somebody else's message, the same pair that may
+remove a member).
+
+**Project channel: a project member may read and write it, nobody else may do
+either.** "Member" is exactly what `shared/middlewares/project.js` already
 means by it, and this module does not get a second definition:
 
 | Who | Source |
@@ -138,8 +179,13 @@ reconnects with a fresh cookie — see [notification.md](./notification.md) §8.
 
 ### Rooms
 
-`project:<projectId>`, joined only after `resolveProjectAccess` says yes. A
-socket may hold several — one tab, several open projects.
+`channel:<channelId>`, joined only after `chat.service.js#resolveChannel` says
+yes. A socket may hold several — one tab, the workspace channel and a project's
+open at once.
+
+**KEYED ON THE CHANNEL, not on what it is attached to.** A room name has one
+shape however many kinds of channel exist, so adding a kind changes no room
+logic and a broadcast can never be addressed to the wrong sort of id.
 
 **Membership is checked on JOIN, and again on every WRITE.** Join-only would
 leave someone removed from a project mid-session broadcasting into it until
@@ -156,19 +202,26 @@ action; the server broadcasts the past tense.
 
 | Direction | Event | Payload |
 |---|---|---|
-| → server | `channel:join` | `{ projectId }` |
-| → server | `channel:leave` | `{ projectId }` |
-| → server | `message:send` | `{ projectId, content, clientId }` |
+| → server | `channel:join` | `{ workspaceId }` **xor** `{ projectId }` → ack `{ channelId, kind, name, users }` |
+| → server | `channel:leave` | `{ channelId }` |
+| → server | `message:send` | `{ channelId, content, clientId }` |
 | → server | `message:edit` | `{ messageId, content }` |
 | → server | `message:delete` | `{ messageId }` |
-| → server | `typing:start` / `typing:stop` | `{ projectId }` |
-| → server | `presence:list` | `{ projectId }` (ack-style) |
+| → server | `typing:start` / `typing:stop` | `{ channelId }` |
+| → server | `presence:list` | `{ channelId }` (ack-style) |
 | ← client | `message:new` | the message DTO + `clientId` |
 | ← client | `message:edited` | the message DTO |
-| ← client | `message:deleted` | `{ id, projectId }` |
-| ← client | `typing` | `{ projectId, userId, name, typing: bool }` |
-| ← client | `presence` | `{ projectId, users: [{ id, name, email, avatarUrl }] }` |
+| ← client | `message:deleted` | `{ id, channelId }` |
+| ← client | `typing` | `{ channelId, userId, name, typing: bool }` |
+| ← client | `presence` | `{ channelId, users: [{ id, name, email, avatarUrl }] }` |
 | ← client | `chat:error` | `{ event, code, message }` |
+
+**JOINING NAMES A TARGET; EVERYTHING AFTER IT NAMES THE CHANNEL.** A client
+cannot know a channel id it has never been told, and the join (or
+`GET .../messages/channel`) is where it is told. The id it then holds is **not
+a permission**: `resolveChannelById` re-proves access on every use, so a socket
+that joined the workspace channel and sends to a project channel's id is
+refused exactly as a stranger would be. That is tested.
 
 ### `message:send` — persist first, then broadcast
 
@@ -260,6 +313,19 @@ handler. Without it, one script with a valid cookie can write to Postgres as
 fast as the socket accepts, and every other member's browser renders it.
 
 ## 4. REST — history
+
+### The same four routes, mounted twice
+
+`/api/v1/workspaces/:workspaceId/messages` and
+`/api/v1/projects/:projectId/messages` serve identical shapes; the path names
+the target and the service owns the access rule for each kind. Everything below
+is written for the project mount and is true of both.
+
+### `GET .../messages/channel`
+
+`200` with `{ channel: { id, kind, name } }`. What a client calls before it can
+join a socket room — separate from the history read so a client that already
+holds the id does not have to re-read a page of messages to learn it again.
 
 ### `GET /api/v1/projects/:projectId/messages`
 
@@ -390,3 +456,30 @@ that does not exist yet, so a client emitting `channel:join` on connect — whic
 every client does — had that join dropped, with no error anywhere and a channel
 that simply looked empty. Nothing is awaited before `registerHandlers` now, and
 `chat.namespace.js` says why in place.
+
+---
+
+## 8. The workspace channel, added after the fact
+
+What changed, beyond §0's table:
+
+1. **`shared/services/workspace-access.js`** — the membership resolver, the
+   companion to `project-access.js` and for the same reason: a socket has no
+   `req`, so `loadMembership` cannot answer for a chat connection.
+2. **Rooms are `channel:<id>`**, not `project:<id>`; `emitToProject` became
+   `emitToChannel`.
+3. **Socket payloads carry `channelId`** after the join, which is the change a
+   client notices. The join itself takes a target and answers with the id.
+4. **`GET .../messages/channel`** is new, for a client that needs the id
+   without a page of history.
+5. **Moderation differs by kind and is one expression either way:**
+   `canModerate` is workspace OWNER/ADMIN for a workspace channel and the
+   project-write ladder for a project one. Editing is still the author alone,
+   in both.
+
+**Verified** against a running server with three connected clients: a workspace
+member who is on no project is admitted to the workspace channel and still
+refused the project channel; a non-member is refused both as `NOT_FOUND`; a
+held channel id does not grant a cross-channel send; unread excludes the
+sender's own; a plain MEMBER cannot delete another member's message. 18 checks,
+all passing.

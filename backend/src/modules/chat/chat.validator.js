@@ -41,6 +41,10 @@ const projectParamsSchema = Joi.object({
   projectId: id.required(),
 }).unknown(true);
 
+const workspaceParamsSchema = Joi.object({
+  workspaceId: id.required(),
+}).unknown(true);
+
 const historyQuerySchema = Joi.object({
   // 30 is the default and 100 the ceiling: a channel page is drawn into a
   // scroll view, and a client asking for 500 means to page.
@@ -63,13 +67,38 @@ const markReadSchema = Joi.object({
 
 /* --- socket payloads --------------------------------------------------- */
 
+/**
+ * JOINING NAMES A TARGET, NOT A CHANNEL — `{ workspaceId }` or
+ * `{ projectId }`, exactly one.
+ *
+ * `.xor` rather than two schemas: the access rule differs per kind, and a
+ * payload carrying both would leave the server picking a branch and therefore
+ * picking which permission check to apply. One or the other, refused loudly.
+ *
+ * A channel id would be the obvious alternative and is deliberately not
+ * accepted here: the client would have to learn one from somewhere, and the
+ * only honest source is this call.
+ */
+const joinChannelSchema = Joi.object({
+  workspaceId: id,
+  projectId: id,
+  ...IDENTITY_IS_NOT_INPUT,
+}).xor('workspaceId', 'projectId');
+
+/**
+ * Everything AFTER the join names the channel by id, which the join's ack
+ * returned. The id is not trusted on the strength of that join —
+ * `chat.service.js#resolveChannelById` re-proves access on every use, so a
+ * socket that joined one channel and sends to another's id is refused exactly
+ * as a stranger would be.
+ */
 const channelPayloadSchema = Joi.object({
-  projectId: id.required(),
+  channelId: id.required(),
   ...IDENTITY_IS_NOT_INPUT,
 });
 
 const sendMessageSchema = Joi.object({
-  projectId: id.required(),
+  channelId: id.required(),
   content,
   /* An opaque string the sender generates and the broadcast echoes, so the
      sender's client can reconcile its optimistic bubble with the real row
@@ -95,6 +124,8 @@ const deleteMessageSchema = Joi.object({
 export {
   CONTENT_MAX,
   projectParamsSchema,
+  workspaceParamsSchema,
+  joinChannelSchema,
   historyQuerySchema,
   markReadSchema,
   channelPayloadSchema,

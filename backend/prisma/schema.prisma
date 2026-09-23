@@ -126,6 +126,8 @@ model Workspace {
   memberships  Membership[]
   invitations  Invitation[]
   projects     Project[]
+  // The workspace-wide channel every member may read and write. Lazily created.
+  channel      Channel?
   propertyDefs ProjectPropertyDef[]
   roles        WorkspaceRole[]
 
@@ -479,10 +481,9 @@ model Project {
   taskStatuses     TaskStatusOption[]
   sprints          Sprint[]
 
-  // The project's channel. There is no Channel model: `projectId` IS the
-  // channel, so there is no second table to keep in step with this one.
-  messages     Message[]
-  messageReads MessageRead[]
+  // The project's channel, if anyone has opened it — created lazily on first
+  // read, so a project that nobody has chatted in has no row.
+  channel Channel?
 
   // Archived is reversible (hidden from the default list); deletedAt is not.
   // Neither is `status` — three independent axes, three columns.
@@ -898,11 +899,55 @@ model Sprint {
   @@map("sprints")
 }
 
-/// A message in a project's channel. One channel per project, and it is not a
-/// row — `projectId` IS the channel, so there is nothing to keep in sync with
-/// the projects it would otherwise mirror.
+/// WHERE A CONVERSATION LIVES. One row per channel, and the reason this table
+/// exists is a reversal worth recording: chat shipped with `projectId` ON the
+/// message, and docs/api/chat.md argued there was no Channel table to keep in
+/// sync because the project WAS the channel. Workspace-wide chat ended that —
+/// with two kinds of target, "which conversation is this" became a real
+/// question, and answering it with two nullable columns on `messages` would put
+/// the XOR on the two tables that are read on every page instead of the one
+/// that is read once per channel.
 ///
-/// See docs/api/chat.md and .claude/plan/chat.md §3.
+/// `workspaceId` and `projectId` are each unique and exactly one is set, which
+/// a CHECK constraint in the migration enforces — Prisma cannot express it.
+/// Unique rather than a compound key because there is exactly one channel per
+/// workspace and one per project: NULLs are distinct in Postgres, so the many
+/// project channels with a null `workspaceId` do not collide.
+///
+/// Rows are created lazily, on first read of a channel, the same way a
+/// workspace's built-in roles are seeded — nothing has to backfill a channel
+/// for every project that already exists.
+model Channel {
+  id   String      @id @default(cuid())
+  kind ChannelKind
+
+  // Set iff kind = WORKSPACE. Every member of the workspace may read and write
+  // it — that is the whole point of the workspace channel, and it is a wider
+  // audience than any project channel.
+  workspaceId String?    @unique
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Set iff kind = PROJECT. Gated by the project ladder's contribute tier, so a
+  // workspace member who is not on the project cannot read it.
+  projectId String?  @unique
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+  reads    MessageRead[]
+
+  createdAt DateTime @default(now())
+
+  @@map("channels")
+}
+
+/// Which audience a channel addresses. The value decides the access check and
+/// the socket room; it is never inferred from which column happens to be set.
+enum ChannelKind {
+  WORKSPACE
+  PROJECT
+}
+
+/// A message in a channel.
 model Message {
   id String @id @default(cuid())
 
@@ -911,10 +956,11 @@ model Message {
   // error, rather than the column's, where it produces a 500.
   content String @db.Text
 
-  projectId String
-  // Cascade: deleting a project deletes its conversation. A channel outliving
-  // its project is unreachable by every read path in the module.
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channelId String
+  // Cascade: deleting a channel deletes its conversation, and a channel is
+  // itself cascaded from its workspace or project. A message outliving its
+  // channel is unreachable by every read path in the module.
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   // Nullable and SetNull, like TaskActivity.actor but for a louder reason: a
   // channel is the record of a conversation, and cascading a departed member's
@@ -931,32 +977,32 @@ model Message {
   // emits `{ deleted: true, content: null }` and never the text.
   deletedAt DateTime?
 
-  // The only read path: one channel, newest first, paged backwards. The (createdAt, id)
-  // cursor of docs/api/chat.md §4 resolves its tiebreak from this index entry.
-  @@index([projectId, createdAt])
+  // The only read path: one channel, newest first, paged backwards. The
+  // (createdAt, id) cursor of docs/api/chat.md §4 resolves its tiebreak from
+  // this index entry.
+  @@index([channelId, createdAt])
   @@map("messages")
 }
 
 /// One watermark per person per channel — NOT a read receipt. There is no
 /// "seen by" list and no per-message state: an unread badge needs a single
 /// timestamp, and per-message rows would be one write per member per message.
-///
-/// See docs/api/chat.md §4.
 model MessageRead {
   id String @id @default(cuid())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   // Only ever moves forward, enforced in the service: a late request from a tab
   // that was behind must not un-read what another tab already read.
   lastReadAt DateTime @default(now())
 
-  // No separate @@index([userId]): this compound unique leads with userId and
-  // already serves "my watermarks".
-  @@unique([userId, projectId])
+  // One constraint for both kinds of channel, which is the payoff of the
+  // Channel table: the alternative was two partial unique indexes Prisma cannot
+  // declare.
+  @@unique([userId, channelId])
   @@map("message_reads")
 }

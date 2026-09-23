@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { WorkspaceChatSidebarItem } from "@/components/chat/workspace-chat-sidebar-item";
 import { useSidebarCollapsed } from "@/components/layout/sidebar-collapsed";
 import { SidebarItem } from "@/components/layout/sidebar-item";
 import { SidebarTreeItem } from "@/components/layout/sidebar-tree-item";
@@ -58,6 +59,12 @@ export function SidebarSection({
         className="space-y-0.5"
       >
         {section.items.map((item) => {
+          /* The one row in a section that opens a panel instead of navigating,
+             the same exception Search is in the primary list. */
+          if (item.id === "workspace-chat") {
+            return <WorkspaceChatSidebarItem key={item.id} item={item} />;
+          }
+
           const href = resolveHref(item, workspaceId);
           const active = href === pathname;
 

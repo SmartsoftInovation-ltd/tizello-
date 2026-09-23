@@ -40,12 +40,13 @@ export async function ProjectChat({
 
   if (!project || !workspace || project.workspaceId !== workspace.id) return null;
 
-  const unreadCount = await getUnreadCount(projectId);
+  const unreadCount = await getUnreadCount({ projectId });
 
   return (
     <ChatLauncher
-      projectId={projectId}
-      projectName={project.name}
+      target={{ projectId }}
+      title={project.name}
+      label="Chat"
       viewer={{
         id: user.id,
         name: user.name,

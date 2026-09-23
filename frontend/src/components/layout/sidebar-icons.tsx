@@ -10,6 +10,7 @@ import {
 import { TrashIcon } from "@/components/ui/icons";
 import {
   BacklogIcon,
+  ChatIcon,
   HomeIcon,
   MembersIcon,
   PlanningIcon,
@@ -31,6 +32,7 @@ export const SIDEBAR_ICON: Record<
 > = {
   home: HomeIcon,
   search: SearchIcon,
+  chat: ChatIcon,
   projects: ProjectsIcon,
   members: MembersIcon,
   permissions: ShieldIcon,

@@ -11,6 +11,7 @@
 export const SIDEBAR_ICONS = [
   "home",
   "search",
+  "chat",
   "projects",
   "members",
   "permissions",

@@ -18,9 +18,26 @@ export type ChatSender = {
   avatarUrl: string | null;
 };
 
+/**
+ * Which conversation. Exactly one kind, named the way the API's paths are:
+ * a workspace channel is every member of the workspace, a project channel is
+ * that project's contributors.
+ */
+export type ChatTarget =
+  | { workspaceId: string; projectId?: never }
+  | { projectId: string; workspaceId?: never };
+
+/** A resolved channel, as `GET .../messages/channel` returns it. */
+export type ChatChannel = {
+  id: string;
+  kind: "WORKSPACE" | "PROJECT";
+  /** The workspace's or project's name — what the panel's header shows. */
+  name: string;
+};
+
 export type ChatMessage = {
   id: string;
-  projectId: string;
+  channelId: string;
   content: string | null;
   deleted: boolean;
   editedAt: string | null;

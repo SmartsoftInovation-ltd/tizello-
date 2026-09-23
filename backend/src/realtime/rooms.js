@@ -15,11 +15,15 @@
 const userRoom = (userId) => `user:${userId}`;
 
 /**
- * `project:<id>` — a project's channel. Joined only after
- * `resolveProjectAccess` says the socket's user is a member of it; see
- * `chat.namespace.js`.
+ * `channel:<id>` — one conversation, whatever it is attached to. Joined only
+ * after `chat.service.js#resolveChannel` says the socket's user may use it.
+ *
+ * KEYED ON THE CHANNEL, not on the workspace or project behind it. That is the
+ * payoff of the `Channel` table: a room name has one shape however many kinds
+ * of channel exist, so adding a kind changes no room logic and a broadcast can
+ * never be addressed to the wrong sort of id.
  */
-const projectRoom = (projectId) => `project:${projectId}`;
+const channelRoom = (channelId) => `channel:${channelId}`;
 
-export { userRoom, projectRoom };
-export default { userRoom, projectRoom };
+export { userRoom, channelRoom };
+export default { userRoom, channelRoom };

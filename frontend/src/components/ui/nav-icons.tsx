@@ -25,6 +25,15 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+/** A speech bubble with a tail — the workspace channel. */
+export function ChatIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13.5 9.5a2 2 0 01-2 2H6l-3 2.5v-2.5H4.5a2 2 0 01-2-2v-5a2 2 0 012-2h7a2 2 0 012 2z" />
+    </Icon>
+  );
+}
+
 export function ProjectsIcon(props: IconProps) {
   return (
     <Icon {...props}>

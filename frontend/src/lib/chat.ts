@@ -1,5 +1,5 @@
 import { apiCallWithRefresh } from "@/lib/api-client";
-import type { ChatPage } from "@/types/chat";
+import type { ChatChannel, ChatPage, ChatTarget } from "@/types/chat";
 
 /*
  * The chat API — `backend/docs/api/chat.md`.
@@ -9,17 +9,25 @@ import type { ChatPage } from "@/types/chat";
  * twin would be a second write path with its own broadcast to forget. The one
  * write here is the read watermark, which nobody watches live.
  *
- * Everything is scoped by `projectId` in the path, and the server resolves the
- * caller's membership from the session — a non-member gets the same `404` as a
- * project that does not exist, so there is no code here that means "forbidden".
+ * TWO CHANNEL KINDS, ONE SET OF CALLS. A `ChatTarget` is `{ workspaceId }` or
+ * `{ projectId }`, and it becomes the path prefix — `/workspaces/:id/messages`
+ * or `/projects/:id/messages`. The server owns the difference between them
+ * (every member of a workspace; a project's contributors), so nothing here
+ * branches on which kind it holds beyond building the URL.
+ *
+ * The caller's membership is resolved from the session — a non-member gets the
+ * same `404` as a workspace or project that does not exist, so there is no
+ * code here that means "forbidden".
  */
 
 export type ChatResult<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; code: string };
 
-const channel = (projectId: string) =>
-  `/projects/${encodeURIComponent(projectId)}/messages`;
+const base = (target: ChatTarget) =>
+  target.workspaceId
+    ? `/workspaces/${encodeURIComponent(target.workspaceId)}/messages`
+    : `/projects/${encodeURIComponent(target.projectId!)}/messages`;
 
 /**
  * `GET /projects/:id/messages`. Newest first.
@@ -33,17 +41,32 @@ const channel = (projectId: string) =>
  * client that parses one will eventually construct one.
  */
 export async function getMessages(
-  projectId: string,
+  target: ChatTarget,
   { limit = 30, cursor }: { limit?: number; cursor?: string | null } = {},
 ): Promise<ChatPage> {
   const query = new URLSearchParams({ limit: String(limit) });
   if (cursor) query.set("cursor", cursor);
 
   const result = await apiCallWithRefresh<ChatPage>(
-    `${channel(projectId)}?${query.toString()}`,
+    `${base(target)}?${query.toString()}`,
   );
 
   return result.ok ? result.data : { messages: [], nextCursor: null };
+}
+
+/**
+ * `GET .../messages/channel` — the channel's id, kind and name.
+ *
+ * The id is what a socket joins a room by, and a client cannot know one it has
+ * never been told. `null` when the caller may not use the channel, which is
+ * the same answer as "no such workspace" by design.
+ */
+export async function getChannel(target: ChatTarget): Promise<ChatChannel | null> {
+  const result = await apiCallWithRefresh<{ channel: ChatChannel }>(
+    `${base(target)}/channel`,
+  );
+
+  return result.ok ? result.data.channel : null;
 }
 
 /**
@@ -53,9 +76,9 @@ export async function getMessages(
  * failure, for the same reason the page above is empty on failure: an unread
  * dot is not worth an error boundary.
  */
-export async function getUnreadCount(projectId: string): Promise<number> {
+export async function getUnreadCount(target: ChatTarget): Promise<number> {
   const result = await apiCallWithRefresh<{ count: number }>(
-    `${channel(projectId)}/unread-count`,
+    `${base(target)}/unread-count`,
   );
 
   return result.ok ? result.data.count : 0;
@@ -67,10 +90,10 @@ export async function getUnreadCount(projectId: string): Promise<number> {
  * another tab already read, so this is safe to fire whenever the panel is open.
  */
 export async function markChannelRead(
-  projectId: string,
+  target: ChatTarget,
 ): Promise<ChatResult<{ lastReadAt: string }>> {
   const result = await apiCallWithRefresh<{ lastReadAt: string }>(
-    `${channel(projectId)}/read`,
+    `${base(target)}/read`,
     { method: "POST", body: JSON.stringify({}) },
   );
 

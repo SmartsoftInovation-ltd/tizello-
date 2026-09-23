@@ -177,6 +177,17 @@ export const SIDEBAR_SECTIONS: readonly SidebarSection[] = [
         children: PROJECT_VIEW_CHILDREN,
       },
       {
+        /* No `href`, like Search: this row opens the chat panel rather than
+           navigating, so `SidebarNav` renders it through
+           `WorkspaceChatSidebarItem`. The `hint` marks it unavailable until a
+           workspace is open — a channel needs one to belong to. */
+        id: "workspace-chat",
+        label: "Chat",
+        icon: "chat",
+        workspaceScoped: true,
+        hint: "Open a workspace to chat with its members",
+      },
+      {
         id: "members",
         label: "Members",
         icon: "members",

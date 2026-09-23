@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
+import {
+  attachChatListeners,
+  createChatSocket,
+  type ChatError,
+} from "@/components/chat/chat-socket-events";
 import { loadMessagesAction } from "@/lib/actions/chat-actions";
 import {
   appendMessage,
@@ -11,7 +16,12 @@ import {
   replaceMessage,
   tombstoneMessage,
 } from "@/lib/chat-messages";
-import type { ChatMessage, ChatPresence, ChatSender } from "@/types/chat";
+import type {
+  ChatMessage,
+  ChatPresence,
+  ChatSender,
+  ChatTarget,
+} from "@/types/chat";
 
 /*
  * One connection to the `/chat` namespace, for as long as the panel is open.
@@ -33,18 +43,19 @@ import type { ChatMessage, ChatPresence, ChatSender } from "@/types/chat";
  * See backend/docs/api/chat.md §2–3 for the event table this mirrors.
  */
 
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:5001";
-
 const MAX_AUTH_RETRIES = 3;
 
-export type ChatError = { event: string; code: string; message: string };
+export type { ChatError };
 
-export function useChatSocket(projectId: string, viewer: ChatSender | null) {
+export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [presence, setPresence] = useState<ChatPresence[]>([]);
   const [typing, setTyping] = useState<ChatPresence[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
+  /* Learned from the join's ack. Every event after the join names the channel
+     by this id — the server re-proves access on each one, so holding it is not
+     holding a permission. */
+  const [channelId, setChannelId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<ChatError | null>(null);
 
@@ -54,10 +65,15 @@ export function useChatSocket(projectId: string, viewer: ChatSender | null) {
   /* The first page is read through a Server Action rather than fetched here:
      the API cookie is httpOnly and same-origin, so the browser has no
      credential to send it directly. See `lib/actions/chat-actions.ts`. */
+  /* A target is an object literal at the call site, so it is a new reference on
+     every render. Serialising it is what keeps the effects below from tearing
+     the socket down and rebuilding it sixty times a second. */
+  const targetKey = JSON.stringify(target);
+
   useEffect(() => {
     let live = true;
 
-    loadMessagesAction(projectId).then((page) => {
+    loadMessagesAction(JSON.parse(targetKey)).then((page) => {
       if (!live) return;
       setMessages((held) => mergeOlder(held, page.messages));
       setCursor(page.nextCursor);
@@ -67,67 +83,50 @@ export function useChatSocket(projectId: string, viewer: ChatSender | null) {
     return () => {
       live = false;
     };
-  }, [projectId]);
+  }, [targetKey]);
 
   useEffect(() => {
-    const socket: Socket = io(`${SOCKET_URL}/chat`, {
-      path: "/socket.io",
-      withCredentials: true,
-      /* WebSocket only, as the bell argues: the polling fallback opens a new
-         HTTP request every few seconds against an API whose session cookie is
-         rotating, and each one is another chance to race the refresh. */
-      transports: ["websocket"],
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
-    });
+    const socket: Socket = createChatSocket();
 
     socketRef.current = socket;
 
     /* Re-joined on every connect, not just the first: a reconnect is a new
-       socket to the server, so its room membership has to be proved again. */
+       socket to the server, so its room membership has to be proved again —
+       and a person removed from the workspace between two connects is refused
+       here rather than silently kept in the room. */
     const join = () => {
       authFailures.current = 0;
-      socket.emit("channel:join", { projectId }, (ack: { users?: ChatPresence[] }) => {
-        setPresence(ack?.users ?? []);
-      });
+      socket.emit(
+        "channel:join",
+        JSON.parse(targetKey),
+        (ack: { channelId?: string; users?: ChatPresence[] } | undefined) => {
+          setChannelId(ack?.channelId ?? null);
+          setPresence(ack?.users ?? []);
+        },
+      );
     };
 
     socket.on("connect", join);
 
-    socket.on("message:new", (message: ChatMessage) => {
-      setMessages((held) => appendMessage(held, message));
-      setTyping((held) => held.filter((who) => who.id !== message.sender?.id));
-    });
-
-    socket.on("message:edited", (message: ChatMessage) => {
-      setMessages((held) => replaceMessage(held, message));
-    });
-
-    socket.on("message:deleted", ({ id }: { id: string }) => {
-      setMessages((held) => tombstoneMessage(held, id));
-    });
-
-    socket.on("presence", ({ users }: { users: ChatPresence[] }) => {
-      setPresence(users ?? []);
-    });
-
-    socket.on(
-      "typing",
-      (event: { userId: string; name: string | null; typing: boolean }) => {
-        setTyping((held) => {
-          const without = held.filter((who) => who.id !== event.userId);
-          if (!event.typing) return without;
-
-          return [
-            ...without,
-            { id: event.userId, name: event.name, email: "", avatarUrl: null },
-          ];
-        });
+    attachChatListeners(socket, {
+      onMessage: (message) => {
+        setMessages((held) => appendMessage(held, message));
+        /* Whoever just spoke is no longer typing, whether or not their client
+           remembered to say so. */
+        setTyping((held) => held.filter((who) => who.id !== message.sender?.id));
       },
-    );
+      onEdited: (message) => setMessages((held) => replaceMessage(held, message)),
+      onDeleted: (id) => setMessages((held) => tombstoneMessage(held, id)),
+      onPresence: setPresence,
+      onTyping: (userId, name, typing) =>
+        setTyping((held) => {
+          const without = held.filter((who) => who.id !== userId);
 
-    socket.on("chat:error", (payload: ChatError) => {
-      setError(payload);
+          return typing
+            ? [...without, { id: userId, name, email: "", avatarUrl: null }]
+            : without;
+        }),
+      onError: setError,
     });
 
     socket.on("connect_error", (cause) => {
@@ -138,25 +137,26 @@ export function useChatSocket(projectId: string, viewer: ChatSender | null) {
     });
 
     return () => {
-      socket.emit("channel:leave", { projectId });
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [projectId]);
+  }, [targetKey]);
 
   const send = useCallback(
     (content: string) => {
+      if (!channelId) return;
+
       const clientId = crypto.randomUUID();
 
       setError(null);
       setMessages((held) =>
-        appendMessage(held, optimisticMessage(projectId, clientId, content, viewer)),
+        appendMessage(held, optimisticMessage(channelId, clientId, content, viewer)),
       );
 
       socketRef.current?.emit(
         "message:send",
-        { projectId, content, clientId },
+        { channelId, content, clientId },
         (ack: { message?: ChatMessage } | undefined) => {
           /* No ack means the send was refused — `chat:error` carries the
              reason, and the bubble has to go rather than sit there looking
@@ -165,7 +165,7 @@ export function useChatSocket(projectId: string, viewer: ChatSender | null) {
         },
       );
     },
-    [projectId, viewer],
+    [channelId, viewer],
   );
 
   const edit = useCallback((messageId: string, content: string) => {
@@ -178,20 +178,23 @@ export function useChatSocket(projectId: string, viewer: ChatSender | null) {
 
   const signalTyping = useCallback(
     (active: boolean) => {
-      socketRef.current?.emit(active ? "typing:start" : "typing:stop", { projectId });
+      if (!channelId) return;
+
+      socketRef.current?.emit(active ? "typing:start" : "typing:stop", { channelId });
     },
-    [projectId],
+    [channelId],
   );
 
   const loadOlder = useCallback(async () => {
     if (!cursor) return;
 
-    const page = await loadMessagesAction(projectId, cursor);
+    const page = await loadMessagesAction(JSON.parse(targetKey), cursor);
     setMessages((held) => mergeOlder(held, page.messages));
     setCursor(page.nextCursor);
-  }, [cursor, projectId]);
+  }, [cursor, targetKey]);
 
   return {
+    channelId,
     messages,
     presence,
     typing,

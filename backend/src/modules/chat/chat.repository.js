@@ -19,6 +19,31 @@ import prisma from '../../config/db.js';
 const SENDER = { select: { id: true, name: true, email: true, avatarUrl: true } };
 
 /**
+ * The channel row for a target, created on first use.
+ *
+ * LAZY, not seeded: there is no reason for every project that already exists to
+ * carry a channel row nobody has opened, and a create-on-read keeps "a channel
+ * exists" from being a second fact that migrations have to maintain.
+ *
+ * `upsert` on the unique target column rather than findFirst-then-create,
+ * because two members opening the same channel at the same moment is the normal
+ * case, not a race to guard against — the unique index decides and the loser
+ * gets the winner's row.
+ */
+const ensureChannel = ({ kind, workspaceId = null, projectId = null }) =>
+  kind === 'WORKSPACE'
+    ? prisma.channel.upsert({
+        where: { workspaceId },
+        create: { kind, workspaceId },
+        update: {},
+      })
+    : prisma.channel.upsert({
+        where: { projectId },
+        create: { kind, projectId },
+        update: {},
+      });
+
+/**
  * One page of a channel, newest first.
  *
  * ORDERED AND PAGED BY `(createdAt, id)`, both descending. The `OR` below is
@@ -30,10 +55,13 @@ const SENDER = { select: { id: true, name: true, email: true, avatarUrl: true } 
  * Tombstones are returned, not filtered: the DTO empties their content, and
  * omitting them would leave a reply quoting a removed message dangling.
  */
-const findMessages = ({ projectId, limit, cursor }) =>
+const findChannelById = (channelId) =>
+  prisma.channel.findUnique({ where: { id: channelId } });
+
+const findMessages = ({ channelId, limit, cursor }) =>
   prisma.message.findMany({
     where: {
-      projectId,
+      channelId,
       ...(cursor
         ? {
             OR: [
@@ -48,15 +76,18 @@ const findMessages = ({ projectId, limit, cursor }) =>
     take: limit,
   });
 
+/* Includes the channel, because every write rule is a question about the
+   channel — who may edit here, who may delete somebody else's — and the caller
+   would otherwise have to fetch it a second time to find out. */
 const findMessageById = (messageId) =>
   prisma.message.findFirst({
-    where: { id: messageId, project: { deletedAt: null } },
-    include: { sender: SENDER },
+    where: { id: messageId },
+    include: { sender: SENDER, channel: true },
   });
 
-const createMessage = ({ projectId, senderId, content }) =>
+const createMessage = ({ channelId, senderId, content }) =>
   prisma.message.create({
-    data: { projectId, senderId, content },
+    data: { channelId, senderId, content },
     include: { sender: SENDER },
   });
 
@@ -91,10 +122,10 @@ const softDeleteMessage = (messageId) =>
  *
  * No watermark (`lastReadAt` null) means the whole channel is unread.
  */
-const countUnread = ({ projectId, userId, lastReadAt }) =>
+const countUnread = ({ channelId, userId, lastReadAt }) =>
   prisma.message.count({
     where: {
-      projectId,
+      channelId,
       deletedAt: null,
       OR: [{ senderId: null }, { senderId: { not: userId } }],
       ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
@@ -113,22 +144,24 @@ const countUnread = ({ projectId, userId, lastReadAt }) =>
 const findUserSummary = (userId) =>
   prisma.user.findUnique({ where: { id: userId }, select: SENDER.select });
 
-const findReadState = (userId, projectId) =>
-  prisma.messageRead.findUnique({ where: { userId_projectId: { userId, projectId } } });
+const findReadState = (userId, channelId) =>
+  prisma.messageRead.findUnique({ where: { userId_channelId: { userId, channelId } } });
 
 /**
  * Moves the caller's watermark. The service passes an `at` it has already
  * clamped — this file does not know that a watermark only moves forward, only
  * how to write the value it is given.
  */
-const upsertRead = ({ userId, projectId, at }) =>
+const upsertRead = ({ userId, channelId, at }) =>
   prisma.messageRead.upsert({
-    where: { userId_projectId: { userId, projectId } },
-    create: { userId, projectId, lastReadAt: at },
+    where: { userId_channelId: { userId, channelId } },
+    create: { userId, channelId, lastReadAt: at },
     update: { lastReadAt: at },
   });
 
 export default {
+  ensureChannel,
+  findChannelById,
   findMessages,
   findMessageById,
   createMessage,
