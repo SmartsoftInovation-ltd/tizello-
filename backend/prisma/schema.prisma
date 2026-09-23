@@ -68,6 +68,10 @@ model User {
   createdRoles        WorkspaceRole[]     @relation("WorkspaceRoleCreatedBy")
   notifications       Notification[]      @relation("NotificationRecipient")
   actedNotifications  Notification[]      @relation("NotificationActor")
+  // Chat. SetNull on the message side, Cascade on the watermark: what somebody
+  // said outlives their account, where they had read up to does not.
+  messages            Message[]           @relation("MessageSender")
+  messageReads        MessageRead[]
 
   @@map("users")
 }
@@ -475,6 +479,11 @@ model Project {
   taskStatuses     TaskStatusOption[]
   sprints          Sprint[]
 
+  // The project's channel. There is no Channel model: `projectId` IS the
+  // channel, so there is no second table to keep in step with this one.
+  messages     Message[]
+  messageReads MessageRead[]
+
   // Archived is reversible (hidden from the default list); deletedAt is not.
   // Neither is `status` — three independent axes, three columns.
   isArchived Boolean   @default(false)
@@ -621,71 +630,71 @@ enum TaskType {
 }
 
 model Task {
-  id          String     @id @default(cuid())
-  projectId   String
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id            String           @id @default(cuid())
+  projectId     String
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   // Allocated from Project.taskCounter by an atomic UPDATE … RETURNING inside
   // the create transaction, never `count + 1`. Rendered as `${project.key}-${number}`.
-  number      Int
-  title       String
-  description String?
-  type        TaskType   @default(TASK)
+  number        Int
+  title         String
+  description   String?
+  type          TaskType         @default(TASK)
   // The estimate. Nullable, never 0 by default: "not estimated" and "zero
   // effort" are different answers, and sprint capacity must not count the first
   // as the second.
-  storyPoints Int?
+  storyPoints   Int?
   // The backlog rank — lower is higher up. A float so a move writes ONE row
   // (the midpoint of its new neighbours) instead of renumbering the list; the
   // service renumbers the project only when a gap gets too narrow to split.
   // Global per project, not per status, so a task keeps its rank when its
   // status changes. docs/api/task.md §Ordering.
-  position    Float      @default(0)
+  position      Float            @default(0)
   // The same glyph pair Project carries — one emoji and a `#rrggbb` swatch —
   // so a task page and a project page open with the same kind of header.
-  icon        String?
-  color       String?
+  icon          String?
+  color         String?
   // Restrict, not Cascade: deleting a status must never delete work. The
   // service moves a status's tasks to the project default before deleting it.
-  statusId    String
-  status      TaskStatusOption @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  statusId      String
+  status        TaskStatusOption @relation(fields: [statusId], references: [id], onDelete: Restrict)
   // Nullable, unlike Project.priority: a task filed as a one-liner has no
   // priority yet, and defaulting it to MEDIUM would be a claim nobody made.
-  priority    Priority?
+  priority      Priority?
   // Everyone doing it — zero, one or several. A join table, not a String[]
   // of ids, so a user deletion cleans up by FK and "tasks assigned to X" is an
   // indexed read. docs/api/task.md §Assignees.
-  assignees   TaskAssignee[]
-  dueDate     DateTime?
+  assignees     TaskAssignee[]
+  dueDate       DateTime?
   // Stamped by the service when status becomes DONE and cleared when it
   // leaves DONE — unless the request sets it explicitly. docs/api/task.md.
-  completedAt DateTime?
+  completedAt   DateTime?
   // Free-text labels. A text[] rather than a tag table: nothing lists "all
   // tags in a project" yet, and a join per task read buys nothing until then.
-  tags        String[]   @default([])
+  tags          String[]         @default([])
   // Array of upload metadata — the exact shape of a FILES property value,
   // validated by the same check. The bytes live under UPLOAD_DIR.
-  attachments Json?
+  attachments   Json?
   // Sub-tasks. SetNull, not Cascade: deleting a parent promotes its children
   // to top-level rather than silently taking their work with it.
-  parentId    String?
-  parent      Task?      @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
-  subtasks    Task[]     @relation("Subtasks")
+  parentId      String?
+  parent        Task?            @relation("Subtasks", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks      Task[]           @relation("Subtasks")
   // The sprint this task is planned into; null is "in the backlog". SetNull, not
   // Cascade: deleting a sprint returns its work to the backlog, it never deletes
   // it. docs/api/sprint.md.
-  sprintId    String?
-  sprint      Sprint?    @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  sprintId      String?
+  sprint        Sprint?          @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   // Values for the project's task properties: { [taskPropertyDefId]: value }.
   // Same Json-values / row-definitions split as Project.properties.
-  properties  Json?
-  createdById String?
-  createdBy   User?      @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  properties    Json?
+  createdById   String?
+  createdBy     User?            @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   comments      TaskComment[]
   notifications Notification[]
-  activities  TaskActivity[]
-  deletedAt   DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  activities    TaskActivity[]
+  deletedAt     DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   // The number is the task's human identity inside its project; two TIZ-7s
   // would make every commit message that mentions one ambiguous.
@@ -723,31 +732,31 @@ enum NotificationType {
 //
 // See docs/api/notification.md
 model Notification {
-  id     String           @id @default(cuid())
+  id          String           @id @default(cuid())
   // Who is being told.
-  userId String
-  user   User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
-  type   NotificationType
-  title  String
-  body   String?
+  userId      String
+  user        User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  body        String?
   // Who did the thing. Null when the actor's account is gone — the
   // notification survives them, because it still explains why the reader has
   // the task.
-  actorId String?
-  actor   User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId     String?
+  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
   // What it points at. Cascade, not SetNull: a notification whose task has
   // been deleted is a dead link in a list whose every row is a link, and
   // keeping it would mean every render has to handle a null target.
-  taskId String?
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId      String?
+  task        Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   // Denormalized so the bell can render a line of context without joining
   // through task → project → workspace on every row.
   projectName String?
   sprintName  String?
   // Null until read. A nullable timestamp rather than a boolean: "when" is
   // strictly more information than "whether", and the boolean is derivable.
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
 
   // The unread badge, and the list itself, are both (userId, …) — one index
   // per access path rather than one wide one, because the badge never reads
@@ -771,19 +780,19 @@ model TaskAssignee {
 }
 
 model TaskComment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   taskId    String
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
   // SetNull: a departed user's comments stay in the thread, unattributed.
   authorId  String?
-  author    User?    @relation("TaskCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  author    User?     @relation("TaskCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   body      String
   // Set only by an edit of `body` — the visible "edited" marker. Not
   // `updatedAt`, which Prisma bumps on ANY write and so cannot answer "did a
   // person rewrite this".
   editedAt  DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([taskId, createdAt])
   @@map("task_comments")
@@ -887,4 +896,67 @@ model Sprint {
   @@unique([projectId, number])
   @@index([projectId, state])
   @@map("sprints")
+}
+
+/// A message in a project's channel. One channel per project, and it is not a
+/// row — `projectId` IS the channel, so there is nothing to keep in sync with
+/// the projects it would otherwise mirror.
+///
+/// See docs/api/chat.md and .claude/plan/chat.md §3.
+model Message {
+  id String @id @default(cuid())
+
+  // Text, not VarChar: a pasted stack trace is an ordinary message. The cap is
+  // the validator's (4000 characters), where it produces a readable per-field
+  // error, rather than the column's, where it produces a 500.
+  content String @db.Text
+
+  projectId String
+  // Cascade: deleting a project deletes its conversation. A channel outliving
+  // its project is unreachable by every read path in the module.
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Nullable and SetNull, like TaskActivity.actor but for a louder reason: a
+  // channel is the record of a conversation, and cascading a departed member's
+  // messages away rewrites what the remaining members remember agreeing. The
+  // DTO renders `sender: null`.
+  senderId String?
+  sender   User?   @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  // Null until edited — the nullable-timestamp rule the rest of this schema
+  // follows: "when" answers "whether" and one question more.
+  editedAt  DateTime?
+  // Soft delete. The row stays so a reply quoting it does not dangle; the DTO
+  // emits `{ deleted: true, content: null }` and never the text.
+  deletedAt DateTime?
+
+  // The only read path: one channel, newest first, paged backwards. The (createdAt, id)
+  // cursor of docs/api/chat.md §4 resolves its tiebreak from this index entry.
+  @@index([projectId, createdAt])
+  @@map("messages")
+}
+
+/// One watermark per person per channel — NOT a read receipt. There is no
+/// "seen by" list and no per-message state: an unread badge needs a single
+/// timestamp, and per-message rows would be one write per member per message.
+///
+/// See docs/api/chat.md §4.
+model MessageRead {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Only ever moves forward, enforced in the service: a late request from a tab
+  // that was behind must not un-read what another tab already read.
+  lastReadAt DateTime @default(now())
+
+  // No separate @@index([userId]): this compound unique leads with userId and
+  // already serves "my watermarks".
+  @@unique([userId, projectId])
+  @@map("message_reads")
 }

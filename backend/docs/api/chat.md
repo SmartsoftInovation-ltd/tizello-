@@ -3,9 +3,10 @@
 **Module:** `src/modules/chat/` · **REST prefix:**
 `/api/v1/projects/:projectId/messages` · **Socket namespace:** `/chat`
 
-> **STATUS: PROPOSED.** This document is the contract under review. No schema,
-> module or socket handler described here has been written yet — it exists so
-> the decisions can be argued with before there is code to argue about.
+> **STATUS: SHIPPED.** Written as a proposal before any code existed, and
+> reconciled against the build. Where the two differed, the difference is noted
+> in place rather than quietly edited away — three of them: the REST guard chain
+> (§4), the cursor (§4), and one file in the realtime layout (§2).
 
 > **Sibling-contract check.** Response envelope, `AppError` shape,
 > validation-error shape, guard middleware names and rate-limiter precedent all
@@ -25,7 +26,9 @@
 > 2. **Pagination is a CURSOR, not `page`/`limit`.** `task.md` pages with
 >    offsets because a task list is a stable set. A chat channel grows at the
 >    head while you read it, so offset page 2 would skip whatever arrived since
->    page 1 was drawn — the same reason `notification.md` §3 uses `before`.
+>    page 1 was drawn — the same reason `notification.md` §3 pages backwards from a
+position rather than an offset. Chat's cursor is `(createdAt, id)`, not a bare
+timestamp; §4 says why.
 > 3. **`senderId` is nullable and `SetNull`**, unlike `Task.createdById`'s
 >    equivalent treatment but for a louder reason: a channel is a record of a
 >    conversation, and cascading a departed member's messages away rewrites
@@ -54,12 +57,28 @@ means by it, and this module does not get a second definition:
 | a workspace role holding `projects.manage` | the admin escape hatch — [role.md](./role.md) §1 |
 
 That ladder is `loadProject` + `requireProjectContribute`. Today it exists only
-as Express middleware, which a socket cannot call.
+as Express middleware, which a socket cannot call — and the two halves do not
+even live together: `loadProject` is in `shared/middlewares/project.js`,
+`requireProjectContribute` and `markProjectWriter` in
+`shared/middlewares/task.js`, where they landed because the task module was
+their first caller. They move to `project.js` with this work; they have nothing
+to do with tasks.
 
-**The refactor this module requires:** extract the body of `loadProject` into a
-plain `resolveProjectAccess(userId, projectId)` in
+**A workspace member who is not on the project cannot read the channel.** The
+project ladder's step 4 makes such a person a read-only *viewer of the project*
+— projects are visible workspace-wide — but `requireProjectContribute` refuses
+them, and chat uses `requireProjectContribute`. That is deliberate: a channel is
+a conversation between the people doing the work, and "everyone in the workspace
+can read every project's chat" is a property that only gets discovered after
+something private has been said in one.
+
+**The refactor this module requires** — new code, not a description of what is
+there: extract the body of `loadProject` into a plain
+`resolveProjectAccess(userId, projectId)` in
 `shared/services/project-access.js`, returning
-`{ project, membership, projectMember, projectRole } | null`. `loadProject`
+`{ project, membership, projectMember, projectRole, canContribute, canWrite } | null`
+— the two flags computed once, where the ladder is, rather than re-derived by
+each transport. `loadProject`
 becomes a thin wrapper that puts the result on `req`; the socket layer calls
 the same function. **One definition, two transports** — duplicating the ladder
 into a socket handler is how a channel ends up readable by someone the REST API
@@ -79,14 +98,24 @@ The work is to split it so a third feature — call signaling — costs one file
 ```
 src/realtime/
   index.js          initSocket(httpServer): builds the Server, registers namespaces
+  server.js         the `io` singleton — setIo / getIo
   auth.js           the handshake middleware (moved, unchanged)
   rooms.js          projectRoom(id) / userRoom(id) — one place names a room
   emit.js           emitToUser / emitToProject
   chat.namespace.js this module's handlers
 ```
 
-`src/config/socket.js` becomes a re-export of `src/realtime/` for one release
-so `notification.service.js` and `index.js` keep working, then is deleted.
+**`server.js` was not in the plan and is not optional.** `index.js` imports
+`chat.namespace.js` to register it, and `chat.namespace.js` imports `emit.js` to
+broadcast — so a singleton living in `index.js` is an import cycle, which ESM
+resolves by handing one side a half-initialised module. The symptom would be
+`getIo()` returning `undefined` depending on module load order: a broadcast that
+silently does nothing, intermittently, in production. A state module with two
+functions and no imports of its own removes the possibility.
+
+`src/config/socket.js` is **deleted**. `index.js` and `notification.service.js`
+import from `src/realtime/` directly; the planned one-release shim was skipped
+because both callers were updated in the same change.
 
 **Why a namespace (`/chat`) and not more rooms on `/`.** A namespace is its own
 event table: `message:send` on `/chat` cannot collide with a call-signaling
@@ -138,7 +167,7 @@ action; the server broadcasts the past tense.
 | ← client | `message:edited` | the message DTO |
 | ← client | `message:deleted` | `{ id, projectId }` |
 | ← client | `typing` | `{ projectId, userId, name, typing: bool }` |
-| ← client | `presence` | `{ projectId, users: [{ id, name }] }` |
+| ← client | `presence` | `{ projectId, users: [{ id, name, email, avatarUrl }] }` |
 | ← client | `chat:error` | `{ event, code, message }` |
 
 ### `message:send` — persist first, then broadcast
@@ -196,6 +225,19 @@ long as a connection is open, so storing it means storing something already
 stale — and a crashed tab would leave a ghost until a cleanup job nobody wrote
 removed it. Deduplicated by user: three tabs are one person.
 
+### Acks
+
+Every client→server event also answers through Socket.IO's ack callback when
+the client passes one — `channel:join` returns `{ projectId, users }`,
+`message:send` returns `{ message, clientId }`. The broadcast is still the
+contract; the ack exists so a sender knows its own write landed without having
+to match its `clientId` against a room broadcast it may also receive.
+
+A refusal is `chat:error` and NOT an ack, so a client that only awaits the
+callback must also listen for `chat:error` — that asymmetry is deliberate: an
+error is interesting to the client that caused it AND, in a shared room, worth
+surfacing once rather than per-listener.
+
 ### `chat:error`
 
 Never a thrown exception, never a silent drop. `{ event, code, message }` where
@@ -221,15 +263,36 @@ fast as the socket accepts, and every other member's browser renders it.
 
 ### `GET /api/v1/projects/:projectId/messages`
 
-`authGuard` → `loadProject` → `requireProjectContribute`. `200`.
+`authGuard` → `loadProject`, then the gate in `chat.service.js#requireChannel`.
+`200`.
+
+**Divergence from the plan: `requireProjectContribute` is NOT in the chain.**
+The tier it applies is the right one, but it answers `403`, and for a channel
+the answer has to be `404` — a `403` confirms to somebody with no access that
+the project has a conversation, which is the leak §1 refuses. The service reads
+`canContribute` off the same resolver and returns the same `404` a non-existent
+project gets. It also keeps the two transports honest: the socket half has no
+middleware to hang a guard on, so putting the gate in the service is what makes
+"the REST check mirrors the socket one" true by construction.
 
 | Query | Default | Notes |
 |---|---|---|
 | `limit` | 30 | 1–100 |
-| `before` | — | ISO timestamp cursor — returns messages strictly older |
+| `cursor` | — | opaque string from a previous page's `nextCursor`; returns messages strictly older |
 
-Newest-first. `nextCursor` is the `createdAt` of the last row, or `null` at the
-beginning of the channel.
+Newest-first. `nextCursor` is the encoded position of the last row returned, or
+`null` at the beginning of the channel.
+
+**The cursor is `(createdAt, id)`, base64-encoded, and opaque.** A timestamp
+alone is not a position: two messages can share a millisecond — one `message:send`
+burst is enough — and a strict `createdAt <` comparison then either drops the
+tie-mate or repeats it. The query is the row-value comparison
+`(createdAt, id) < (cursorAt, cursorId)` ordered by the same pair descending,
+which `@@index([projectId, createdAt])` serves with the `id` tiebreak resolved
+from the same index entry. Opaque because a client that can parse a cursor will
+eventually construct one, and from that day the encoding is a public format.
+A malformed cursor is `VALIDATION_ERROR`, never a silent first page — a client
+that thinks it is paging while re-reading the head loops forever.
 
 ```json
 {
@@ -247,7 +310,7 @@ beginning of the channel.
         "sender": { "id": "cmt…", "name": "cokof", "email": "cokof@example.com" }
       }
     ],
-    "nextCursor": "2026-09-21T10:19:22.047Z"
+    "nextCursor": "MjAyNi0wOS0yMVQxMDoxOToyMi4wNDdafGNtdeKApg=="
   }
 }
 ```
@@ -258,7 +321,7 @@ A departed sender: `"sender": null`.
 | Failure | Status | code |
 |---|---|---|
 | not a project member, or no such project | `404` | `NOT_FOUND` |
-| bad `limit` / malformed `before` | `400` | `VALIDATION_ERROR` |
+| bad `limit` / malformed `cursor` | `400` | `VALIDATION_ERROR` |
 
 **`404`, not `403`, for a non-member** — the same rule `loadProject` already
 applies: confirming a project exists to someone with no access to it is itself
@@ -271,6 +334,7 @@ watermark, excluding their own and excluding tombstones. No watermark yet means
 the whole channel counts as unread.
 
 ### `POST /api/v1/projects/:projectId/messages/read`
+
 
 `200` with `{ lastReadAt }`. Upserts the watermark to `now()`, or to a supplied
 `at` when catching up to a specific point.
@@ -297,3 +361,32 @@ message state — see the model comment.
 Nothing is cached. History is paged from Postgres on demand; live messages
 arrive over the socket. An unread count is the definition of a value that must
 not be stale.
+
+---
+
+## 7. What the build changed, and what held
+
+**Held:** persist-before-broadcast; the sender from the socket and never the
+payload; membership re-checked on every write; one service behind two
+transports; `MessageRead` in the first cut; tombstones with their text dropped
+in the DTO.
+
+**Changed, in order of how much it matters:**
+
+1. **The REST guard chain**, §4 — `403` from a shared middleware was the wrong
+   answer for a channel.
+2. **The cursor**, §4 — `(createdAt, id)` rather than a bare timestamp, because
+   two messages can share a millisecond.
+3. **`server.js`**, §2 — an import cycle that would have made broadcasts
+   silently no-op.
+4. **`requireProjectContribute` and `markProjectWriter` moved** from
+   `shared/middlewares/task.js` to `project.js`. Neither knows what a task is,
+   and chat was the second caller.
+
+**One bug worth recording**, found by the two-client verification and not by
+reading: the namespace originally awaited a display-name query before
+registering its listeners. Socket.IO does not queue an event for a listener
+that does not exist yet, so a client emitting `channel:join` on connect — which
+every client does — had that join dropped, with no error anywhere and a channel
+that simply looked empty. Nothing is awaited before `registerHandlers` now, and
+`chat.namespace.js` says why in place.

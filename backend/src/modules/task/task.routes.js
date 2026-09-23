@@ -34,8 +34,8 @@ import {
 import validate from '../../shared/middlewares/validate.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import { authGuard } from '../../shared/middlewares/auth.js';
-import { loadProject } from '../../shared/middlewares/project.js';
-import { loadTask, requireProjectContribute } from '../../shared/middlewares/task.js';
+import { loadProject, requireProjectContribute } from '../../shared/middlewares/project.js';
+import { loadTask } from '../../shared/middlewares/task.js';
 
 /* ── Project-scoped: /api/v1/projects/:projectId/tasks ──────────────────── */
 

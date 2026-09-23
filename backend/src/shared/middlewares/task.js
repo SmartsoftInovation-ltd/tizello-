@@ -1,41 +1,32 @@
 /**
- * Task-scoped authorization: loading a task through the project ladder, and
- * the one permission tier the project module has no name for.
+ * Task-scoped authorization: resolving `:taskId` to a task and the caller's
+ * place in the project ladder around it.
  *
- * A new file beside `project.js` rather than an addition to it, for the reason
- * `project.js` gives for not living inside `permission.js`: modules that have
- * no concept of a task import that file, and the task ladder is greppable on
- * its own.
+ * A file beside `project.js` rather than an addition to it, for the reason
+ * `project.js` gives for not living inside `permission.js`: modules with no
+ * concept of a task import that file, and this stays greppable on its own.
  *
- * THE TIER: CONTRIBUTE. `project.js` has two — `requireProjectWrite` (workspace
- * OWNER/ADMIN, project owner, MANAGER) and `requireProjectOwner`. Neither fits
- * a task. A COLLABORATOR is somebody who was added to the project to do the
- * work, and a collaborator who can read the backlog but cannot file a task or
- * move one to Done is not collaborating. So task rows take the wider
- * `requireProjectContribute` — anyone with a `ProjectMember` row, plus the
- * workspace escape hatch — while the project's task SCHEMA (task properties)
- * stays behind `requireProjectWrite`, exactly as the workspace's project schema
- * stays behind `PROJECT_MANAGE_ANY`. docs/api/task.md §Guards.
+ * ONE MIDDLEWARE, not three. `requireProjectContribute` and
+ * `markProjectWriter` used to live here, because the task module was their
+ * first caller — but neither knows what a task is, and chat is now the second
+ * caller of both. They are in `project.js` with the rest of the ladder;
+ * `docs/api/task.md` §Guards still describes the tier, and the argument for why
+ * a task row takes the wider CONTRIBUTE tier rather than
+ * `requireProjectWrite` moved there with it.
  *
- * A workspace MEMBER who is not on the project stays read-only, which is the
- * same step 4 of the ladder `project.js` documents.
+ * What is left is genuinely task-scoped: resolving `:taskId` to a task plus the
+ * caller's two roles, in ONE query rather than the resolver's two, because
+ * every task route runs it.
  *
- * All of these run AFTER `authGuard`.
+ * Runs AFTER `authGuard`.
  */
 
 import AppError from '../utils/AppError.js';
 import httpStatus from '../constants/httpStatus.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { PERMISSIONS, membershipCan } from '../constants/roles.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
+import { projectAccessFlags } from '../services/project-access.js';
 import prisma from '../../config/db.js';
-
-const FORBIDDEN = () =>
-  new AppError(
-    httpStatus.FORBIDDEN,
-    'You do not have permission to perform this action',
-    AUTH_CODES.FORBIDDEN
-  );
 
 // Every "you cannot see this" case — a deleted task, a task in a deleted
 // project, a task in a workspace the caller is not in, an id that never
@@ -52,8 +43,18 @@ const notFound = () => new AppError(httpStatus.NOT_FOUND, 'Task not found', AUTH
  *   req.projectMember their ProjectMember row, or null
  *   req.projectRole   OWNER / MANAGER / COLLABORATOR / null
  *
- * Reusing those names is what lets `requireProjectWrite` from `project.js`
- * run after this middleware unchanged — the comment-delete rule needs it.
+ *   req.canContributeProject / req.canWriteProject  the same two flags
+ *                     `loadProject` stamps, from the same function
+ *
+ * Reusing those names is what lets every guard in `project.js` run after this
+ * middleware unchanged — the comment-delete rule needs `canWriteProject`, and
+ * every task write needs `requireProjectContribute`.
+ *
+ * The flags come from `projectAccessFlags`, NOT from a second copy of the
+ * ladder: this middleware has the project row already, so it computes the same
+ * conclusions from the same inputs instead of re-reading it through
+ * `resolveProjectAccess`. See that file's header for why the split is shaped
+ * this way.
  */
 const loadTask = asyncHandler(async (req, res, next) => {
   const { taskId } = req.params;
@@ -86,43 +87,19 @@ const loadTask = asyncHandler(async (req, res, next) => {
   req.project = project;
   req.membership = membership;
   req.projectMember = projectMember;
-  req.projectRole = project.ownerId === req.user.id ? 'OWNER' : (projectMember?.role ?? null);
+
+  const flags = projectAccessFlags({
+    project,
+    membership,
+    projectMember,
+    userId: req.user.id,
+  });
+
+  req.projectRole = flags.projectRole;
+  req.canContributeProject = flags.canContribute;
+  req.canWriteProject = flags.canWrite;
 
   next();
 });
 
-/**
- * Workspace OWNER/ADMIN, the project owner, or anyone on the project —
- * MANAGER and COLLABORATOR alike. Runs after `loadProject` or `loadTask`.
- */
-const requireProjectContribute = (req, res, next) => {
-  const escalated = membershipCan(req.membership, PERMISSIONS.PROJECT_MANAGE_ANY);
-  const owns = req.project?.ownerId === req.user.id;
-  const onProject = Boolean(req.projectMember);
-
-  if (!escalated && !owns && !onProject) return next(FORBIDDEN());
-
-  next();
-};
-
-/**
- * Stamps `req.canWriteProject` — the `requireProjectWrite` rule as a flag
- * rather than a gate — and never rejects.
- *
- * For the one decision that is "the author, OR a project writer": deleting a
- * comment. A gate here would lock authors out of their own comments; checking
- * the rule in the service would put a role check in a service, which
- * `project.js` exists to prevent. The flag keeps the ladder in middleware and
- * leaves the author comparison — which needs the comment row — to the service.
- */
-const markProjectWriter = (req, res, next) => {
-  const escalated = membershipCan(req.membership, PERMISSIONS.PROJECT_MANAGE_ANY);
-  const owns = req.project?.ownerId === req.user.id;
-  const manages = req.projectMember?.role === 'MANAGER';
-
-  req.canWriteProject = escalated || owns || manages;
-
-  next();
-};
-
-export { loadTask, requireProjectContribute, markProjectWriter };
+export { loadTask };

@@ -13,6 +13,7 @@ import {
   workspaceRouter as projectWorkspaceRoutes,
   projectRouter as projectRoutes,
 } from "../modules/project/project.routes.js";
+import chatRoutes from "../modules/chat/chat.routes.js";
 import memberRoutes from "../modules/member/member.routes.js";
 import searchRoutes from "../modules/search/search.routes.js";
 import trashRoutes from "../modules/trash/trash.routes.js";
@@ -54,6 +55,11 @@ router.use("/api/v1/invitations", invitationTokenRoutes);
 // membership from (userId, workspaceId); everything else is addressed by the
 // project's own globally unique id.
 router.use("/api/v1/projects", projectRoutes);
+// A project's channel: history and the unread watermark. Project-scoped for the
+// same `loadProject` reason as the routers below it — and REST-only by design,
+// since sending a message is a socket event on the `/chat` namespace. The live
+// half is `src/realtime/chat.namespace.js`. docs/api/chat.md.
+router.use("/api/v1/projects/:projectId/messages", chatRoutes);
 // A project's task database: its rows and its per-project columns. Nested under
 // the project because both need `loadProject` to resolve the caller's roles —
 // on create there is no task yet to authorise against. These paths fall through

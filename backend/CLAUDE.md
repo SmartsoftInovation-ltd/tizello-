@@ -39,6 +39,20 @@
   skill/doc — see
   [.claude/rules/code-comments.md](./.claude/rules/code-comments.md).
 
+### Realtime
+
+- Socket.IO lives in `src/realtime/`: `index.js` wires the server and registers
+  one namespace per feature, `auth.js` is the single handshake check, `rooms.js`
+  names every room, `emit.js` is the only way other modules push to a browser.
+  A feature's handlers go in their own `*.namespace.js` — never in `index.js`.
+- A socket handler is a **transport**: validate the payload with the module's
+  own validator, call the module's service, emit what it returns. No permission
+  rule and no Prisma call in a namespace file; the project ladder is
+  `shared/services/project-access.js`, which the REST middleware calls too.
+- Writes persist before they broadcast, and identity comes from
+  `socket.data.userId` — never from a payload. See
+  [docs/api/chat.md](./docs/api/chat.md) §2–3.
+
 ### Logging
 
 - All logging goes through the pino logger in `src/config/logger.js` —

@@ -20,7 +20,7 @@ import repository from './notification.repository.js';
 import dto from './notification.dto.js';
 import { enqueueAssignmentEmail } from '../../queues/email.queue.js';
 import { createLogger } from '../../config/logger.js';
-import { emitToUser } from '../../config/socket.js';
+import { emitToUser } from '../../realtime/emit.js';
 
 const log = createLogger('notification');
 

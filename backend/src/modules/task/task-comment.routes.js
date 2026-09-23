@@ -22,11 +22,12 @@ import { createCommentSchema, updateCommentSchema } from './task-comment.validat
 import validate from '../../shared/middlewares/validate.js';
 import asyncHandler from '../../shared/utils/asyncHandler.js';
 import { authGuard } from '../../shared/middlewares/auth.js';
+import { loadTask } from '../../shared/middlewares/task.js';
+// Both live with the rest of the project ladder; neither is task-specific.
 import {
-  loadTask,
   markProjectWriter,
   requireProjectContribute,
-} from '../../shared/middlewares/task.js';
+} from '../../shared/middlewares/project.js';
 
 const router = express.Router({ mergeParams: true });
 

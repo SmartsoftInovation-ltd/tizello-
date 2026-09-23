@@ -4,7 +4,7 @@ import app from './src/app.js';
 import config from './src/config/env.js';
 import { connectDatabase, disconnectDatabase } from './src/config/db.js';
 import { connectRedis } from './src/config/redis.js';
-import { closeSocket, initSocket } from './src/config/socket.js';
+import { closeSocket, initSocket } from './src/realtime/index.js';
 import { createLogger, flushLogger } from './src/config/logger.js';
 
 const log = createLogger('server');
