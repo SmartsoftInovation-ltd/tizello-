@@ -13,10 +13,7 @@ import {
   workspaceRouter as projectWorkspaceRoutes,
   projectRouter as projectRoutes,
 } from "../modules/project/project.routes.js";
-import {
-  workspaceRouter as chatWorkspaceRoutes,
-  projectRouter as chatProjectRoutes,
-} from "../modules/chat/chat.routes.js";
+import chatRoutes from "../modules/chat/chat.routes.js";
 import memberRoutes from "../modules/member/member.routes.js";
 import searchRoutes from "../modules/search/search.routes.js";
 import trashRoutes from "../modules/trash/trash.routes.js";
@@ -58,11 +55,6 @@ router.use("/api/v1/invitations", invitationTokenRoutes);
 // membership from (userId, workspaceId); everything else is addressed by the
 // project's own globally unique id.
 router.use("/api/v1/projects", projectRoutes);
-// A project's channel: history and the unread watermark. Project-scoped for the
-// same `loadProject` reason as the routers below it — and REST-only by design,
-// since sending a message is a socket event on the `/chat` namespace. The live
-// half is `src/realtime/chat.namespace.js`. docs/api/chat.md.
-router.use("/api/v1/projects/:projectId/messages", chatProjectRoutes);
 // A project's task database: its rows and its per-project columns. Nested under
 // the project because both need `loadProject` to resolve the caller's roles —
 // on create there is no task yet to authorise against. These paths fall through
@@ -101,9 +93,11 @@ router.use("/api/v1/workspaces/:workspaceId/invitations", invitationWorkspaceRou
 // the workspace module unchanged — same path, same response — because the
 // roster's writes live in the member module, and a resource whose read is in
 // one module and whose writes are in another has two owners and therefore none.
-// The workspace-wide channel: every member of the workspace, one conversation.
-// Two mounts, one module — the project mount is above. docs/api/chat.md.
-router.use("/api/v1/workspaces/:workspaceId/messages", chatWorkspaceRoutes);
+// The workspace's channel: one conversation, every member of the workspace.
+// History and the read watermark only — sending is a socket event on the
+// `/chat` namespace, whose half is `src/realtime/chat.namespace.js`.
+// docs/api/chat.md.
+router.use("/api/v1/workspaces/:workspaceId/messages", chatRoutes);
 router.use("/api/v1/workspaces/:workspaceId/members", memberRoutes);
 // The workspace's own roles and the permission catalog they are defined
 // against. Workspace-scoped for the same reason the roster is: a role belongs

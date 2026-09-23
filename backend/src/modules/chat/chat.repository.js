@@ -18,50 +18,10 @@ import prisma from '../../config/db.js';
    into process memory on each one. */
 const SENDER = { select: { id: true, name: true, email: true, avatarUrl: true } };
 
-/**
- * The channel row for a target, created on first use.
- *
- * LAZY, not seeded: there is no reason for every project that already exists to
- * carry a channel row nobody has opened, and a create-on-read keeps "a channel
- * exists" from being a second fact that migrations have to maintain.
- *
- * `upsert` on the unique target column rather than findFirst-then-create,
- * because two members opening the same channel at the same moment is the normal
- * case, not a race to guard against — the unique index decides and the loser
- * gets the winner's row.
- */
-const ensureChannel = ({ kind, workspaceId = null, projectId = null }) =>
-  kind === 'WORKSPACE'
-    ? prisma.channel.upsert({
-        where: { workspaceId },
-        create: { kind, workspaceId },
-        update: {},
-      })
-    : prisma.channel.upsert({
-        where: { projectId },
-        create: { kind, projectId },
-        update: {},
-      });
-
-/**
- * One page of a channel, newest first.
- *
- * ORDERED AND PAGED BY `(createdAt, id)`, both descending. The `OR` below is
- * the row-value comparison `(createdAt, id) < (cursor.at, cursor.id)` written
- * in Prisma's dialect: strictly older, plus the same instant with a smaller
- * id. A `createdAt: { lt }` alone would skip or repeat messages that share a
- * millisecond — see `chat.dto.js#encodeCursor`.
- *
- * Tombstones are returned, not filtered: the DTO empties their content, and
- * omitting them would leave a reply quoting a removed message dangling.
- */
-const findChannelById = (channelId) =>
-  prisma.channel.findUnique({ where: { id: channelId } });
-
-const findMessages = ({ channelId, limit, cursor }) =>
+const findMessages = ({ workspaceId, limit, cursor }) =>
   prisma.message.findMany({
     where: {
-      channelId,
+      workspaceId,
       ...(cursor
         ? {
             OR: [
@@ -76,18 +36,17 @@ const findMessages = ({ channelId, limit, cursor }) =>
     take: limit,
   });
 
-/* Includes the channel, because every write rule is a question about the
-   channel — who may edit here, who may delete somebody else's — and the caller
-   would otherwise have to fetch it a second time to find out. */
+/* The message carries its workspace, which is the only thing a write rule asks
+   about — who may edit here, who may delete somebody else's. */
 const findMessageById = (messageId) =>
   prisma.message.findFirst({
-    where: { id: messageId },
-    include: { sender: SENDER, channel: true },
+    where: { id: messageId, workspace: { deletedAt: null } },
+    include: { sender: SENDER },
   });
 
-const createMessage = ({ channelId, senderId, content }) =>
+const createMessage = ({ workspaceId, senderId, content }) =>
   prisma.message.create({
-    data: { channelId, senderId, content },
+    data: { workspaceId, senderId, content },
     include: { sender: SENDER },
   });
 
@@ -122,10 +81,10 @@ const softDeleteMessage = (messageId) =>
  *
  * No watermark (`lastReadAt` null) means the whole channel is unread.
  */
-const countUnread = ({ channelId, userId, lastReadAt }) =>
+const countUnread = ({ workspaceId, userId, lastReadAt }) =>
   prisma.message.count({
     where: {
-      channelId,
+      workspaceId,
       deletedAt: null,
       OR: [{ senderId: null }, { senderId: { not: userId } }],
       ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
@@ -144,24 +103,22 @@ const countUnread = ({ channelId, userId, lastReadAt }) =>
 const findUserSummary = (userId) =>
   prisma.user.findUnique({ where: { id: userId }, select: SENDER.select });
 
-const findReadState = (userId, channelId) =>
-  prisma.messageRead.findUnique({ where: { userId_channelId: { userId, channelId } } });
+const findReadState = (userId, workspaceId) =>
+  prisma.messageRead.findUnique({ where: { userId_workspaceId: { userId, workspaceId } } });
 
 /**
  * Moves the caller's watermark. The service passes an `at` it has already
  * clamped — this file does not know that a watermark only moves forward, only
  * how to write the value it is given.
  */
-const upsertRead = ({ userId, channelId, at }) =>
+const upsertRead = ({ userId, workspaceId, at }) =>
   prisma.messageRead.upsert({
-    where: { userId_channelId: { userId, channelId } },
-    create: { userId, channelId, lastReadAt: at },
+    where: { userId_workspaceId: { userId, workspaceId } },
+    create: { userId, workspaceId, lastReadAt: at },
     update: { lastReadAt: at },
   });
 
 export default {
-  ensureChannel,
-  findChannelById,
   findMessages,
   findMessageById,
   createMessage,

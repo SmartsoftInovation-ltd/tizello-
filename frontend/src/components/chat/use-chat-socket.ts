@@ -16,12 +16,7 @@ import {
   replaceMessage,
   tombstoneMessage,
 } from "@/lib/chat-messages";
-import type {
-  ChatMessage,
-  ChatPresence,
-  ChatSender,
-  ChatTarget,
-} from "@/types/chat";
+import type { ChatMessage, ChatPresence, ChatSender } from "@/types/chat";
 
 /*
  * One connection to the `/chat` namespace, for as long as the panel is open.
@@ -47,15 +42,11 @@ const MAX_AUTH_RETRIES = 3;
 
 export type { ChatError };
 
-export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
+export function useChatSocket(workspaceId: string, viewer: ChatSender | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [presence, setPresence] = useState<ChatPresence[]>([]);
   const [typing, setTyping] = useState<ChatPresence[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  /* Learned from the join's ack. Every event after the join names the channel
-     by this id — the server re-proves access on each one, so holding it is not
-     holding a permission. */
-  const [channelId, setChannelId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<ChatError | null>(null);
 
@@ -65,15 +56,10 @@ export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
   /* The first page is read through a Server Action rather than fetched here:
      the API cookie is httpOnly and same-origin, so the browser has no
      credential to send it directly. See `lib/actions/chat-actions.ts`. */
-  /* A target is an object literal at the call site, so it is a new reference on
-     every render. Serialising it is what keeps the effects below from tearing
-     the socket down and rebuilding it sixty times a second. */
-  const targetKey = JSON.stringify(target);
-
   useEffect(() => {
     let live = true;
 
-    loadMessagesAction(JSON.parse(targetKey)).then((page) => {
+    loadMessagesAction(workspaceId).then((page) => {
       if (!live) return;
       setMessages((held) => mergeOlder(held, page.messages));
       setCursor(page.nextCursor);
@@ -83,7 +69,7 @@ export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
     return () => {
       live = false;
     };
-  }, [targetKey]);
+  }, [workspaceId]);
 
   useEffect(() => {
     const socket: Socket = createChatSocket();
@@ -98,11 +84,8 @@ export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
       authFailures.current = 0;
       socket.emit(
         "channel:join",
-        JSON.parse(targetKey),
-        (ack: { channelId?: string; users?: ChatPresence[] } | undefined) => {
-          setChannelId(ack?.channelId ?? null);
-          setPresence(ack?.users ?? []);
-        },
+        { workspaceId },
+        (ack: { users?: ChatPresence[] } | undefined) => setPresence(ack?.users ?? []),
       );
     };
 
@@ -141,22 +124,20 @@ export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [targetKey]);
+  }, [workspaceId]);
 
   const send = useCallback(
     (content: string) => {
-      if (!channelId) return;
-
       const clientId = crypto.randomUUID();
 
       setError(null);
       setMessages((held) =>
-        appendMessage(held, optimisticMessage(channelId, clientId, content, viewer)),
+        appendMessage(held, optimisticMessage(workspaceId, clientId, content, viewer)),
       );
 
       socketRef.current?.emit(
         "message:send",
-        { channelId, content, clientId },
+        { workspaceId, content, clientId },
         (ack: { message?: ChatMessage } | undefined) => {
           /* No ack means the send was refused — `chat:error` carries the
              reason, and the bubble has to go rather than sit there looking
@@ -165,7 +146,7 @@ export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
         },
       );
     },
-    [channelId, viewer],
+    [workspaceId, viewer],
   );
 
   const edit = useCallback((messageId: string, content: string) => {
@@ -178,23 +159,20 @@ export function useChatSocket(target: ChatTarget, viewer: ChatSender | null) {
 
   const signalTyping = useCallback(
     (active: boolean) => {
-      if (!channelId) return;
-
-      socketRef.current?.emit(active ? "typing:start" : "typing:stop", { channelId });
+      socketRef.current?.emit(active ? "typing:start" : "typing:stop", { workspaceId });
     },
-    [channelId],
+    [workspaceId],
   );
 
   const loadOlder = useCallback(async () => {
     if (!cursor) return;
 
-    const page = await loadMessagesAction(JSON.parse(targetKey), cursor);
+    const page = await loadMessagesAction(workspaceId, cursor);
     setMessages((held) => mergeOlder(held, page.messages));
     setCursor(page.nextCursor);
-  }, [cursor, targetKey]);
+  }, [cursor, workspaceId]);
 
   return {
-    channelId,
     messages,
     presence,
     typing,

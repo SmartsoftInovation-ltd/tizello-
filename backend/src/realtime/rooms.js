@@ -15,15 +15,14 @@
 const userRoom = (userId) => `user:${userId}`;
 
 /**
- * `channel:<id>` — one conversation, whatever it is attached to. Joined only
- * after `chat.service.js#resolveChannel` says the socket's user may use it.
+ * `channel:<workspaceId>` — the workspace's conversation. Joined only after
+ * `chat.service.js#requireChannel` says the socket's user is a member.
  *
- * KEYED ON THE CHANNEL, not on the workspace or project behind it. That is the
- * payoff of the `Channel` table: a room name has one shape however many kinds
- * of channel exist, so adding a kind changes no room logic and a broadcast can
- * never be addressed to the wrong sort of id.
+ * Named for the channel rather than the workspace so that a room and a
+ * workspace id are never confused at a call site: `channel:` is the prefix a
+ * chat broadcast is addressed to, and `user:` is the prefix a notification is.
  */
-const channelRoom = (channelId) => `channel:${channelId}`;
+const channelRoom = (workspaceId) => `channel:${workspaceId}`;
 
 export { userRoom, channelRoom };
 export default { userRoom, channelRoom };

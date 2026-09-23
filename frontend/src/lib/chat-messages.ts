@@ -93,14 +93,14 @@ export function mergeOlder(
  * have been.
  */
 export function optimisticMessage(
-  channelId: string,
+  workspaceId: string,
   clientId: string,
   content: string,
   sender: ChatMessage["sender"],
 ): ChatMessage {
   return {
     id: `pending:${clientId}`,
-    channelId,
+    workspaceId,
     content,
     deleted: false,
     editedAt: null,

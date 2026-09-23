@@ -322,7 +322,31 @@ that sprint existing.
 Not built, and still not: notifications for chat messages (§7.5 below),
 attachments, and per-message read receipts.
 
-## 8. Widened: the workspace channel
+## 8. Narrowed again: workspace only
+
+**Project chat is gone.** Asked for after both existed: one common chat for the
+workspace, in the sidebar, and no per-project channel. The reason it was the
+right call is the one §2.4 kept circling — a project channel excludes workspace
+members who are not on the project, and the conversation a message belongs to
+is usually wider than the board it was prompted by. Two channels also meant two
+places to look for the same thread.
+
+What went: `Channel`, `ChannelKind`, the project REST mount, the project half of
+the resolver, `ChatTarget` on the client, and the floating launcher on every
+project screen. What came back: `Message.workspaceId`, which is where this
+started. `docs/api/chat.md` §0 is the three-move record, and the schema carries
+a note that restoring `Channel` is the first step of adding a second kind of
+channel back.
+
+**The UI moved from a drawer to a page** (`/workspaces/:id/chat`), WhatsApp-
+shaped: own messages right in a `brand-100` bubble, everyone else's left on
+`surface`, day dividers, five-minute turn grouping, one clock per turn, a pill
+composer with a send disc. The grouping is pure and tested
+(`frontend/tests/lib/chat-grouping.test.ts`, 9 cases) — and the tests caught a
+real crash on the way in: the turn check read `.sender` off the message AFTER
+the last one, which is every thread at its newest message.
+
+## 9. Widened, then unwidened: the workspace channel
 
 Asked for after the project channel shipped — "a common chat for the whole
 workspace, in the sidebar, where every member can talk". It is the same feature
@@ -346,7 +370,7 @@ stated at the top of `20260923120000_workspace_channels/migration.sql`, because
 the same change on a populated database needs a channel per distinct project
 first.
 
-## 9. Open questions — answered during the build
+## 10. Open questions — answered during the build
 
 1. **§2.2** — cursor changed from `before=<ISO>` to an opaque `cursor`. **Done**,
    and verified against two messages written in the same millisecond.

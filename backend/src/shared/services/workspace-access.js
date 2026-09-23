@@ -30,8 +30,8 @@ import { roleAtLeast } from '../constants/roles.js';
  *
  *   workspace     the row (never soft-deleted)
  *   membership    the caller's Membership
- *   canContribute always true for a member — named to match the project
- *                 resolver so a caller can treat the two alike
+ *   canContribute always true for a member — named to match
+ *                 `project-access.js` so a caller can treat the two alike
  *   canModerate   OWNER or ADMIN: may delete somebody else's message
  */
 const resolveWorkspaceAccess = async (userId, workspaceId) => {

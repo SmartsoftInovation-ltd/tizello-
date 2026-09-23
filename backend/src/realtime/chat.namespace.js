@@ -29,7 +29,6 @@ import {
   channelPayloadSchema,
   deleteMessageSchema,
   editMessageSchema,
-  joinChannelSchema,
   sendMessageSchema,
 } from '../modules/chat/chat.validator.js';
 import AppError from '../shared/utils/AppError.js';
@@ -149,8 +148,8 @@ const handle = (socket, event, schema, handler) => {
 };
 
 /** Every distinct user in a channel's room, three tabs counted once. */
-const presenceOf = async (nsp, channelId) => {
-  const sockets = await nsp.in(channelRoom(channelId)).fetchSockets();
+const presenceOf = async (nsp, workspaceId) => {
+  const sockets = await nsp.in(channelRoom(workspaceId)).fetchSockets();
   const byUser = new Map();
 
   for (const member of sockets) {
@@ -163,22 +162,22 @@ const presenceOf = async (nsp, channelId) => {
 };
 
 /** Clears a channel's typing timer, if this socket has one running. */
-const clearTyping = (socket, channelId) => {
-  const timer = socket.data.typingTimers?.get(channelId);
+const clearTyping = (socket, workspaceId) => {
+  const timer = socket.data.typingTimers?.get(workspaceId);
 
   if (!timer) return;
 
   clearTimeout(timer);
-  socket.data.typingTimers.delete(channelId);
+  socket.data.typingTimers.delete(workspaceId);
 };
 
 /**
  * Broadcasts a typing state to the room, EXCLUDING the sender: a client that
  * saw its own indicator would render "you are typing" to the person typing.
  */
-const broadcastTyping = (socket, channelId, typing) => {
-  socket.to(channelRoom(channelId)).emit('typing', {
-    channelId,
+const broadcastTyping = (socket, workspaceId, typing) => {
+  socket.to(channelRoom(workspaceId)).emit('typing', {
+    workspaceId,
     userId: socket.data.userId,
     name: socket.data.user?.name ?? null,
     typing,
@@ -190,58 +189,59 @@ const registerHandlers = (nsp, socket) => {
   /* The channels this socket joined, tracked separately from `socket.rooms`
      because `socket.rooms` is already empty by the time `disconnect` fires and
      the remaining members still have to be told who left. */
-  socket.data.joinedChannels = new Set();
+  socket.data.joinedWorkspaces = new Set();
 
   /* Membership is proved here and re-proved on every write — see
      `chat.service.js#sendMessage`. Join-only would leave somebody removed from
      a project mid-session broadcasting into it until they refreshed. */
-  handle(socket, 'channel:join', joinChannelSchema, async (target) => {
-    /* The ONE call that takes a workspace or a project rather than a channel
-       id: the client cannot know an id it has never been told, and this is
-       where it is told. The access rule per kind lives in the service. */
-    const { channel, name } = await service.resolveChannel(socket.data.userId, target);
+  handle(socket, 'channel:join', channelPayloadSchema, async ({ workspaceId }) => {
+    /* Membership is proved here and re-proved on every write — see
+       `chat.service.js#sendMessage`. Join-only would leave somebody removed
+       from the workspace mid-session broadcasting into it until they
+       refreshed. */
+    const { workspace } = await service.requireChannel(socket.data.userId, workspaceId);
 
-    await socket.join(channelRoom(channel.id));
-    socket.data.joinedChannels.add(channel.id);
+    await socket.join(channelRoom(workspaceId));
+    socket.data.joinedWorkspaces.add(workspaceId);
 
     /* Everyone already in the room learns who arrived, and the joiner gets the
        full list — one event shape, two audiences, so a client has one code path
        for "who is here". */
-    const users = await presenceOf(nsp, channel.id);
+    const users = await presenceOf(nsp, workspaceId);
 
-    nsp.to(channelRoom(channel.id)).emit('presence', { channelId: channel.id, users });
+    nsp.to(channelRoom(workspaceId)).emit('presence', { workspaceId, users });
 
-    return { channelId: channel.id, kind: channel.kind, name, users };
+    return { workspaceId, name: workspace.name, users };
   });
 
   /* No permission check: leaving is giving something up, and a socket that may
      not be in a room is a socket that should not stay in it. */
-  handle(socket, 'channel:leave', channelPayloadSchema, async ({ channelId }) => {
-    clearTyping(socket, channelId);
-    socket.data.joinedChannels.delete(channelId);
-    await socket.leave(channelRoom(channelId));
+  handle(socket, 'channel:leave', channelPayloadSchema, async ({ workspaceId }) => {
+    clearTyping(socket, workspaceId);
+    socket.data.joinedWorkspaces.delete(workspaceId);
+    await socket.leave(channelRoom(workspaceId));
 
-    nsp.to(channelRoom(channelId)).emit('presence', {
-      channelId,
-      users: await presenceOf(nsp, channelId),
+    nsp.to(channelRoom(workspaceId)).emit('presence', {
+      workspaceId,
+      users: await presenceOf(nsp, workspaceId),
     });
 
-    return { channelId };
+    return { workspaceId };
   });
 
-  handle(socket, 'presence:list', channelPayloadSchema, async ({ channelId }) => {
-    await service.resolveChannelById(socket.data.userId, channelId);
+  handle(socket, 'presence:list', channelPayloadSchema, async ({ workspaceId }) => {
+    await service.requireChannel(socket.data.userId, workspaceId);
 
-    const users = await presenceOf(nsp, channelId);
+    const users = await presenceOf(nsp, workspaceId);
 
     /* Answered to the asker alone, not broadcast: nobody else's screen changes
        because one client asked a question. */
-    socket.emit('presence', { channelId, users });
+    socket.emit('presence', { workspaceId, users });
 
-    return { channelId, users };
+    return { workspaceId, users };
   });
 
-  handle(socket, 'message:send', sendMessageSchema, async ({ channelId, content, clientId }) => {
+  handle(socket, 'message:send', sendMessageSchema, async ({ workspaceId, content, clientId }) => {
     /* An `AppError`, the same class the services throw, so `handle` has one
        kind of failure to translate and the client sees `RATE_LIMITED` in the
        same envelope as every other refusal. */
@@ -255,16 +255,18 @@ const registerHandlers = (nsp, socket) => {
 
     /* The row first. Only what the service returns is broadcast, so a failed
        insert cannot put a message on anybody's screen. */
-    const message = await service.sendMessage(socket.data.userId, channelId, content);
+    const message = await service.sendMessage(socket.data.userId, workspaceId, content);
 
-    clearTyping(socket, channelId);
-    broadcastTyping(socket, channelId, false);
+    clearTyping(socket, workspaceId);
+    broadcastTyping(socket, workspaceId, false);
 
     /* To the whole room INCLUDING the sender, and carrying the sender's own
        `clientId` back: that echo is what lets their client reconcile the
        optimistic bubble it already drew with the real row instead of rendering
        the message twice. The server never interprets or stores it. */
-    nsp.to(channelRoom(channelId)).emit('message:new', { ...message, clientId: clientId ?? null });
+    nsp
+      .to(channelRoom(workspaceId))
+      .emit('message:new', { ...message, clientId: clientId ?? null });
 
     return { message, clientId: clientId ?? null };
   });
@@ -272,7 +274,7 @@ const registerHandlers = (nsp, socket) => {
   handle(socket, 'message:edit', editMessageSchema, async ({ messageId, content }) => {
     const message = await service.editMessage(socket.data.userId, { messageId, content });
 
-    nsp.to(channelRoom(message.channelId)).emit('message:edited', message);
+    nsp.to(channelRoom(message.workspaceId)).emit('message:edited', message);
 
     return { message };
   });
@@ -282,9 +284,9 @@ const registerHandlers = (nsp, socket) => {
 
     /* The id, so clients drop the bubble. The tombstone itself is what history
        returns; a live client does not need the empty row to remove a line. */
-    nsp.to(channelRoom(message.channelId)).emit('message:deleted', {
+    nsp.to(channelRoom(message.workspaceId)).emit('message:deleted', {
       id: message.id,
-      channelId: message.channelId,
+      workspaceId: message.workspaceId,
     });
 
     return { id: message.id };
@@ -294,27 +296,27 @@ const registerHandlers = (nsp, socket) => {
      only broadcast into a room it was admitted to, and admission is where the
      check belongs. Storing "is typing" would be storing something already
      stale. */
-  handle(socket, 'typing:start', channelPayloadSchema, async ({ channelId }) => {
-    if (!socket.rooms.has(channelRoom(channelId))) return undefined;
+  handle(socket, 'typing:start', channelPayloadSchema, async ({ workspaceId }) => {
+    if (!socket.rooms.has(channelRoom(workspaceId))) return undefined;
     if (!takeToken(socket, 'typing')) return undefined;
 
-    broadcastTyping(socket, channelId, true);
+    broadcastTyping(socket, workspaceId, true);
 
-    clearTyping(socket, channelId);
+    clearTyping(socket, workspaceId);
     socket.data.typingTimers.set(
-      channelId,
+      workspaceId,
       setTimeout(() => {
-        socket.data.typingTimers.delete(channelId);
-        broadcastTyping(socket, channelId, false);
+        socket.data.typingTimers.delete(workspaceId);
+        broadcastTyping(socket, workspaceId, false);
       }, TYPING_TIMEOUT_MS)
     );
 
     return undefined;
   });
 
-  handle(socket, 'typing:stop', channelPayloadSchema, async ({ channelId }) => {
-    clearTyping(socket, channelId);
-    broadcastTyping(socket, channelId, false);
+  handle(socket, 'typing:stop', channelPayloadSchema, async ({ workspaceId }) => {
+    clearTyping(socket, workspaceId);
+    broadcastTyping(socket, workspaceId, false);
 
     return undefined;
   });
@@ -326,11 +328,11 @@ const registerHandlers = (nsp, socket) => {
     for (const room of socket.rooms) {
       if (!room.startsWith('channel:')) continue;
 
-      const channelId = room.slice('channel:'.length);
+      const workspaceId = room.slice('channel:'.length);
 
-      clearTyping(socket, channelId);
+      clearTyping(socket, workspaceId);
       socket.to(room).emit('typing', {
-        channelId,
+        workspaceId,
         userId: socket.data.userId,
         name: socket.data.user?.name ?? null,
         typing: false,
@@ -342,10 +344,10 @@ const registerHandlers = (nsp, socket) => {
     /* Presence AFTER the leave has taken effect, so `fetchSockets` no longer
        counts this connection — broadcasting from `disconnecting` would send a
        list that still contains the person who just left. */
-    for (const channelId of socket.data.joinedChannels) {
-      nsp.to(channelRoom(channelId)).emit('presence', {
-        channelId,
-        users: await presenceOf(nsp, channelId),
+    for (const workspaceId of socket.data.joinedWorkspaces) {
+      nsp.to(channelRoom(workspaceId)).emit('presence', {
+        workspaceId,
+        users: await presenceOf(nsp, workspaceId),
       });
     }
 

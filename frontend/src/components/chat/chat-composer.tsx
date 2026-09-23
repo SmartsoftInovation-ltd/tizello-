@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 
 /*
  * The message box.
@@ -23,7 +22,12 @@ const STOP_AFTER_MS = 2500;
 /** Mirrors `CONTENT_MAX` in the API's validator — the server is the authority. */
 const MAX = 4000;
 
-const CLASSES = "w-full resize-none rounded-sm border border-border bg-surface px-3 py-2 text-sm text-text transition-colors duration-100 ease-standard placeholder:text-text-subtle hover:border-border-strong";
+/* A pill, WhatsApp's shape: the input is the full width of the bar with the
+   send button as a disc beside it. `field-sizing-content` grows it line by line
+   up to the max height, so a pasted paragraph is readable without the bar
+   taking over the screen. */
+const FIELD =
+  "max-h-32 w-full resize-none rounded-lg border border-border bg-surface px-4 py-2 text-sm text-text transition-colors duration-100 ease-standard [field-sizing:content] placeholder:text-text-subtle focus-visible:border-border-strong";
 
 export function ChatComposer({
   onSend,
@@ -70,7 +74,7 @@ export function ChatComposer({
   };
 
   return (
-    <div className="flex items-end gap-2 border-t border-border p-3">
+    <div className="flex items-end gap-2 border-t border-border bg-surface p-3">
       {/* A plain <textarea>, not `ui/text-area.tsx`: that one is a labelled,
           uncontrolled FORM field with its own validation and no key handling,
           and a composer is the opposite — controlled, label-less, and defined
@@ -82,7 +86,7 @@ export function ChatComposer({
         placeholder="Write a message…"
         aria-label="Message"
         data-autofocus
-        className={CLASSES}
+        className={FIELD}
         onChange={(event) => handleChange(event.target.value)}
         onBlur={stopTyping}
         onKeyDown={(event) => {
@@ -91,9 +95,27 @@ export function ChatComposer({
           submit();
         }}
       />
-      <Button type="button" onClick={submit} disabled={!value.trim()}>
-        Send
-      </Button>
+      {/* A disc, not a labelled button: it sits at the end of a pill and the
+          arrow is the whole affordance. `aria-label` carries the name, and it
+          is disabled rather than hidden on an empty draft so the control does
+          not appear and disappear under the pointer. */}
+      <button
+        type="button"
+        onClick={submit}
+        disabled={!value.trim()}
+        aria-label="Send message"
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-on-brand transition-[opacity,transform] duration-100 ease-standard hover:bg-brand-400 active:translate-y-px disabled:pointer-events-none disabled:opacity-40"
+      >
+        <svg viewBox="0 0 16 16" className="size-4" aria-hidden="true">
+          <path
+            d="M2 8l12-5.5L9.5 14 8 9.5z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
     </div>
   );
 }

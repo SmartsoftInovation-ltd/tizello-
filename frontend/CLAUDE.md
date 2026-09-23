@@ -237,26 +237,35 @@ against demo data in `src/lib/`, never that a backend is wired.
       the dev database.
 - [x] **Chat** — real-time, over a new backend module
       (`backend/src/modules/chat/`, `backend/src/realtime/`, contract at
-      `backend/docs/api/chat.md`). **Two channels, one panel.** The sidebar's
-      **Chat** row opens the WORKSPACE channel — every member of the workspace,
-      which is what it is for — and a floating **Chat** button on every project
-      screen opens that PROJECT's channel, which only its contributors may read.
-      Both render `components/chat/chat-panel.tsx` in a right-hand `Drawer`, so
-      the board stays readable behind the conversation; the trade is that a
-      channel has no URL to share. Live over Socket.IO (`use-chat-socket.ts`):
-      send, edit (author only), delete (author or a moderator), typing
-      indicator, presence, and "Load earlier messages" over a cursor.
-      **Messages live in the hook, not in a `router.refresh()`** — unlike the
-      notification bell, because refreshing a route per message would re-run
-      every Server Component on the page and lose the scroll position. A sent
-      message draws an optimistic bubble reconciled by `clientId`, dimmed until
-      the server confirms it. History and the read watermark go through Server
-      Actions (`lib/actions/chat-actions.ts`): the API cookie is `httpOnly` and
-      same-origin, so the browser has no credential to fetch with directly. The
-      panel mounts only while open, so a closed launcher holds no socket.
-      **Verified** against the running app — 18 socket/REST checks on the
-      workspace channel and 25 on the project one, including that a held
-      channel id is not a permission.
+      `backend/docs/api/chat.md`). **One channel per workspace, and everyone in
+      the workspace is in it.** The sidebar's **Chat** row opens
+      `/workspaces/[workspaceId]/chat` — a page, not a panel: chat began as a
+      drawer over the board, which is right for a glance and wrong for the
+      thing people sit in. There is deliberately **no per-project chat**; it
+      shipped, lasted a day and was removed, because the narrower channel kept
+      excluding the people a message was about.
+      **WhatsApp-shaped** (`components/chat/`): own messages right in a
+      `brand-100` bubble, everyone else's left on `surface` with the sender's
+      name, a squared corner as the tail on the first bubble of a turn, day
+      dividers ("Today" / "Yesterday" / a date), messages from one person inside
+      five minutes grouped as one turn with a single clock, presence faces in
+      the header, a typing line, and a pill composer with a send disc (Enter
+      sends, Shift+Enter breaks a line). The thread sticks to the bottom only if
+      the reader is already there, and "Load earlier messages" is a button so
+      the browser's own scroll anchoring keeps the position.
+      Live over Socket.IO (`use-chat-socket.ts`): send, edit (author only),
+      delete (author, or OWNER/ADMIN), typing, presence. **Messages live in the
+      hook, not in a `router.refresh()`** — unlike the notification bell,
+      because refreshing a route per message would re-run every Server
+      Component on the page and lose the scroll position. A sent message draws
+      an optimistic bubble reconciled by `clientId`, dimmed until the server
+      confirms it. History and the read watermark go through Server Actions
+      (`lib/actions/chat-actions.ts`): the API cookie is `httpOnly` and
+      same-origin, so the browser has no credential to fetch with directly.
+      **Tested:** the turn/day grouping is pure and covered by
+      `tests/lib/chat-grouping.test.ts` (9 cases — which caught a crash on the
+      newest message in every thread), and 21 socket/REST checks ran against the
+      live API, including that a non-member gets `404` rather than `403`.
 - [x] **Permissions** — `/workspaces/[workspaceId]/settings/permissions` renders
       the role cards, a read-only permission matrix and a role assignment list,
       and **all of it is real now**. `demo-permissions.ts` is deleted. Roles are

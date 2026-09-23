@@ -35,12 +35,12 @@ const emitToUser = (userId, event, payload) => {
  * is silent, which is why this function exists instead of the call being
  * spelled out at each site.
  */
-const emitToChannel = (channelId, event, payload) => {
+const emitToChannel = (workspaceId, event, payload) => {
   const io = getIo();
 
-  if (!io || !channelId) return;
+  if (!io || !workspaceId) return;
 
-  io.of('/chat').to(channelRoom(channelId)).emit(event, payload);
+  io.of('/chat').to(channelRoom(workspaceId)).emit(event, payload);
 };
 
 export { emitToUser, emitToChannel };
