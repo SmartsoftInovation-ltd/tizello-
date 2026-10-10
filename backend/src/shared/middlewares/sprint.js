@@ -21,6 +21,7 @@ import AppError from '../utils/AppError.js';
 import httpStatus from '../constants/httpStatus.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
+import { projectAccessFlags } from '../services/project-access.js';
 import prisma from '../../config/db.js';
 
 const notFound = () => new AppError(httpStatus.NOT_FOUND, 'Sprint not found', AUTH_CODES.NOT_FOUND);
@@ -31,6 +32,9 @@ const notFound = () => new AppError(httpStatus.NOT_FOUND, 'Sprint not found', AU
  *   req.membership    the caller's Membership in the project's workspace
  *   req.projectMember their ProjectMember row, or null
  *   req.projectRole   OWNER / MANAGER / COLLABORATOR / null
+ *   req.canContributeProject / req.canWriteProject  the same two flags
+ *                     `loadProject` sets — `requireProjectWrite` reads the
+ *                     flag, so without them every sprint write is a 403
  */
 const loadSprint = asyncHandler(async (req, res, next) => {
   const { sprintId } = req.params;
@@ -59,7 +63,11 @@ const loadSprint = asyncHandler(async (req, res, next) => {
   req.project = project;
   req.membership = membership;
   req.projectMember = projectMember;
-  req.projectRole = project.ownerId === req.user.id ? 'OWNER' : (projectMember?.role ?? null);
+  const flags = projectAccessFlags({ project, membership, projectMember, userId: req.user.id });
+
+  req.projectRole = flags.projectRole;
+  req.canContributeProject = flags.canContribute;
+  req.canWriteProject = flags.canWrite;
 
   next();
 });
