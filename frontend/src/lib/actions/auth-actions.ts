@@ -9,7 +9,8 @@ import {
   requestLoginCode,
   verifyLoginCode,
 } from "@/lib/auth";
-import { inviteTokenFromNext } from "@/lib/invites";
+import { rememberWorkspaceOnServer } from "@/lib/actions/remember-workspace";
+import { getInvitation, inviteTokenFromNext } from "@/lib/invites";
 import { HOME, homeWithWelcome } from "@/lib/session-cookie";
 import {
   normaliseEmail,
@@ -56,6 +57,10 @@ export async function signUpAction(
   if (passwordError) errors.password = passwordError;
   if (Object.keys(errors).length > 0) return { fieldErrors: errors };
 
+  /* Looked up BEFORE register: applying the invitation consumes the token, and
+     register only answers `inviteApplied`, not which workspace it joined. */
+  const invitation = inviteToken ? await getInvitation(inviteToken) : undefined;
+
   const result = await register({ name, email, password, inviteToken });
   if (!result.ok) {
     if (result.code === "EMAIL_TAKEN") {
@@ -79,7 +84,13 @@ export async function signUpAction(
      the "you are already a member" state for something they never chose on
      that screen. `homeWithWelcome()` is the same celebration every other
      proven credential gets. */
-  if (result.inviteApplied) redirect(homeWithWelcome());
+  if (result.inviteApplied) {
+    /* Open the workspace they were invited to, not an unselected switcher. */
+    if (invitation?.status === "VALID") {
+      await rememberWorkspaceOnServer(invitation.invitation.workspaceId);
+    }
+    redirect(homeWithWelcome());
+  }
 
   /* Unverified accounts do not get a session — verification is a wall. The
      registration code was already sent as part of `register()`; this page

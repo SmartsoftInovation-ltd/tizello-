@@ -14,7 +14,7 @@
 export const WORKSPACE_COOKIE = "tizello-workspace";
 
 /** A year, like the theme — it is a preference, not a session. */
-const WORKSPACE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+export const WORKSPACE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 /** Same-tab change signal. `storage` only fires in *other* tabs. */
 const WORKSPACE_EVENT = "tizello:workspacechange";

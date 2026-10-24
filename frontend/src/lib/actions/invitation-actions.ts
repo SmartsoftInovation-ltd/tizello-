@@ -8,6 +8,7 @@ import {
   resendInvitation,
   revokeInvitation,
 } from "@/lib/invites";
+import { rememberWorkspaceOnServer } from "@/lib/actions/remember-workspace";
 import { normaliseEmail, validateEmail } from "@/lib/validation/auth";
 import type { InvitableRole } from "@/types/workspace";
 
@@ -93,6 +94,10 @@ export async function acceptInvitationAction(
   const result = await acceptInvitation(token);
 
   if (!result.ok) return result;
+
+  /* Joining a workspace makes it the open one, so the sidebar and the board
+     screens start there rather than wherever the cookie last pointed. */
+  await rememberWorkspaceOnServer(result.workspaceId);
 
   /* The new workspace appears in the switcher and the list, neither of which is
      on this route — revalidate the layout so both are rebuilt. */
