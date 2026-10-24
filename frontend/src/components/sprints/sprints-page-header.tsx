@@ -31,10 +31,8 @@ export function SprintsPageHeader({
         <SprintIcon className="size-5 shrink-0 text-text-muted" />
         Sprints
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-text-muted">
-        The time-boxes {project.name} plans in. One sprint runs at a time; the
-        rest are either queued or closed. Deciding what goes <em>into</em> a
-        sprint happens in planning, not here.
+      <p className="mt-1 truncate text-sm text-text-muted">
+        {project.name}&rsquo;s sprints: one running, the rest queued or closed.
       </p>
     </header>
   );

@@ -47,8 +47,8 @@ export default async function MyTasksPage({ searchParams }: PageProps<"/my-tasks
             <TasksIcon className="size-5 shrink-0 text-text-muted" />
             My tasks
           </h1>
-          <p className="mt-1 max-w-prose text-sm text-text-muted">
-            Everything assigned to you, from every project you can see — soonest first.
+          <p className="mt-1 truncate text-sm text-text-muted">
+            Everything assigned to you, soonest first.
           </p>
         </header>
       </PageTop>

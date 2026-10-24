@@ -69,8 +69,8 @@ export function TaskPropertyList({
   const visible = hideEmpty ? rows.filter((row) => !row.empty) : rows;
 
   return (
-    <section className="mt-6" aria-label="Properties">
-      <h3 className="px-0.5 text-xs font-medium text-text-subtle">Properties</h3>
+    <section className="mt-6" aria-label="Details">
+      <h3 className="px-0.5 text-xs font-medium text-text-subtle">Details</h3>
 
       <div className="mt-2">
         {visible.map((row) => (

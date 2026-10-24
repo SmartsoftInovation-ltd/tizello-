@@ -29,9 +29,8 @@ export function BacklogPageHeader({
         <BacklogIcon className="size-5 shrink-0 text-text-muted" />
         Backlog
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-text-muted">
-        Everything {project.name} might do, grouped by status. Nothing here is
-        committed to a sprint yet &mdash; planning is what moves a task out.
+      <p className="mt-1 truncate text-sm text-text-muted">
+        Tasks in {project.name} that are not in a sprint yet.
       </p>
     </header>
   );

@@ -7,7 +7,6 @@ import { SelectMenu, type SelectOption } from "@/components/projects/select-menu
 import type { TaskDraft, TaskScope } from "@/components/tasks/task-draft";
 import { TaskTagsField } from "@/components/tasks/task-tags-field";
 import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
-import { TextArea } from "@/components/ui/text-area";
 import { StoryPointsChoices } from "@/components/tasks/story-points-choices";
 import { cn } from "@/lib/cn";
 import {
@@ -129,25 +128,6 @@ export function taskBuiltinRows(input: {
       node: (
         <PropertyRow label="Tags" icon="tag">
           <TaskTagsField tags={draft.tags} onChange={(tags) => onChange({ tags })} />
-        </PropertyRow>
-      ),
-    },
-    {
-      key: "description",
-      empty: !draft.description.trim(),
-      node: (
-        <PropertyRow label="Description" icon="text">
-          <TextArea
-            label="Description"
-            hideLabel
-            ghost
-            rows={3}
-            name="description"
-            defaultValue={draft.description}
-            placeholder="Add a description…"
-            maxLength={5000}
-            onValueChange={(description) => onChange({ description })}
-          />
         </PropertyRow>
       ),
     },

@@ -13,6 +13,7 @@ import { TaskTitleField } from "@/components/tasks/task-title-field";
 import { TaskTopFields } from "@/components/tasks/task-top-fields";
 import { useTaskForm } from "@/components/tasks/use-task-form";
 import { Button } from "@/components/ui/button";
+import { TextArea } from "@/components/ui/text-area";
 import { DrawerBody, DrawerFooter, DrawerForm, DrawerHeader } from "@/components/ui/drawer";
 import type { listTaskCommentsAction } from "@/lib/actions/task-actions";
 import type { ProjectSurface, SurfaceScope } from "@/lib/project-surface";
@@ -20,8 +21,9 @@ import type { Task } from "@/types/task";
 
 /**
  * The body of the task panel, top to bottom: the type mark and title, who
- * filed it; Status, Assignee and Due side by side; the property list; then
- * Relations (parent and sub-tasks), Comments and the collapsed Activity log.
+ * filed it, the description; Status, Assignee and Due side by side; the
+ * Details list; then Relations (parent and sub-tasks), Comments and the
+ * collapsed Activity log.
  *
  * FIELDS RIDE SAVE, RELATIONS AND COMMENTS DO NOT. A property is part of the
  * task, so it is edited as a draft and written once. A sub-task is another
@@ -79,6 +81,23 @@ export function TaskForm({
           onChange={(title) => form.change({ title })}
         />
         {task && <TaskMetaLine task={task} />}
+
+        {/* Straight under the title, unlabelled, like the body of a document:
+            what the task IS comes before the fields that file it. It used to
+            be the sixth row of the property list, under a label column. */}
+        <div className="mt-3 -mx-2">
+          <TextArea
+            label="Description"
+            hideLabel
+            ghost
+            rows={3}
+            name="description"
+            defaultValue={form.draft.description}
+            placeholder="Add a description…"
+            maxLength={5000}
+            onValueChange={(description) => form.change({ description })}
+          />
+        </div>
 
         <TaskTopFields
           draft={form.draft}

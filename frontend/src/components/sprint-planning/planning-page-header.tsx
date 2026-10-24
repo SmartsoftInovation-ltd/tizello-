@@ -31,10 +31,8 @@ export function PlanningPageHeader({
         <PlanningIcon className="size-5 shrink-0 text-text-muted" />
         Sprint planning
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-text-muted">
-        Drag {project.name}&rsquo;s work from the backlog into a sprint and
-        estimate it. A task is in one place or the other, never both, and the
-        points tell you when the sprint is full.
+      <p className="mt-1 truncate text-sm text-text-muted">
+        Drag tasks from the backlog into a sprint for {project.name}.
       </p>
     </header>
   );

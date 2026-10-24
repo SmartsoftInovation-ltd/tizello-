@@ -40,9 +40,9 @@ export default async function BoardSprintPlanningPage({ searchParams }: PageProp
             <PlanningIcon className="size-5 shrink-0 text-text-muted" />
             Sprint planning
           </h1>
-          <p className="mt-1 max-w-prose text-sm text-text-muted">
+          <p className="mt-1 truncate text-sm text-text-muted">
             {selected
-              ? `Plan ${selected.project.name}'s sprints: drag work from the backlog into a sprint, estimate it, then start the sprint.`
+              ? `Drag tasks from the backlog into a sprint for ${selected.project.name}.`
               : "Sprints belong to a project. Create one to start planning."}
           </p>
         </header>

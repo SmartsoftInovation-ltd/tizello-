@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { currentChildId } from "@/lib/nav-links";
 import { setMobileSidebarOpen } from "@/lib/sidebar";
 import type { SidebarItem as SidebarItemData } from "@/types/nav";
+import { SidebarNewProjectButton } from "@/components/layout/sidebar-new-project-button";
 
 /*
  * A nav item that carries sub-views: a disclosure over the same `?view=` links
@@ -117,6 +118,7 @@ export function SidebarTreeItem({
   pathname,
   rowActions = false,
   defaultOpen = false,
+  workspaceId,
 }: {
   item: SidebarItemData;
   /** Resolved by the caller; a group is only rendered when it has one. */
@@ -128,6 +130,8 @@ export function SidebarTreeItem({
   rowActions?: boolean;
   /** Start expanded on every page, not only when this group holds the current one. */
   defaultOpen?: boolean;
+  /** The workspace the sidebar is showing — where `+` creates a project. */
+  workspaceId?: string;
 }) {
   const Icon = SIDEBAR_ICON[item.icon];
   const children = item.children ?? [];
@@ -185,13 +189,21 @@ export function SidebarTreeItem({
 
         {rowActions && (
           <>
-            <LockedControl
-              reason="Creating a project from the sidebar is not built yet"
-              label={`New project in ${item.label}`}
-              className={cn(ADD_BUTTON, ROW_ACTION)}
-            >
-              <PlusIcon className="size-3.5" />
-            </LockedControl>
+            {workspaceId ? (
+              <SidebarNewProjectButton
+                workspaceId={workspaceId}
+                label={`New project in ${item.label}`}
+                className={cn(ADD_BUTTON, ROW_ACTION, "grid cursor-pointer place-items-center disabled:cursor-progress")}
+              />
+            ) : (
+              <LockedControl
+                reason="Open a workspace to create a project"
+                label={`New project in ${item.label}`}
+                className={cn(ADD_BUTTON, ROW_ACTION)}
+              >
+                <PlusIcon className="size-3.5" />
+              </LockedControl>
+            )}
 
             <LockedControl
               reason="These actions are not built yet"

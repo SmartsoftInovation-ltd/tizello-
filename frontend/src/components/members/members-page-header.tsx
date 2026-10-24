@@ -19,10 +19,8 @@ export function MembersPageHeader({ workspace }: { workspace: Workspace }) {
       <h1 className="mt-2 text-xl font-semibold tracking-tight text-text">
         Members
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-text-muted">
-        Everyone with access to this workspace. A member&rsquo;s role decides
-        what they can change; the owner&rsquo;s cannot be edited here. Anyone
-        invited but not yet signed up waits under Pending.
+      <p className="mt-1 truncate text-sm text-text-muted">
+        Everyone with access to this workspace, and who is still invited.
       </p>
     </header>
   );

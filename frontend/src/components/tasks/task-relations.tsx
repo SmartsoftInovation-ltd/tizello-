@@ -34,11 +34,17 @@ export function TaskRelations({
   onChange: (patch: Partial<TaskDraft>) => void;
   onOpenTask: (taskId: string) => void;
 }) {
+  /* A new task has no sub-tasks, so its "section" would be one row under a
+     heading and a rule — the parent picker joins the Details list visually
+     instead. The heading and rule return once there is a tree to show. */
   return (
-    <section className="mt-6 border-t border-border pt-4" aria-label="Relations">
-      <h3 className="px-0.5 text-xs font-medium text-text-subtle">Relations</h3>
+    <section
+      className={task ? "mt-6 border-t border-border pt-4" : undefined}
+      aria-label="Relations"
+    >
+      {task && <h3 className="px-0.5 text-xs font-medium text-text-subtle">Relations</h3>}
 
-      <div className="mt-2">
+      <div className={task ? "mt-2" : undefined}>
         <PropertyRow label="Parent task" icon="arrow">
           <TaskParentPicker
             taskId={task?.id}

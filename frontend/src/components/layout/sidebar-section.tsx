@@ -79,6 +79,7 @@ export function SidebarSection({
                    "project actions". A group of fixed workflow screens owns
                    neither, and drawing them would promise both. */
                 rowActions={item.id === "projects"}
+                workspaceId={workspaceId}
                 /* Projects and Sprint board start expanded everywhere: their
                    children are the way into the work, and a collapsed group hid
                    them behind a click on every page that was not already one

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { TaskBacklogBoard } from "@/components/tasks/task-backlog-board";
 import { TaskBacklogFilters } from "@/components/tasks/task-backlog-filters";
+import { TaskBacklogSummary } from "@/components/tasks/task-backlog-summary";
 import { TaskBacklogToolbar } from "@/components/tasks/task-backlog-toolbar";
 import { TaskBulkBar } from "@/components/tasks/task-bulk-bar";
 import { TaskDeleteDialog } from "@/components/tasks/task-delete-dialog";
@@ -105,8 +106,6 @@ export function TaskBacklogPanel({
   return (
     <section>
       <TaskBacklogToolbar
-        count={topLevel.length}
-        subtaskCount={todoTasks.length - topLevel.length}
         canCreate={scope.canContribute}
         onNewTask={openCreate}
         onEditStatuses={editStatuses}
@@ -114,20 +113,18 @@ export function TaskBacklogPanel({
         actions={actions}
       />
 
+      {/* `TaskBacklogFilters` brings its own top margin. */}
       <div className="flex flex-wrap items-end justify-between gap-2">
         <TaskBacklogFilters filters={filters} tags={tagsIn(tasks)} scope={scope} onChange={setFilters} />
-        <p className="text-2xs text-text-subtle">
-          {filtered && `${shown.length} of ${topLevel.length} shown`}
-          {scope.canContribute && shown.length > 0 && selectedIds.length < shown.length && (
-            <button
-              type="button"
-              onClick={() => setSelected(new Set(shown.map((task) => task.id)))}
-              className="ml-2 rounded-xs px-1 font-medium text-text-muted underline-offset-2 hover:text-text hover:underline"
-            >
-              Select all {shown.length}
-            </button>
-          )}
-        </p>
+        <TaskBacklogSummary
+          total={topLevel.length}
+          subtasks={todoTasks.length - topLevel.length}
+          shown={shown.length}
+          filtered={filtered}
+          canSelect={scope.canContribute}
+          allSelected={selectedIds.length >= shown.length}
+          onSelectAll={() => setSelected(new Set(shown.map((task) => task.id)))}
+        />
       </div>
 
       <TaskBacklogBoard

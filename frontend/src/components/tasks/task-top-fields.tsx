@@ -35,7 +35,7 @@ export function TaskTopFields({
   onChange: (patch: Partial<TaskDraft>) => void;
 }) {
   return (
-    <div className="mt-5 grid gap-3 rounded-md border border-border p-1.5 sm:grid-cols-3 sm:gap-1">
+    <div className="mt-4 grid gap-3 rounded-lg border border-border bg-panel p-1.5 sm:grid-cols-3 sm:gap-1">
       <TopField label="Status" icon="status">
         <TaskStatusPicker
           scope={scope}

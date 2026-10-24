@@ -32,8 +32,8 @@ export default async function TrashPage() {
             <TrashIcon className="size-5 shrink-0 text-text-muted" />
             Trash
           </h1>
-          <p className="mt-1 max-w-prose text-sm text-text-muted">
-            Deleted projects and tasks from every workspace you are in. Restoring puts a thing back exactly as it was.
+          <p className="mt-1 truncate text-sm text-text-muted">
+            Deleted projects and tasks. Restore puts them back as they were.
           </p>
         </header>
       </PageTop>

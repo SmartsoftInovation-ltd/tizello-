@@ -19,11 +19,7 @@ export function ProjectsPageHeader({ workspace }: { workspace: Workspace }) {
       <h1 className="mt-2 text-xl font-semibold tracking-tight text-text">
         Projects
       </h1>
-      <p className="mt-1 max-w-prose text-sm text-text-muted">
-        Every project in this workspace, five ways. The views share one set of
-        records &mdash; grouping, sorting and the shape on screen are all that
-        change between them.
-      </p>
+      <p className="mt-1 truncate text-sm text-text-muted">Every project in this workspace.</p>
     </header>
   );
 }

@@ -48,9 +48,9 @@ export default async function BoardBacklogPage({ searchParams }: PageProps<"/boa
             <BacklogIcon className="size-5 shrink-0 text-text-muted" />
             Backlog
           </h1>
-          <p className="mt-1 max-w-prose text-sm text-text-muted">
+          <p className="mt-1 truncate text-sm text-text-muted">
             {selected
-              ? `Everything ${selected.project.name} might do, grouped by status. Planning is what moves a task into a sprint.`
+              ? `Tasks in ${selected.project.name} that are not in a sprint yet.`
               : "A backlog belongs to a project. Create one to start adding tasks."}
           </p>
         </header>
