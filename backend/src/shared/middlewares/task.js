@@ -25,7 +25,7 @@ import AppError from '../utils/AppError.js';
 import httpStatus from '../constants/httpStatus.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
-import { projectAccessFlags } from '../services/project-access.js';
+import { projectAccessFlags, projectWithAccess, splitAccess } from '../services/project-access.js';
 import prisma from '../../config/db.js';
 
 // Every "you cannot see this" case — a deleted task, a task in a deleted
@@ -63,24 +63,20 @@ const loadTask = asyncHandler(async (req, res, next) => {
     throw new AppError(httpStatus.BAD_REQUEST, 'taskId is required', AUTH_CODES.VALIDATION_ERROR);
   }
 
+  /* One query: task, its project and both memberships — see
+     `projectWithAccess` in shared/services/project-access.js. */
   const task = await prisma.task.findFirst({
     where: { id: taskId, deletedAt: null, project: { deletedAt: null } },
-    include: {
-      project: { include: { members: { where: { userId: req.user.id } } } },
-    },
+    include: { project: projectWithAccess(req.user.id) },
   });
 
   if (!task) throw notFound();
 
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_workspaceId: { userId: req.user.id, workspaceId: task.project.workspaceId },
-    },
-  });
+  const { project: loaded, ...row } = task;
+  const { project, membership } = splitAccess(loaded);
 
   if (!membership) throw notFound();
 
-  const { project, ...row } = task;
   const projectMember = project.members[0] ?? null;
 
   req.task = row;

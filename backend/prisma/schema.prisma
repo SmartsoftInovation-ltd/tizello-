@@ -4,7 +4,13 @@
 // per module, not here up front.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // `relationJoins`: every `include` becomes one SQL query with a LATERAL
+  // JOIN instead of one query per relation level. Postgres is on a remote VPS
+  // (~164ms per round trip), so on the default strategy each `include` level
+  // cost a full extra trip — the permission middleware, project access and
+  // most list endpoints paid it on every request.
+  previewFeatures = ["relationJoins"]
 }
 
 // Prisma 7 removed `url` from this block — the connection string now lives in

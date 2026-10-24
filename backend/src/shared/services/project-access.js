@@ -75,19 +75,45 @@ const projectAccessFlags = ({ project, membership, projectMember, userId }) => {
  * The two flags are computed here rather than by each caller so the two
  * transports cannot drift — see the header.
  */
+/**
+ * The `include` that loads a project together with BOTH halves of the
+ * caller's access — their project membership and their workspace membership —
+ * in ONE query (with `relationJoins` on, see schema.prisma). It used to be two
+ * sequential round trips, because the workspace membership was looked up by
+ * the project's `workspaceId` after the project came back; reaching it through
+ * `project.workspace.memberships` needs no second trip. The membership is the
+ * bare row, exactly what the old `findUnique` returned.
+ *
+ * Shared by `resolveProjectAccess` (below), `loadSprint` and `loadTask`.
+ */
+const projectWithAccess = (userId) => ({
+  include: {
+    members: { where: { userId } },
+    workspace: { select: { memberships: { where: { userId }, take: 1 } } },
+  },
+});
+
+/**
+ * Splits a project loaded with `projectWithAccess` back into the project row
+ * — shape unchanged, no `workspace` key leaks into `req.project` — and the
+ * workspace membership, `null` when the caller is not a member.
+ */
+const splitAccess = ({ workspace, ...project }) => ({
+  project,
+  membership: workspace?.memberships?.[0] ?? null,
+});
+
 const resolveProjectAccess = async (userId, projectId) => {
   if (!userId || !projectId) return null;
 
-  const project = await prisma.project.findFirst({
+  const row = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
-    include: { members: { where: { userId } } },
+    ...projectWithAccess(userId),
   });
 
-  if (!project) return null;
+  if (!row) return null;
 
-  const membership = await prisma.membership.findUnique({
-    where: { userId_workspaceId: { userId, workspaceId: project.workspaceId } },
-  });
+  const { project, membership } = splitAccess(row);
 
   // Step 1 of the ladder. Not a member of the workspace the project lives in
   // is the same answer as a project that does not exist, never a 403.
@@ -103,5 +129,5 @@ const resolveProjectAccess = async (userId, projectId) => {
   };
 };
 
-export { resolveProjectAccess, projectAccessFlags };
-export default { resolveProjectAccess, projectAccessFlags };
+export { resolveProjectAccess, projectAccessFlags, projectWithAccess, splitAccess };
+export default { resolveProjectAccess, projectAccessFlags, projectWithAccess, splitAccess };

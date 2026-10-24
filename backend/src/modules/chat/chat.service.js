@@ -112,26 +112,10 @@ const getUnreadCount = async (userId, workspaceId) => {
  * out, so an empty array means "nothing new anywhere".
  *
  * No `requireChannel` — the list is built FROM the caller's memberships, so
- * it cannot name a workspace they are not in.
+ * it cannot name a workspace they are not in. One SQL round trip; see
+ * `findUnreadSummary` for why it is not the Prisma include chain it was.
  */
-const getUnreadSummary = async (userId) => {
-  const memberships = await repository.findMembershipsWithReadState(userId);
-
-  const rows = await Promise.all(
-    memberships.map(async ({ workspace }) => ({
-      workspaceId: workspace.id,
-      name: workspace.name,
-      icon: workspace.icon,
-      count: await repository.countUnread({
-        workspaceId: workspace.id,
-        userId,
-        lastReadAt: workspace.messageReads[0]?.lastReadAt ?? null,
-      }),
-    }))
-  );
-
-  return rows.filter((row) => row.count > 0);
-};
+const getUnreadSummary = (userId) => repository.findUnreadSummary(userId);
 
 /** Who a new message in this workspace should nudge: every member but the sender. */
 const recipientsOf = (workspaceId, senderId) => repository.findMemberIds(workspaceId, senderId);

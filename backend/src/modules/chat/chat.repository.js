@@ -121,20 +121,35 @@ const findUserSummary = (userId) =>
  * input to the bell's cross-workspace unread summary. One query for the list;
  * the counts are per workspace (a person is in a handful, not hundreds).
  */
-const findMembershipsWithReadState = (userId) =>
-  prisma.membership.findMany({
-    where: { userId, workspace: { deletedAt: null } },
-    select: {
-      workspace: {
-        select: {
-          id: true,
-          name: true,
-          icon: true,
-          messageReads: { where: { userId }, select: { lastReadAt: true } },
-        },
-      },
-    },
-  });
+/**
+ * The bell's chat summary in ONE round trip: every live workspace the user
+ * belongs to, with the count of messages newer than their read watermark that
+ * someone else sent. Only workspaces with something unread come back.
+ *
+ * Raw SQL because the Prisma version of this was four sequential round trips
+ * — memberships, then their workspaces, then the read rows (each `include`
+ * level is its own query on Prisma's default strategy), then a count per
+ * workspace — and against a database ~164ms away that made this the slowest
+ * call in the app shell, which every page waits on. The predicates are
+ * exactly `countUnread`'s: not deleted, sender is someone else or a system
+ * message (`senderId IS NULL`), and newer than `lastReadAt` when one exists.
+ */
+const findUnreadSummary = async (userId) => {
+  const rows = await prisma.$queryRaw`
+    SELECT w.id AS "workspaceId", w.name, w.icon, COUNT(m.id)::int AS count
+    FROM memberships ms
+    JOIN workspaces w ON w.id = ms."workspaceId" AND w."deletedAt" IS NULL
+    LEFT JOIN message_reads r ON r."workspaceId" = w.id AND r."userId" = ${userId}
+    JOIN messages m ON m."workspaceId" = w.id
+      AND m."deletedAt" IS NULL
+      AND (m."senderId" IS NULL OR m."senderId" <> ${userId})
+      AND (r."lastReadAt" IS NULL OR m."createdAt" > r."lastReadAt")
+    WHERE ms."userId" = ${userId}
+    GROUP BY w.id, w.name, w.icon
+  `;
+
+  return rows;
+};
 
 /** Everyone in the workspace but `exceptUserId` — who a new message is news to. */
 const findMemberIds = async (workspaceId, exceptUserId) => {
@@ -169,7 +184,7 @@ export default {
   softDeleteMessage,
   countUnread,
   findUserSummary,
-  findMembershipsWithReadState,
+  findUnreadSummary,
   findMemberIds,
   findReadState,
   upsertRead,

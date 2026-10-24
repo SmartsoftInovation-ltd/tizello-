@@ -26,6 +26,20 @@ const nextConfig: NextConfig = {
    */
   allowedDevOrigins: ["192.168.1.193"],
 
+  /*
+   * Development only — prints every server-side `fetch` under the request that
+   * made it, with the full URL, status and duration. This is the only place
+   * the backend calls are visible: pages are Server Components, so the API is
+   * called from this server, and the browser's Network tab shows just one
+   * `?_rsc=` request per navigation. `fullUrl` keeps the query string, so
+   * `projects?limit=100&status=…` is distinguishable from the unfiltered list.
+   */
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+
   images: {
     /*
      * Next 16 requires an explicit allowlist; anything outside it is coerced to
