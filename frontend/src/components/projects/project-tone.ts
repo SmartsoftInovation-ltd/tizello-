@@ -106,6 +106,20 @@ export const STATUS_BAR: Record<ProjectStatus, string> = {
 };
 
 /*
+ * STATUS_BAR's fill without its edge — a board column's resting tint. Separate
+ * rather than derived because `cn` does not merge classes: pairing STATUS_BAR
+ * with `border-transparent` would leave the winner to stylesheet order.
+ */
+export const STATUS_FILL: Record<ProjectStatus, string> = {
+  BACKLOG: "bg-surface-sunken",
+  PLANNING: "bg-accent-subtle",
+  ACTIVE: "bg-info-subtle",
+  ON_HOLD: "bg-warning-subtle",
+  COMPLETED: "bg-success-subtle",
+  CANCELLED: "bg-danger-subtle",
+};
+
+/*
  * Priority deliberately avoids `warning`: ON_HOLD already owns amber, and a
  * table showing both columns at once would read as two statements about the
  * same thing. Outline → neutral fill → red fill is a ramp of its own.

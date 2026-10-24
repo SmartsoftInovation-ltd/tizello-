@@ -4,7 +4,7 @@ import type { BoardDrag } from "@/components/projects/use-project-board-dnd";
 import type { ProjectScope } from "@/components/projects/project-properties";
 import { NewProjectTrigger } from "@/components/projects/new-project-trigger";
 import { SortableProjectCard } from "@/components/projects/sortable-project-card";
-import { STATUS_BAR } from "@/components/projects/project-tone";
+import { STATUS_BAR, STATUS_FILL } from "@/components/projects/project-tone";
 import { StatusDot } from "@/components/projects/status-dot";
 import { cn } from "@/lib/cn";
 import { plural } from "@/lib/plural";
@@ -24,9 +24,10 @@ import type { ProjectRecord, ProjectStatus } from "@/types/project";
  * the section for the column's horizontal span, the list for where its cards
  * begin, which an EMPTY column has no card to supply.
  *
- * `STATUS_BAR` is reused for the lit state rather than a new pair: it is
- * already "a tinted fill for recognition, a hairline in the strong token for
- * the edge", measured against `surface`, which is exactly this job.
+ * `STATUS_FILL` tints every column by default, so a status is recognisable at
+ * a glance before any drag starts. Its edge stays transparent until the column
+ * is the drop target — then `STATUS_BAR` adds the hairline in the strong
+ * token, dashed and raised, which is what separates "lit" from "resting".
  *
  * `min-h-28` KEEPS AN EMPTY COLUMN A TARGET WORTH AIMING AT. Its older job was
  * breaking a feedback loop — a track that shrank when its empty state
@@ -35,7 +36,7 @@ import type { ProjectRecord, ProjectStatus } from "@/types/project";
  * (nothing reflows mid-drag), but a 0px-tall drop zone is still a bad one.
  */
 const TRACK =
-  "flex min-h-28 flex-col rounded-md border border-transparent p-1 transition-[background-color,border-color,box-shadow] duration-100 ease-standard";
+  "flex min-h-28 flex-col rounded-md border p-1 transition-[background-color,border-color,box-shadow] duration-100 ease-standard";
 
 export function ProjectBoardColumn({
   status,
@@ -97,8 +98,9 @@ export function ProjectBoardColumn({
              card land, and that is where people aim. */
           "relative flex-1",
           TRACK,
-          isDropTarget && STATUS_BAR[status],
-          isDropTarget && "border-dashed shadow-raised",
+          isDropTarget
+            ? cn(STATUS_BAR[status], "border-dashed shadow-raised")
+            : cn(STATUS_FILL[status], "border-transparent"),
         )}
       >
         {projects.length === 0 && (

@@ -917,3 +917,70 @@
 @utility menu-enter-end {
   transform-origin: top right;
 }
+
+/* --------------------------------------------------------------------------
+   PAGE LOADER — the route-transition board in components/ui/page-loader.tsx.
+
+   One 2.4s loop: the card hops To do → In progress → Done on two arcs, rests
+   a beat in each column, then fades out of Done and back into To do. The
+   stacks in each column breathe on a staggered delay so the board never sits
+   still between hops. 26px is one column pitch (w-5 + gap-1.5) — change the
+   column width and this number moves with it.
+
+   Static by default: under `reduce` the card rests in To do and nothing loops.
+   -------------------------------------------------------------------------- */
+@keyframes loader-hop {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  8% { opacity: 1; transform: translate(0, 0) scale(1); }
+  18% { transform: translate(0, 0) scale(1); }
+  28% { transform: translate(13px, -16px) rotate(-8deg) scale(1.08); }
+  38% { transform: translate(26px, 0) rotate(0) scale(1); }
+  52% { transform: translate(26px, 0); }
+  62% { transform: translate(39px, -16px) rotate(8deg) scale(1.08); }
+  72% { opacity: 1; transform: translate(52px, 0) rotate(0) scale(1); }
+  90% { opacity: 1; transform: translate(52px, 0) scale(1); }
+  100% { opacity: 0; transform: translate(52px, 0) scale(0.6); }
+}
+
+@keyframes loader-breathe {
+  0%, 100% { opacity: 0.45; transform: scaleX(0.7); }
+  50% { opacity: 1; transform: scaleX(1); }
+}
+
+@keyframes loader-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+@utility loader-card {
+  @media (prefers-reduced-motion: no-preference) {
+    will-change: transform, opacity;
+    animation: loader-hop 2.4s var(--ease-standard) infinite;
+  }
+}
+
+@utility loader-stack {
+  transform-origin: left center;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: loader-breathe 1.6s ease-in-out infinite;
+  }
+}
+
+@utility loader-dot {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: loader-dot 1.2s ease-in-out infinite;
+  }
+}
+
+/* The whole mark fades in after a short delay, so a navigation that resolves
+   in under ~150ms never flashes it. */
+@keyframes loader-enter {
+  from { opacity: 0; transform: scale(0.96); }
+}
+
+@utility loader-board {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: loader-enter 240ms var(--ease-standard) 150ms both;
+  }
+}
