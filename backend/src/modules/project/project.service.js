@@ -20,9 +20,27 @@ import repository from './project.repository.js';
 import propertyRepository from './project-property.repository.js';
 import propertyService from './project-property.service.js';
 import dto from './project.dto.js';
+import { CACHE_NS, remember, bumpVersion, hashQuery } from '../../shared/utils/cache.js';
 
 const notFound = () =>
   new AppError(httpStatus.NOT_FOUND, 'Project not found', AUTH_CODES.NOT_FOUND);
+
+/*
+ * CACHING — docs/api/project.md §Caching. One version per workspace
+ * (`cache:v:projects:<workspaceId>`) covers every cached read below: the list
+ * pages and the property definitions. Every write in this file — and the
+ * writers in project-property, trash and member that change what a list
+ * returns — calls `invalidate(workspaceId)` AFTER its write commits.
+ */
+const invalidate = (workspaceId) => bumpVersion(CACHE_NS.PROJECTS, workspaceId);
+
+/** The workspace's property schema — read by every DTO here, so cached once per version. */
+const definitionsFor = async (workspaceId) =>
+  (
+    await remember({ namespace: CACHE_NS.PROJECTS, scopeId: workspaceId, parts: ['defs'] }, () =>
+      propertyRepository.findPropertiesForWorkspace(workspaceId)
+    )
+  ).value;
 
 /** The caller's effective role in a row the repository loaded with their membership. */
 const viewerRoleFor = (row, userId) =>
@@ -57,15 +75,17 @@ const createProject = async (payload, workspaceId, user) => {
     ownerId: user.id,
   };
 
-  const definitions = await propertyRepository.findPropertiesForWorkspace(workspaceId);
+  const definitions = await definitionsFor(workspaceId);
 
   if (!suppliedKey) {
     const project = await repository.createProjectWithDerivedKey(data, deriveKey(data.name));
+    await invalidate(workspaceId);
     return dto.toProject(project, 'OWNER', definitions);
   }
 
   try {
     const project = await repository.createProjectWithKey(data, suppliedKey);
+    await invalidate(workspaceId);
     return dto.toProject(project, 'OWNER', definitions);
   } catch (error) {
     if (error?.code === 'P2002') {
@@ -79,22 +99,35 @@ const createProject = async (payload, workspaceId, user) => {
   }
 };
 
-/** `GET /workspaces/:workspaceId/projects`. Scoped to the workspace the caller is a member of. */
+/**
+ * `GET /workspaces/:workspaceId/projects`. Scoped to the workspace the caller is a member of.
+ *
+ * Cached per USER, not per workspace: `viewerRole` and the `mine` filter both
+ * depend on who is asking, so a shared entry would hand one member another's
+ * role. The query is hashed into the key so every filter/sort/page combination
+ * is its own entry. `fromCached` reaches the response as top-level metadata.
+ */
 const listProjects = async (workspaceId, userId, query) => {
   const { page, limit } = query;
 
-  /* One definition query for the whole page, not one per row: every project in
-     a workspace shares the same schema. */
-  const [{ rows, total }, definitions] = await Promise.all([
-    repository.findProjectsForWorkspace(workspaceId, userId, query),
-    propertyRepository.findPropertiesForWorkspace(workspaceId),
-  ]);
+  const { value, fromCached } = await remember(
+    { namespace: CACHE_NS.PROJECTS, scopeId: workspaceId, parts: ['list', userId, hashQuery(query)] },
+    async () => {
+      /* One definition query for the whole page, not one per row: every
+         project in a workspace shares the same schema. */
+      const [{ rows, total: count }, definitions] = await Promise.all([
+        repository.findProjectsForWorkspace(workspaceId, userId, query),
+        definitionsFor(workspaceId),
+      ]);
 
-  const projects = rows.map((row) =>
-    dto.toProject(row, viewerRoleFor(row, userId), definitions)
+      return {
+        projects: rows.map((row) => dto.toProject(row, viewerRoleFor(row, userId), definitions)),
+        total: count,
+      };
+    }
   );
 
-  return { projects, page, limit, total };
+  return { projects: value.projects, page, limit, total: value.total, fromCached };
 };
 
 /**
@@ -103,7 +136,7 @@ const listProjects = async (workspaceId, userId, query) => {
  * query to make and no membership left to check.
  */
 const getProject = async (project, projectRole) => {
-  const definitions = await propertyRepository.findPropertiesForWorkspace(project.workspaceId);
+  const definitions = await definitionsFor(project.workspaceId);
 
   return dto.toProject(project, projectRole, definitions);
 };
@@ -143,8 +176,9 @@ const updateProject = async (project, patch, projectRole) => {
     ...columns,
     ...(merged ? { properties: merged } : {}),
   });
+  await invalidate(project.workspaceId);
 
-  const definitions = await propertyRepository.findPropertiesForWorkspace(project.workspaceId);
+  const definitions = await definitionsFor(project.workspaceId);
 
   return dto.toProject(updated, projectRole, definitions);
 };
@@ -160,7 +194,8 @@ const updateProject = async (project, patch, projectRole) => {
  */
 const setArchived = async (project, isArchived, projectRole) => {
   const updated = await repository.setArchived(project.id, isArchived);
-  const definitions = await propertyRepository.findPropertiesForWorkspace(project.workspaceId);
+  await invalidate(project.workspaceId);
+  const definitions = await definitionsFor(project.workspaceId);
 
   return dto.toProject(updated, projectRole, definitions);
 };
@@ -175,7 +210,11 @@ const setArchived = async (project, isArchived, projectRole) => {
  * as far as this API is concerned, and `loadProject` returns 404 before this
  * ever runs.
  */
-const deleteProject = (project) => repository.softDeleteProject(project.id);
+const deleteProject = async (project) => {
+  const deleted = await repository.softDeleteProject(project.id);
+  await invalidate(project.workspaceId);
+  return deleted;
+};
 
 const conflict = (message) => new AppError(httpStatus.CONFLICT, message, AUTH_CODES.CONFLICT);
 
@@ -217,6 +256,8 @@ const addMember = async (project, { userId, role }) => {
 
   try {
     const member = await repository.addProjectMember(project.id, userId, role);
+    /* The new member's `viewerRole` and `mine` results change. */
+    await invalidate(project.workspaceId);
     return dto.toProjectMember(member);
   } catch (error) {
     if (error?.code === 'P2002') throw conflict('That user is already on this project');
@@ -232,6 +273,7 @@ const updateMemberRole = async (project, userId, role) => {
   if (!existing) throw new AppError(httpStatus.NOT_FOUND, 'Project member not found', AUTH_CODES.NOT_FOUND);
 
   const member = await repository.updateProjectMemberRole(project.id, userId, role);
+  await invalidate(project.workspaceId);
 
   return dto.toProjectMember(member);
 };
@@ -250,6 +292,7 @@ const removeMember = async (project, userId) => {
   if (!existing) throw new AppError(httpStatus.NOT_FOUND, 'Project member not found', AUTH_CODES.NOT_FOUND);
 
   await repository.removeProjectMember(project.id, userId);
+  await invalidate(project.workspaceId);
 };
 
 /**
@@ -270,7 +313,8 @@ const transferOwnership = async (project, toUserId, projectRole) => {
   }
 
   const updated = await repository.transferOwnership(project.id, project.ownerId, toUserId);
-  const definitions = await propertyRepository.findPropertiesForWorkspace(project.workspaceId);
+  await invalidate(project.workspaceId);
+  const definitions = await definitionsFor(project.workspaceId);
 
   return dto.toProject(updated, projectRole, definitions);
 };
@@ -289,4 +333,5 @@ export default {
   updateMemberRole,
   removeMember,
   transferOwnership,
+  invalidate,
 };

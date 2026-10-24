@@ -919,64 +919,106 @@
 }
 
 /* --------------------------------------------------------------------------
-   PAGE LOADER — the route-transition board in components/ui/page-loader.tsx.
+   PAGE LOADER — the route-transition mark in components/ui/page-loader.tsx.
+   Adapted from Uiverse.io (SchawnnahJ). Four rounded bars — two drawn as
+   box-shadows of ::before, two of ::after — sweep through each other and
+   stretch on a 2s loop, the whole thing rotated 165deg.
 
-   One 2.4s loop: the card hops To do → In progress → Done on two arcs, rests
-   a beat in each column, then fades out of Done and back into To do. The
-   stacks in each column breathe on a staggered delay so the board never sits
-   still between hops. 26px is one column pitch (w-5 + gap-1.5) — change the
-   column width and this number moves with it.
+   The four colours are decorative and identical in both themes, so they are
+   loader-local custom properties rather than semantic tokens. Violet replaces
+   the original's pink: pink/cyan/green/amber in this shape reads as the Slack
+   logo. Width, height
+   and box-shadow animate here — the one exception to "transform and opacity
+   only" in this file, accepted because the box is 2.5em and nothing reflows
+   around an absolutely positioned pseudo-element.
 
-   Static by default: under `reduce` the card rests in To do and nothing loops.
+   Static by default: under `reduce` the four dots rest at their 0% positions.
    -------------------------------------------------------------------------- */
-@keyframes loader-hop {
-  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
-  8% { opacity: 1; transform: translate(0, 0) scale(1); }
-  18% { transform: translate(0, 0) scale(1); }
-  28% { transform: translate(13px, -16px) rotate(-8deg) scale(1.08); }
-  38% { transform: translate(26px, 0) rotate(0) scale(1); }
-  52% { transform: translate(26px, 0); }
-  62% { transform: translate(39px, -16px) rotate(8deg) scale(1.08); }
-  72% { opacity: 1; transform: translate(52px, 0) rotate(0) scale(1); }
-  90% { opacity: 1; transform: translate(52px, 0) scale(1); }
-  100% { opacity: 0; transform: translate(52px, 0) scale(0.6); }
-}
+@utility page-loader {
+  --loader-violet: rgba(124, 92, 255, 0.8);
+  --loader-cyan: rgba(111, 202, 220, 0.75);
+  --loader-green: rgba(61, 184, 143, 0.75);
+  --loader-amber: rgba(233, 169, 32, 0.75);
 
-@keyframes loader-breathe {
-  0%, 100% { opacity: 0.45; transform: scaleX(0.7); }
-  50% { opacity: 1; transform: scaleX(1); }
-}
+  position: relative;
+  width: 2.5em;
+  height: 2.5em;
+  transform: rotate(165deg);
 
-@keyframes loader-dot {
-  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-3px); }
-}
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    width: 0.3em;
+    height: 0.3em;
+    border-radius: 0.15em;
+    transform: translate(-50%, -50%);
+  }
 
-@utility loader-card {
+  /* 0.3em bars, thinner than the original 0.5em; the offsets stay the same,
+     so the gaps between bars widen instead. */
+
+  &::before {
+    box-shadow: 1em -0.5em var(--loader-violet), -1em 0.5em var(--loader-cyan);
+  }
+
+  &::after {
+    box-shadow: 0.5em 1em var(--loader-green), -0.5em -1em var(--loader-amber);
+  }
+
   @media (prefers-reduced-motion: no-preference) {
-    will-change: transform, opacity;
-    animation: loader-hop 2.4s var(--ease-standard) infinite;
+    &::before {
+      animation: loader-before 2s infinite;
+    }
+    &::after {
+      animation: loader-after 2s infinite;
+    }
   }
 }
 
-@utility loader-stack {
-  transform-origin: left center;
-
-  @media (prefers-reduced-motion: no-preference) {
-    animation: loader-breathe 1.6s ease-in-out infinite;
+@keyframes loader-before {
+  0% {
+    width: 0.3em;
+    box-shadow: 1em -0.5em var(--loader-violet), -1em 0.5em var(--loader-cyan);
+  }
+  35% {
+    width: 2.5em;
+    box-shadow: 0 -0.5em var(--loader-violet), 0 0.5em var(--loader-cyan);
+  }
+  70% {
+    width: 0.3em;
+    box-shadow: -1em -0.5em var(--loader-violet), 1em 0.5em var(--loader-cyan);
+  }
+  100% {
+    box-shadow: 1em -0.5em var(--loader-violet), -1em 0.5em var(--loader-cyan);
   }
 }
 
-@utility loader-dot {
-  @media (prefers-reduced-motion: no-preference) {
-    animation: loader-dot 1.2s ease-in-out infinite;
+@keyframes loader-after {
+  0% {
+    height: 0.3em;
+    box-shadow: 0.5em 1em var(--loader-green), -0.5em -1em var(--loader-amber);
+  }
+  35% {
+    height: 2.5em;
+    box-shadow: 0.5em 0 var(--loader-green), -0.5em 0 var(--loader-amber);
+  }
+  70% {
+    height: 0.3em;
+    box-shadow: 0.5em -1em var(--loader-green), -0.5em 1em var(--loader-amber);
+  }
+  100% {
+    box-shadow: 0.5em 1em var(--loader-green), -0.5em -1em var(--loader-amber);
   }
 }
 
 /* The whole mark fades in after a short delay, so a navigation that resolves
    in under ~150ms never flashes it. */
 @keyframes loader-enter {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; }
 }
 
 @utility loader-board {

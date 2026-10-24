@@ -12,6 +12,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { membershipCan, roleAtLeast } from '../constants/roles.js';
 import { AUTH_CODES } from '../constants/authCodes.js';
 import prisma from '../../config/db.js';
+import { CACHE_NS, remember } from '../utils/cache.js';
 
 // Resolves the caller's role in the workspace named by the route and puts it
 // on req.membership. Kept in middleware (not in each service) so a route
@@ -27,12 +28,25 @@ const loadMembership = asyncHandler(async (req, res, next) => {
   /* The custom role rides along, because `membershipCan` resolves the grant
      from it and every guard downstream asks that question. One include here
      beats a second query inside each middleware that needs it. */
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_workspaceId: { userId: req.user.id, workspaceId },
-    },
-    include: { customRole: { select: { id: true, name: true, permissions: true, baseRole: true } } },
-  });
+  /* CACHED, versioned per workspace (`cache:v:membership:<workspaceId>`).
+     This runs on every workspace-scoped request and the `include` costs two
+     round trips to the remote database, so it was the floor under every
+     endpoint. It is the authorization input, so every write that changes a
+     membership's role or a custom role's grant bumps the version before it
+     returns: member.service changeRole/removeMember, role.service
+     update/delete. A missing membership is never cached (see `remember`), so
+     joining needs no bump and a non-member is re-checked every time.
+     docs/api/member.md §Caching. */
+  const { value: membership } = await remember(
+    { namespace: CACHE_NS.MEMBERSHIP, scopeId: workspaceId, parts: [req.user.id] },
+    () =>
+      prisma.membership.findUnique({
+        where: {
+          userId_workspaceId: { userId: req.user.id, workspaceId },
+        },
+        include: { customRole: { select: { id: true, name: true, permissions: true, baseRole: true } } },
+      })
+  );
 
   // A non-member gets 404, not 403: confirming that a workspace exists to
   // someone with no access to it is itself a leak.

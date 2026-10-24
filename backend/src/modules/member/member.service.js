@@ -36,6 +36,7 @@
 import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
+import { CACHE_NS, bumpVersion } from '../../shared/utils/cache.js';
 import { ROLES } from '../../shared/constants/roles.js';
 import repository from './member.repository.js';
 import dto from './member.dto.js';
@@ -182,6 +183,9 @@ const changeRole = async ({ workspaceId, memberId, role, roleId, actorMembership
     role: tier,
     roleId: custom?.id ?? null,
   });
+  /* `loadMembership` caches this row; the new role must apply on their very
+     next request, not after the TTL. */
+  await bumpVersion(CACHE_NS.MEMBERSHIP, workspaceId);
 
   return dto.toMember(updated);
 };
@@ -233,6 +237,11 @@ const removeMember = async ({ workspaceId, memberId, actorMembership }) => {
     workspaceId,
     userId: member.userId,
   });
+  /* Their ProjectMember rows went with them, which changes `viewerRole` and
+     project-member counts in this workspace's cached lists. */
+  await bumpVersion(CACHE_NS.PROJECTS, workspaceId);
+  /* And their cached membership must stop authorizing them immediately. */
+  await bumpVersion(CACHE_NS.MEMBERSHIP, workspaceId);
 };
 
 export default { listMembers, changeRole, removeMember, findMemberOrThrow };

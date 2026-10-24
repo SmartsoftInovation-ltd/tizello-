@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LinkPendingLoader } from "@/components/ui/link-pending-loader";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { childHref, currentChildId } from "@/lib/nav-links";
@@ -147,6 +148,9 @@ export function SidebarSubNav({
               className={cn(BASE, active ? ACTIVE : IDLE, rail)}
             >
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {/* Children are views of one page (`?view=`), which never show
+                  that route's loading.tsx — see LinkPendingLoader. */}
+              <LinkPendingLoader label={`Loading ${item.label}`} />
             </Link>
           </li>
         );

@@ -25,6 +25,7 @@ import activityService from './task-activity.service.js';
 import sprintRepository from '../sprint/sprint.repository.js';
 import notificationService from '../notification/notification.service.js';
 import dto from './task.dto.js';
+import { CACHE_NS, bumpingAfter } from '../../shared/utils/cache.js';
 
 /*
  * The deepest chain the cycle walk will follow. Nobody nests sub-tasks a
@@ -502,14 +503,25 @@ const listAssignedTasks = async (user, query) => {
   return { tasks: rows.map(dto.toAssignedTask), page, limit, total };
 };
 
+/*
+ * Every task write invalidates its project's cached sprints: a sprint's
+ * roll-ups (points and counts per status group) are counted from its tasks,
+ * and any of these can change one — status, points, `sprintId`, delete. The
+ * bump runs after the write resolves; wrapping the exports keeps it in one
+ * place instead of a line at the end of six function bodies. See
+ * docs/api/sprint.md §Caching.
+ */
+const sprintsOf = (project) => project.id;
+const sprintsOfTask = (task, project) => project.id;
+
 export default {
   listAssignedTasks,
-  createTask,
+  createTask: bumpingAfter(CACHE_NS.SPRINTS, sprintsOf, createTask),
   listTasks,
   getTask,
-  updateTask,
-  moveTask,
-  bulkUpdateTasks,
-  bulkDeleteTasks,
-  deleteTask,
+  updateTask: bumpingAfter(CACHE_NS.SPRINTS, sprintsOfTask, updateTask),
+  moveTask: bumpingAfter(CACHE_NS.SPRINTS, sprintsOfTask, moveTask),
+  bulkUpdateTasks: bumpingAfter(CACHE_NS.SPRINTS, sprintsOf, bulkUpdateTasks),
+  bulkDeleteTasks: bumpingAfter(CACHE_NS.SPRINTS, sprintsOf, bulkDeleteTasks),
+  deleteTask: bumpingAfter(CACHE_NS.SPRINTS, (task) => task.projectId, deleteTask),
 };

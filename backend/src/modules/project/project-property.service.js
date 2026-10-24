@@ -16,6 +16,7 @@ import { AUTH_CODES } from '../../shared/constants/authCodes.js';
 import { OPTION_TYPES, PROPERTY_TYPES } from '../../shared/constants/propertyTypes.js';
 import repository from './project-property.repository.js';
 import dto from './project-property.dto.js';
+import { CACHE_NS, bumpVersion, remember } from '../../shared/utils/cache.js';
 
 const notFound = () =>
   new AppError(httpStatus.NOT_FOUND, 'Property not found', AUTH_CODES.NOT_FOUND);
@@ -25,8 +26,16 @@ const conflict = (message) => new AppError(httpStatus.CONFLICT, message, AUTH_CO
 const unprocessable = (message) =>
   new AppError(httpStatus.UNPROCESSABLE_ENTITY, message, AUTH_CODES.VALIDATION_ERROR);
 
+/**
+ * The same cache entry `project.service.js#definitionsFor` reads (`…:defs`
+ * under the PROJECTS version), so a list render warms this endpoint and vice
+ * versa. Every write below bumps that version.
+ */
 const listProperties = async (workspaceId) => {
-  const rows = await repository.findPropertiesForWorkspace(workspaceId);
+  const { value: rows } = await remember(
+    { namespace: CACHE_NS.PROJECTS, scopeId: workspaceId, parts: ['defs'] },
+    () => repository.findPropertiesForWorkspace(workspaceId)
+  );
 
   return rows.map(dto.toProperty);
 };
@@ -34,6 +43,9 @@ const listProperties = async (workspaceId) => {
 const createProperty = async (workspaceId, input) => {
   try {
     const row = await repository.createProperty(workspaceId, input);
+    /* Every cached project DTO in the workspace renders `properties` against
+       the definition list, so a schema change invalidates them all. */
+    await bumpVersion(CACHE_NS.PROJECTS, workspaceId);
     return dto.toProperty(row);
   } catch (error) {
     if (error?.code === 'P2002') {
@@ -58,6 +70,7 @@ const updateProperty = async (workspaceId, propertyId, patch) => {
 
   try {
     const row = await repository.updateProperty(propertyId, patch);
+    await bumpVersion(CACHE_NS.PROJECTS, workspaceId);
     return dto.toProperty(row);
   } catch (error) {
     if (error?.code === 'P2002') {
@@ -80,6 +93,7 @@ const deleteProperty = async (workspaceId, propertyId) => {
   if (!existing) throw notFound();
 
   await repository.deleteProperty(propertyId);
+  await bumpVersion(CACHE_NS.PROJECTS, workspaceId);
 };
 
 /**

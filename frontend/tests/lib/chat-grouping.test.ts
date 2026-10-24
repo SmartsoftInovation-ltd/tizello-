@@ -15,16 +15,17 @@ const NOW = new Date("2026-09-23T12:00:00.000Z");
 const message = (over: Partial<ChatMessage> & { id: string }): ChatMessage => ({
   workspaceId: "w1",
   content: "hi",
+  attachments: [],
   deleted: false,
   editedAt: null,
   createdAt: "2026-09-23T10:00:00.000Z",
-  sender: { id: "u1", name: "Owner", email: "o@example.com", avatarUrl: null },
+  sender: { id: "u1", name: "Owner", nickname: null, email: "o@example.com", avatarUrl: null },
   ...over,
 });
 
 const other = (over: Partial<ChatMessage> & { id: string }) =>
   message({
-    sender: { id: "u2", name: "Collab", email: "c@example.com", avatarUrl: null },
+    sender: { id: "u2", name: "Collab", nickname: null, email: "c@example.com", avatarUrl: null },
     ...over,
   });
 

@@ -54,24 +54,22 @@ export default async function ProjectsPage({
   const filters = parseProjectFilters(query);
   const { archived } = filters;
 
-  const user = await getSession();
-  if (!user) redirect(`/sign-in?next=/workspaces/${workspaceId}/projects`);
-
-  const workspace = await getWorkspace(workspaceId);
-  if (!workspace) notFound();
-
-  /* `GET /workspaces/:id/projects` — every project in the workspace, including
-     ones the caller is not a member of (project.md §*Guards* step 4). */
+  /* ALL FIVE REQUESTS AT ONCE. They used to run in three rounds — session,
+     then workspace, then the rest — and each round is a full trip to an API
+     whose database is ~164ms away, so the rounds, not the queries, set the
+     page time. None of these depends on another's result: they all take the
+     `workspaceId` from the URL, and each helper returns `null`/`[]` on
+     failure rather than throwing, so a signed-out or non-member caller still
+     reaches the redirect / notFound below — the other three just come back
+     empty and are discarded. */
   /* `includeArchived` returns archived AND active rows — the API has no
-     archived-only filter — so the archived view narrows the result here. The
-     same shape `/workspaces?archived=1` already uses. */
-  /* The schema is fetched alongside the rows and passed down as part of the
-     scope: every drawer on this page renders the same columns, so fetching it
-     per trigger would be one request per board column. */
-  /* The roster comes along for the ride: the create drawer draws a
-     collaborator picker, and fetching it per "+ New project" trigger would be
-     one request per board column. */
-  const [all, definitions, workspaceMembers] = await Promise.all([
+     archived-only filter — so the archived view narrows the result here. */
+  /* The schema and the roster travel with the rows: every "+ New project"
+     drawer on the page renders the same columns and collaborator picker, so
+     fetching them per trigger would be one request per board column. */
+  const [user, workspace, all, definitions, workspaceMembers] = await Promise.all([
+    getSession(),
+    getWorkspace(workspaceId),
     getWorkspaceProjects(workspaceId, {
       q: filters.q,
       status: filters.status,
@@ -82,6 +80,10 @@ export default async function ProjectsPage({
     getProjectPropertyDefs(workspaceId),
     getWorkspaceMembers(workspaceId),
   ]);
+
+  if (!user) redirect(`/sign-in?next=/workspaces/${workspaceId}/projects`);
+  if (!workspace) notFound();
+
   const visible = archived ? all.filter((project) => project.isArchived) : all;
   /* Ordering is the one part the API cannot do — see `lib/project-sort.ts`. It
      runs here, once, rather than in each view: all five render from this array

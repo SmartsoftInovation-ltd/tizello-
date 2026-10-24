@@ -42,15 +42,18 @@ const createWorkspaceWithOwner = ({ name, description, icon, color, ownerId }) =
   );
 
 /**
- * One workspace, with the caller's own membership row attached (if any) so
- * the service can read their role without a second query. Never returns a
- * soft-deleted row.
+ * One live workspace. Never returns a soft-deleted row.
+ *
+ * NO `include` of the caller's membership. It used to attach one "so the
+ * service can read their role", but every caller runs behind `loadMembership`,
+ * which already resolved that row (cached) and hands the role in — the
+ * attached copy was read by nothing, and on Prisma's default strategy an
+ * `include` is a second round trip to a database ~164ms away. `userId` stays
+ * in the signature so call sites keep saying whose view this is.
  */
+// eslint-disable-next-line no-unused-vars
 const findWorkspaceForMember = (id, userId) =>
-  prisma.workspace.findFirst({
-    where: { id, deletedAt: null },
-    include: { memberships: { where: { userId } } },
-  });
+  prisma.workspace.findFirst({ where: { id, deletedAt: null } });
 
 /**
  * Every workspace the user belongs to, newest first, paginated. `deletedAt`

@@ -23,6 +23,7 @@ import { AUTH_CODES } from '../../shared/constants/authCodes.js';
 import { DEFAULT_STATUSES, POSITION_STEP } from '../../shared/constants/taskStatus.js';
 import repository from './task-status.repository.js';
 import dto from './task-status.dto.js';
+import { CACHE_NS, bumpingAfter } from '../../shared/utils/cache.js';
 
 const notFound = () =>
   new AppError(httpStatus.NOT_FOUND, 'Status not found', AUTH_CODES.NOT_FOUND);
@@ -151,12 +152,20 @@ const resolveStatus = async (projectId, statusId) => {
   return status;
 };
 
+/*
+ * Sprint roll-ups bucket tasks by their status's GROUP, so a write that can
+ * change a status's group (update, reorder) or move tasks to another status
+ * (delete) invalidates the project's cached sprints. Creating a status cannot
+ * — no task is in it yet. docs/api/sprint.md §Caching.
+ */
+const byProject = (projectId) => projectId;
+
 export default {
   ensureDefaults,
   listStatuses,
   createStatus,
-  updateStatus,
-  reorderStatuses,
-  deleteStatus,
+  updateStatus: bumpingAfter(CACHE_NS.SPRINTS, byProject, updateStatus),
+  reorderStatuses: bumpingAfter(CACHE_NS.SPRINTS, byProject, reorderStatuses),
+  deleteStatus: bumpingAfter(CACHE_NS.SPRINTS, byProject, deleteStatus),
   resolveStatus,
 };

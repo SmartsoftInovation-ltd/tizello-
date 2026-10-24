@@ -5,6 +5,7 @@ import {
   projectsHref,
 } from "@/lib/project-view";
 import type { ProjectFilters } from "@/lib/project-filters";
+import { LinkPendingLoader } from "@/components/ui/link-pending-loader";
 import { PROJECT_VIEWS, type ProjectView } from "@/types/project";
 
 /*
@@ -17,8 +18,11 @@ import { PROJECT_VIEWS, type ProjectView } from "@/types/project";
  * link that navigates tells a screen-reader user the page will not move when
  * it is about to.
  *
- * The payoff is that all five views stay server-rendered with zero client JS
- * for the switch, and every view is linkable, bookmarkable and back-buttonable.
+ * The payoff is that all five views stay server-rendered, and every view is
+ * linkable, bookmarkable and back-buttonable. The only client JS is
+ * `LinkPendingLoader` inside each link: a view switch stays in this route
+ * segment, so `loading.tsx` never shows, and without it the old view sits on
+ * screen with no feedback while the new one renders.
  *
  * The visible label is short; `aria-label` gives the full one ("Status" →
  * "Status breakdown"). The visible text opens the accessible name, so
@@ -57,6 +61,7 @@ export function ProjectsViewNav({
                 className={current ? ACTIVE : IDLE}
               >
                 {PROJECT_VIEW_TAB[value]}
+                <LinkPendingLoader label={`Loading the ${PROJECT_VIEW_LABEL[value].toLowerCase()} view`} />
               </Link>
             </li>
           );
@@ -73,6 +78,7 @@ export function ProjectsViewNav({
             className={archived ? ACTIVE : IDLE}
           >
             Archived
+            <LinkPendingLoader label="Loading archived projects" />
           </Link>
         </li>
       </ul>

@@ -27,6 +27,7 @@
 import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
+import { CACHE_NS, bumpVersion } from '../../shared/utils/cache.js';
 import { PERMISSIONS, membershipCan } from '../../shared/constants/roles.js';
 import dto from './trash.dto.js';
 import repository from './trash.repository.js';
@@ -113,6 +114,8 @@ const loadTaskFor = async (taskId, user) => {
 const restoreProject = async (projectId, user) => {
   const project = await loadProjectFor(projectId, user);
   const restored = await repository.restoreProject(project.id);
+  /* The project reappears in its workspace's lists. */
+  await bumpVersion(CACHE_NS.PROJECTS, project.workspaceId);
 
   return { project: dto.toProjectEntry({ ...project, ...restored }, true) };
 };
@@ -120,6 +123,8 @@ const restoreProject = async (projectId, user) => {
 const restoreTask = async (taskId, user) => {
   const task = await loadTaskFor(taskId, user);
   const restored = await repository.restoreTask(task.id);
+  /* A restored task counts toward its sprint's roll-ups again. */
+  await bumpVersion(CACHE_NS.SPRINTS, task.projectId);
 
   return { task: dto.toTaskEntry({ ...task, ...restored }, true) };
 };
@@ -127,6 +132,9 @@ const restoreTask = async (taskId, user) => {
 const purgeProject = async (projectId, user) => {
   const project = await loadProjectFor(projectId, user);
   await repository.purgeProject(project.id);
+  /* Already absent from every list (it was soft-deleted), so this bump is
+     defensive: cheap, and it keeps "every project write bumps" exception-free. */
+  await bumpVersion(CACHE_NS.PROJECTS, project.workspaceId);
 
   return { id: project.id, purged: true };
 };
@@ -134,6 +142,7 @@ const purgeProject = async (projectId, user) => {
 const purgeTask = async (taskId, user) => {
   const task = await loadTaskFor(taskId, user);
   await repository.purgeTask(task.id);
+  await bumpVersion(CACHE_NS.SPRINTS, task.projectId);
 
   return { id: task.id, purged: true };
 };

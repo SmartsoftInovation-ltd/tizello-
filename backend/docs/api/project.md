@@ -251,6 +251,9 @@ Returns `ApiResponse.paginated`: a `data` array plus
 `pagination: { page, limit, total, totalPages }`. Soft-deleted rows are never
 included, with or without `includeArchived`.
 
+Served from the Redis cache when possible — the response then carries a
+top-level `fromCached: true` (`false` on a miss). See §*Caching*.
+
 **Errors:** `400` validation · `404` not a member of the workspace · `429`.
 
 ---
@@ -478,6 +481,54 @@ workspace, filling one in changes one project.
 
 ---
 
+## Caching
+
+The list (§2) and the workspace's property definitions are cached in Redis
+through `src/shared/utils/cache.js`. Why: Postgres is on a remote VPS, ~164 ms
+per round trip, and an uncached list is several sequential queries.
+
+**Invalidation is a version bump, never a delete.** Each workspace has one
+counter, `cache:v:projects:<workspaceId>`, and every cached entry's key embeds
+its current value:
+
+```
+cache:projects:<workspaceId>:v<N>:list:<userId>:<queryHash>
+cache:projects:<workspaceId>:v<N>:defs
+```
+
+A write runs `INCR` on the counter **after** its database write commits. The
+next read builds a `v<N+1>` key, misses, and refills; the old entries are never
+read again and expire on their TTL (300 s). Deleting by pattern was rejected:
+`SCAN` + `DEL` is O(keyspace), is not atomic with the write, and a read racing
+the delete can put a stale entry straight back. Bumping before the write was
+rejected too — a concurrent reader could cache the old row under the new
+version.
+
+**Per user, not per workspace.** `viewerRole` and `mine` depend on who asks,
+so a list entry is keyed by user id and a hash of the whole query (filters,
+sort, page).
+
+**What bumps the version** — every write that changes what a list returns:
+
+| Write | Where |
+|---|---|
+| create · update · archive/unarchive · delete · transfer ownership | `project.service.js` |
+| add / change role / remove project member | `project.service.js` |
+| create / update / delete a property definition | `project-property.service.js` |
+| restore / purge a project from the trash | `trash.service.js` |
+| remove a workspace member (drops their project memberships) | `member.service.js` |
+
+A new write path that changes a project row, a project membership or a
+property definition **must** call `bumpVersion(CACHE_NS.PROJECTS, workspaceId)`
+— otherwise readers see the old data for up to five minutes.
+
+**Fails open.** If Redis is down, reads go straight to Postgres and succeed
+slowly; a failed bump is logged at `error` and only costs staleness until the
+TTL. Not cached: `GET /projects/:projectId` itself — `loadProject` resolves the
+caller's role from the database on every request, which is the authorization
+check and stays uncached (only the definitions it renders with come from the
+cache).
+
 ## Open questions
 
 1. **Key rename.** Immutable today (§*Key* 5). Making it editable needs a
@@ -502,6 +553,7 @@ prisma/schema.prisma                         Project, ProjectMember, ProjectStat
 src/shared/utils/projectKey.js               deriveKey + withUniqueKey
 src/shared/middlewares/project.js            loadProject, requireProjectWrite, requireProjectOwner
 src/shared/middlewares/rateLimiter.js        projectCreateLimiter
+src/shared/utils/cache.js                    versioned Redis cache — remember, bumpVersion, CACHE_NS
 src/shared/constants/roles.js                PROJECT_VIEW / PROJECT_CREATE / PROJECT_MANAGE_ANY
 src/modules/project/project.routes.js        two routers
 src/modules/project/project.controller.js

@@ -185,6 +185,42 @@ sprint instead.`; `403`; `404`.
 
 ---
 
+## Caching
+
+`GET /projects/:projectId/sprints` and `GET /sprints/:sprintId` are served from
+Redis through `src/shared/utils/cache.js` — the same versioned scheme as
+projects (see [project.md §Caching](./project.md#caching) for why a version
+bump and not a delete).
+
+```
+cache:v:sprints:<projectId>                           version counter
+cache:sprints:<projectId>:v<N>:list:<state|all>       the list, per state filter
+cache:sprints:<projectId>:v<N>:one:<sprintId>         one sprint
+```
+
+**Per project, not per user.** Nothing in a sprint DTO depends on the caller,
+and access is decided before the cache is consulted: `loadProject` /
+`loadSprint` still run against the database on every request.
+
+**Roll-ups are why task writes bump it.** A sprint's points and counts per
+status group are counted from its tasks, so the version is bumped by:
+
+| Write | Where |
+|---|---|
+| create · update · start · complete · delete a sprint | `sprint.service.js` |
+| create · update · move · bulk update · bulk delete · delete a task | `task.service.js` (wrapped exports) |
+| update · reorder · delete a task status (group or task membership can change) | `task-status.service.js` (wrapped exports) |
+| restore · purge a task from the trash | `trash.service.js` |
+
+Creating a status does not bump: no task is in it yet. Any new code path that
+writes a task, a sprint, or a status's group **must** bump
+`CACHE_NS.SPRINTS` for the project — `bumpingAfter` in `cache.js` wraps an
+exported write so it does.
+
+**Known staleness:** `createdBy.name` is the creator's name at fill time; a
+profile rename shows on sprints after the 300 s TTL, not immediately. Redis
+down → reads fall through to Postgres (fail open).
+
 ## Open questions
 
 - **Carry-over choice on complete** — unfinished work always returns to the
@@ -202,6 +238,7 @@ sprint instead.`; `403`; `404`.
 | `prisma/migrations/20260915120000_sprint_module/` | additive, plus the hand-written `sprints_one_active_per_project` partial unique index |
 | `src/shared/constants/sprint.js` | states, `SPRINT_MAX_DAYS` |
 | `src/shared/middlewares/sprint.js` | `loadSprint` |
+| `src/shared/utils/cache.js` | versioned Redis cache — `remember`, `bumpVersion`, `bumpingAfter` (§Caching) |
 | `src/modules/sprint/sprint.*.js` | the module |
 | `src/modules/task/task.service.js` | `checkSprint`, sub-tasks following their parent |
 | `src/routes/index.js` | the two mounts |

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { apiCallWithRefresh } from "@/lib/api-client";
 import { fieldErrorsFrom } from "@/lib/field-errors";
 import type { Workspace } from "@/types/workspace";
@@ -69,13 +70,19 @@ export async function getWorkspaces({
 }
 
 /** `GET /workspaces/:id`. `null` covers both "not a member" and "doesn't exist" — the API answers both with the same 404 (workspace.md §*Guards*). */
-export async function getWorkspace(workspaceId: string): Promise<Workspace | null> {
+/*
+ * Wrapped in React's `cache` so one render asks the API once: a page's
+ * `generateMetadata`, the page itself and its layout all call this with the
+ * same id, and `apiCall` is `no-store`, which opts out of fetch's own dedupe.
+ * Scope is a single server request, so nothing outlives the render.
+ */
+export const getWorkspace = cache(async (workspaceId: string): Promise<Workspace | null> => {
   const result = await apiCallWithRefresh<{ workspace: ApiWorkspace }>(
     `/workspaces/${encodeURIComponent(workspaceId)}`,
   );
 
   return result.ok ? toWorkspace(result.data.workspace) : null;
-}
+});
 
 /**
  * `GET /workspaces/:id/members`. The roster, owner first.

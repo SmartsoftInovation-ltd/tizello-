@@ -28,6 +28,18 @@ import { SPRINT_MAX_DAYS, SPRINT_STATES } from '../../shared/constants/sprint.js
 import activityService from '../task/task-activity.service.js';
 import repository from './sprint.repository.js';
 import dto from './sprint.dto.js';
+import { CACHE_NS, remember, bumpVersion } from '../../shared/utils/cache.js';
+
+/*
+ * CACHING — docs/api/sprint.md §Caching. One version per project
+ * (`cache:v:sprints:<projectId>`) covers the list (per `state` filter) and
+ * every single-sprint read. No entry is per-user: nothing in a sprint DTO
+ * depends on who asks, and access was already decided by `loadProject` /
+ * `loadSprint`, which stay uncached. Sprint writes below bump after they
+ * commit; task and status writes bump from the task module, because the
+ * roll-ups are counted from tasks.
+ */
+const invalidate = (projectId) => bumpVersion(CACHE_NS.SPRINTS, projectId);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -63,18 +75,28 @@ const withRollups = async (rows) => {
 };
 
 /** `GET /projects/:projectId/sprints`. */
-const listSprints = async (project, { state }) => {
-  const rows = await repository.findSprintsForProject(project.id, state);
-
-  return withRollups([...rows].sort(byDisplayOrder));
-};
+const listSprints = async (project, { state }) =>
+  (
+    await remember(
+      { namespace: CACHE_NS.SPRINTS, scopeId: project.id, parts: ['list', state ?? 'all'] },
+      async () => {
+        const rows = await repository.findSprintsForProject(project.id, state);
+        return withRollups([...rows].sort(byDisplayOrder));
+      }
+    )
+  ).value;
 
 /** `GET /sprints/:sprintId`. */
-const getSprint = async (sprint) => {
-  const [shaped] = await withRollups([await repository.findSprintById(sprint.id)]);
-
-  return shaped;
-};
+const getSprint = async (sprint) =>
+  (
+    await remember(
+      { namespace: CACHE_NS.SPRINTS, scopeId: sprint.projectId, parts: ['one', sprint.id] },
+      async () => {
+        const [shaped] = await withRollups([await repository.findSprintById(sprint.id)]);
+        return shaped;
+      }
+    )
+  ).value;
 
 /** `POST /projects/:projectId/sprints`. Always PLANNING; dates optional until start. */
 const createSprint = async (project, payload, user) => {
@@ -93,6 +115,7 @@ const createSprint = async (project, payload, user) => {
       createdById: user.id,
     }
   );
+  await invalidate(project.id);
 
   return dto.toSprint(row);
 };
@@ -119,6 +142,8 @@ const updateSprint = async (sprint, payload) => {
   if (sprint.state === SPRINT_STATES.COMPLETED) throw conflict('A completed sprint cannot be edited');
 
   await repository.updateSprint(sprint.id, detailsPatch(sprint, payload));
+  /* Before the re-read, so `getSprint` misses and returns the new row. */
+  await invalidate(sprint.projectId);
 
   return getSprint(sprint);
 };
@@ -147,6 +172,7 @@ const startSprint = async (sprint, project, payload) => {
     state: SPRINT_STATES.ACTIVE,
     startedAt: new Date(),
   });
+  await invalidate(sprint.projectId);
 
   return getSprint(sprint);
 };
@@ -161,6 +187,7 @@ const completeSprint = async (sprint, user) => {
   ]);
 
   await repository.completeSprint(sprint.id, returnIds);
+  await invalidate(sprint.projectId);
   await activityService.recordFieldChange(returnIds, 'sprint', { id: sprint.id, name: sprint.name }, null, user.id);
 
   return {
@@ -179,6 +206,7 @@ const deleteSprint = async (sprint, user) => {
   const taskIds = await repository.findLiveTaskIds(sprint.id);
 
   await repository.deleteSprint(sprint.id);
+  await invalidate(sprint.projectId);
   await activityService.recordFieldChange(taskIds, 'sprint', { id: sprint.id, name: sprint.name }, null, user.id);
 
   return { returned: taskIds.length };

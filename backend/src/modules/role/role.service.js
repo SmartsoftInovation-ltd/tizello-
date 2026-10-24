@@ -26,6 +26,7 @@
 
 import repository from './role.repository.js';
 import dto from './role.dto.js';
+import { CACHE_NS, bumpVersion } from '../../shared/utils/cache.js';
 import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
@@ -140,6 +141,9 @@ const updateRole = async (workspaceId, roleId, input, author) => {
     ...(input.baseRole ? { baseRole: input.baseRole } : {}),
     ...(input.permissions ? { permissions: resolveGrant(input.permissions, author) } : {}),
   });
+  /* Cached memberships embed this role's grant (`customRole`), so a changed
+     permission set must reach every holder's next request. */
+  await bumpVersion(CACHE_NS.MEMBERSHIP, workspaceId);
 
   return dto.toRole(row);
 };
@@ -163,6 +167,7 @@ const deleteRole = async (workspaceId, roleId) => {
   }
 
   await repository.remove(roleId);
+  await bumpVersion(CACHE_NS.MEMBERSHIP, workspaceId);
 };
 
 /** The role a member may be assigned, or `null` to fall back to their tier. */

@@ -22,7 +22,7 @@ const create = async (req, res) => {
 };
 
 const list = async (req, res) => {
-  const { projects, page, limit, total } = await service.listProjects(
+  const { projects, page, limit, total, fromCached } = await service.listProjects(
     req.params.workspaceId,
     req.user.id,
     req.query
@@ -35,7 +35,8 @@ const list = async (req, res) => {
     projects,
     page,
     limit,
-    total
+    total,
+    { fromCached }
   );
 };
 
