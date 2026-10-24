@@ -38,6 +38,10 @@ const config = {
   // Browser origin allowed through CORS. Optional — a dev machine without it
   // boots permissive rather than refusing to start.
   clientOrigin: process.env.CLIENT_ORIGIN || '*',
+  // Public frontend URL that links in emails point at (invite, reset, task).
+  // Separate from CLIENT_ORIGIN so a local backend can still mail links to the
+  // live site; falls back to CLIENT_ORIGIN when unset.
+  appUrl: (process.env.APP_URL || process.env.CLIENT_ORIGIN || '*').replace(/\/+$/, ''),
   // Pino's level threshold (src/config/logger.js). Optional: development
   // defaults to `debug` so a local run shows query-level detail, production
   // to `info` so it does not pay to format lines nobody reads.

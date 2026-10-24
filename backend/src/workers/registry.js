@@ -32,9 +32,9 @@ import { verifyMailer } from '../shared/utils/mailer.js';
  * useless as a sent one, and discovering that in development is the point.
  */
 const assertClientOrigin = () => {
-  if (!config.clientOrigin || config.clientOrigin === '*') {
+  if (!config.appUrl || config.appUrl === '*') {
     throw new Error(
-      'CLIENT_ORIGIN must be a real origin (e.g. http://localhost:3000) for the email worker — links are built from it.'
+      'APP_URL (or CLIENT_ORIGIN) must be a real origin (e.g. http://localhost:3000) for the email worker — links are built from it.'
     );
   }
 };

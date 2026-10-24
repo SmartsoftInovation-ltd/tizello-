@@ -47,7 +47,7 @@ const log = createLogger("email-worker");
  * access log, proxy or `Referer` — only the `/copy-code` page that reads it.
  * See `codeBlock` in emailTemplates.js.
  */
-const copyCodeUrl = (code) => `${config.clientOrigin}/copy-code#${encodeURIComponent(code)}`;
+const copyCodeUrl = (code) => `${config.appUrl}/copy-code#${encodeURIComponent(code)}`;
 
 const handlers = {
   async "send-registration-code"({ userId, code }, job) {
@@ -125,7 +125,7 @@ const handlers = {
 
     const mail = passwordResetEmail({
       name: user.name,
-      resetUrl: `${config.clientOrigin}/reset-password?token=${encodeURIComponent(token)}`,
+      resetUrl: `${config.appUrl}/reset-password?token=${encodeURIComponent(token)}`,
       expiresInHours: config.auth.passwordResetTtlHours,
     });
 
@@ -186,7 +186,7 @@ const handlers = {
       taskTitle: task.title,
       projectName,
       sprintName,
-      taskUrl: `${config.clientOrigin}/board/backlog?project=${encodeURIComponent(task.projectId)}&task=${encodeURIComponent(task.id)}`,
+      taskUrl: `${config.appUrl}/board/backlog?project=${encodeURIComponent(task.projectId)}&task=${encodeURIComponent(task.id)}`,
     });
 
     await sendMail({ to: user.email, ...mail });
@@ -255,7 +255,7 @@ const processEmailJob = async (job) => {
     // The token is the credential. It is interpolated into the mail and never
     // into a log line — the logger redacts a field named `token`, but it
     // cannot see one spliced into a URL string.
-    const inviteUrl = `${config.clientOrigin}/invite/${encodeURIComponent(token)}`;
+    const inviteUrl = `${config.appUrl}/invite/${encodeURIComponent(token)}`;
 
     const { subject, html, text } = invitationEmail({
       workspaceName: invitation.workspace.name,
