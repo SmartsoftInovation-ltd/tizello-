@@ -277,6 +277,17 @@
   --accent: light-dark(var(--color-plum-600), var(--color-label-purple));
   --accent-subtle: light-dark(var(--color-plum-50), var(--color-plum-900));
 
+  /* Chart marks — the /workspaces dashboard. Validated with the dataviz
+     skill's palette script against `surface` in each theme, not eyeballed.
+     `chart-bar` is the single-series hue (brand-600 passes both themes).
+     The three `chart-step-*` are an ORDINAL ramp for To do → In progress →
+     Done: one hue, monotone lightness, darker = further along in light and
+     lighter = further along in dark, each light end clearing 2:1 on surface. */
+  --chart-bar: var(--color-brand-600);
+  --chart-step-1: light-dark(var(--color-brand-500), var(--color-brand-800));
+  --chart-step-2: light-dark(var(--color-brand-700), var(--color-brand-600));
+  --chart-step-3: light-dark(var(--color-brand-900), var(--color-brand-300));
+
   /* Trello tints its shadows with #091E42 rather than pure black. */
   --elev-card: 0 1px 1px rgba(9, 30, 66, 0.25), 0 0 1px rgba(9, 30, 66, 0.31);
   --elev-raised:
@@ -359,6 +370,10 @@
   --color-info-subtle: var(--info-subtle);
   --color-accent: var(--accent);
   --color-accent-subtle: var(--accent-subtle);
+  --color-chart-bar: var(--chart-bar);
+  --color-chart-step-1: var(--chart-step-1);
+  --color-chart-step-2: var(--chart-step-2);
+  --color-chart-step-3: var(--chart-step-3);
 }
 
 /* ==========================================================================

@@ -26,6 +26,12 @@ const list = async (req, res) => {
   return ApiResponse.paginated(res, httpStatus.OK, 'Workspaces fetched', workspaces, page, limit, total);
 };
 
+const overview = async (req, res) => {
+  const data = await service.getOverview(req.user.id);
+
+  return ApiResponse.success(res, httpStatus.OK, 'Workspace overview fetched', data);
+};
+
 const getById = async (req, res) => {
   const workspace = await service.getWorkspace(req.params.workspaceId, req.membership);
 
@@ -54,4 +60,4 @@ const remove = async (req, res) => {
   return ApiResponse.success(res, httpStatus.OK, 'Workspace deleted', null);
 };
 
-export default { create, list, getById, update, archive, remove };
+export default { create, list, overview, getById, update, archive, remove };

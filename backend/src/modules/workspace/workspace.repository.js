@@ -91,7 +91,65 @@ const setArchived = (id, isArchived) =>
 const softDeleteWorkspace = (id) =>
   prisma.workspace.update({ where: { id }, data: { deletedAt: new Date() } });
 
+/**
+ * The dashboard's numbers for every live, unarchived workspace the user is in —
+ * three aggregate queries, run in parallel, each ONE round trip.
+ *
+ * Aggregated in SQL rather than by loading rows: an overview across six
+ * workspaces is hundreds of tasks, and shipping them to Node to count them is
+ * both the slow path and the wrong one. `COUNT(*) FILTER` keeps "overdue" in
+ * the same scan as the per-group counts.
+ *
+ * Scope is the caller's membership, joined in every query — the same rule as
+ * `GET /workspaces` — so a workspace they left cannot leak a count. Every
+ * member sees every project in a workspace (docs/api/project.md §Guards), so
+ * no project-level filter applies. Archived and deleted projects are left out,
+ * as they are from the projects list; sub-tasks are left out, as they are
+ * from every roll-up (sprints, backlog counts).
+ *
+ * "Overdue" is a due date before today (UTC day boundary) on a task not in a
+ * Complete-group status — the same reading `lib/task-delay.ts` uses.
+ */
+const findOverviewForUser = async (userId) => {
+  const [workspaces, projects, tasks] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT w.id, w.name, w.icon, w.color,
+        (SELECT COUNT(*)::int FROM memberships m2 WHERE m2."workspaceId" = w.id) AS members,
+        (SELECT COUNT(*)::int FROM sprints s
+           JOIN projects p ON p.id = s."projectId" AND p."deletedAt" IS NULL AND p."isArchived" = false
+          WHERE p."workspaceId" = w.id AND s.state = 'ACTIVE') AS "activeSprints"
+      FROM memberships ms
+      JOIN workspaces w ON w.id = ms."workspaceId" AND w."deletedAt" IS NULL AND w."isArchived" = false
+      WHERE ms."userId" = ${userId}
+      ORDER BY w."createdAt" DESC
+    `,
+    prisma.$queryRaw`
+      SELECT p."workspaceId", p.status::text AS status, COUNT(*)::int AS count
+      FROM projects p
+      JOIN memberships ms ON ms."workspaceId" = p."workspaceId" AND ms."userId" = ${userId}
+      WHERE p."deletedAt" IS NULL AND p."isArchived" = false
+      GROUP BY p."workspaceId", p.status
+    `,
+    prisma.$queryRaw`
+      SELECT p."workspaceId", so."group"::text AS "group", COUNT(*)::int AS count,
+        COUNT(*) FILTER (
+          WHERE t."dueDate" < date_trunc('day', now()) AND so."group" <> 'COMPLETE'
+        )::int AS overdue,
+        COALESCE(SUM(t."storyPoints"), 0)::int AS points
+      FROM tasks t
+      JOIN projects p ON p.id = t."projectId" AND p."deletedAt" IS NULL AND p."isArchived" = false
+      JOIN memberships ms ON ms."workspaceId" = p."workspaceId" AND ms."userId" = ${userId}
+      JOIN task_status_options so ON so.id = t."statusId"
+      WHERE t."deletedAt" IS NULL AND t."parentId" IS NULL
+      GROUP BY p."workspaceId", so."group"
+    `,
+  ]);
+
+  return { workspaces, projects, tasks };
+};
+
 export default {
+  findOverviewForUser,
   createWorkspaceWithOwner,
   findWorkspaceForMember,
   findWorkspacesForUser,

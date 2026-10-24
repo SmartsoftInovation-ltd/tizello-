@@ -92,7 +92,11 @@ const deleteWorkspace = async (workspaceId, membership) => {
   await repository.softDeleteWorkspace(workspaceId);
 };
 
+/** `GET /workspaces/overview`. Scoped to the caller's memberships by the joins in the repository. */
+const getOverview = async (userId) => dto.toOverview(await repository.findOverviewForUser(userId));
+
 export default {
+  getOverview,
   createWorkspace,
   listMyWorkspaces,
   getWorkspace,

@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WelcomeFireworks } from "@/components/layout/welcome-fireworks";
 import { CreateWorkspaceButton } from "@/components/workspace/create-workspace-button";
+import { WorkspaceDashboard } from "@/components/workspace/dashboard/workspace-dashboard";
 import { WorkspaceGrid } from "@/components/workspace/workspace-grid";
 import { WorkspaceList } from "@/components/workspace/workspace-list";
 import { WorkspacesToolbar } from "@/components/workspace/workspaces-toolbar";
 import { getSession } from "@/lib/auth";
+import { getWorkspaceOverview } from "@/lib/workspace-overview";
 import { getWorkspaces } from "@/lib/workspaces";
 import { plural } from "@/lib/plural";
 import { WELCOME_PARAM } from "@/lib/session-cookie";
@@ -39,7 +41,13 @@ export default async function WorkspacesPage({ searchParams }: PageProps<"/works
 
   /* `includeArchived` returns archived AND active rows — the API has no
      archived-only filter — so the archived view narrows the result here. */
-  const all = await getWorkspaces({ includeArchived: archived });
+  /* The overview is fetched beside the list, not after it, and only where it
+     is drawn — the archived view is a list of what is put away, not a
+     dashboard of it. `null` (an API hiccup) costs the overview, never the list. */
+  const [all, overview] = await Promise.all([
+    getWorkspaces({ includeArchived: archived }),
+    archived ? Promise.resolve(null) : getWorkspaceOverview(),
+  ]);
   const workspaces = archived ? all.filter((workspace) => workspace.isArchived) : all;
 
   return (
@@ -60,6 +68,8 @@ export default async function WorkspacesPage({ searchParams }: PageProps<"/works
             one, and the archived view deliberately has neither. */}
         {view === "list" && !archived && <CreateWorkspaceButton />}
       </PageTop>
+
+      {overview && overview.workspaces.length > 0 && <WorkspaceDashboard overview={overview} />}
 
       <WorkspacesToolbar view={view} archived={archived} />
 

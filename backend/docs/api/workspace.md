@@ -216,6 +216,57 @@ no membership row to check per-item; the join itself *is* the scope.
 
 ---
 
+## 2a. `GET /api/v1/workspaces/overview`
+
+The numbers behind the dashboard on the frontend's `/workspaces` page: one row
+per live, unarchived workspace the caller belongs to, plus totals across them.
+`authGuard` only — like §2, its scope is the caller's own memberships, joined
+into every query, so there is no `:workspaceId` and no workspace guard.
+Registered before `/:workspaceId` so "overview" is never read as an id.
+
+**Response** — `ApiResponse.success`, `data`:
+
+```json
+{
+  "totals": { "workspaces": 6, "projects": 60, "openTasks": 1551, "doneTasks": 321,
+              "overdueTasks": 69, "activeSprints": 45 },
+  "projectsByStatus": { "BACKLOG": 6, "PLANNING": 13, "ACTIVE": 22,
+                        "ON_HOLD": 7, "COMPLETED": 6, "CANCELLED": 6 },
+  "workspaces": [
+    { "id": "…", "name": "Tizaraa", "icon": "🛠", "color": "#…",
+      "members": 1, "activeSprints": 10, "projectCount": 10,
+      "projects": { "BACKLOG": 1, "PLANNING": 3, "ACTIVE": 2, "ON_HOLD": 2, "COMPLETED": 1, "CANCELLED": 1 },
+      "tasks": { "TODO": 292, "IN_PROGRESS": 42, "COMPLETE": 66 },
+      "overdue": 14, "openPoints": 1323 }
+  ]
+}
+```
+
+Every status and group is present with a `0`, so a client never has to tell
+"none" from "not sent".
+
+**What is counted, and why:**
+
+- **Aggregated in SQL** (`findOverviewForUser`: three `GROUP BY` queries run
+  in parallel, each one round trip). Loading rows to count them in Node is
+  hundreds of tasks across six workspaces for a handful of integers.
+- Archived and soft-deleted projects are excluded, as they are from the
+  projects list. Every member sees every project in a workspace
+  (project.md §Guards), so there is no per-project filter.
+- **Top-level tasks only** (`parentId IS NULL`) — the same rule as sprint
+  roll-ups and the backlog count, so the dashboard and those screens agree.
+- **Overdue** = a due date before today (UTC day boundary) on a task not in a
+  Complete-group status — the reading `lib/task-delay.ts` uses on the frontend.
+- **`openPoints`** sums story points of To-do and In-progress tasks only;
+  unestimated tasks add nothing rather than being guessed.
+- Not cached: three parallel aggregates cost one round trip, and a cache here
+  would need a version bump from every task, project, sprint and membership
+  write in every workspace the user is in.
+
+**Errors:** `401` unauthenticated.
+
+---
+
 ## 3. `GET /api/v1/workspaces/:workspaceId`
 
 Fetches one workspace. Any member. `loadMembership`. `apiLimiter`.

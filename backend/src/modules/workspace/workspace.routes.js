@@ -44,6 +44,14 @@ router.get(
 );
 
 /*
+ * The `/workspaces` dashboard's numbers. Registered BEFORE `/:workspaceId`,
+ * or Express would read "overview" as a workspace id and 404 it through
+ * `loadMembership`. No workspace guard: like `GET /`, its scope is the
+ * caller's own memberships, joined in every query.
+ */
+router.get('/overview', authGuard, asyncHandler(controller.overview));
+
+/*
  * `WORKSPACE_VIEW` is a real gate, not decoration. It was `loadMembership`
  * alone — membership WAS the whole check — which left the permission declared,
  * granted to all three tiers and read by nothing. The roles screen drew it as
