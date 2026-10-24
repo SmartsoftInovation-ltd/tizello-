@@ -41,6 +41,14 @@ const log = createLogger("email-worker");
 // `job.data` the one place a live secret sits at rest outside the email, so
 // nothing here logs `job.data`, only the recipient.
 
+/*
+ * The "Copy code" button's target. The code goes in the FRAGMENT, never the
+ * query: a fragment is not sent to any server, so the credential reaches no
+ * access log, proxy or `Referer` — only the `/copy-code` page that reads it.
+ * See `codeBlock` in emailTemplates.js.
+ */
+const copyCodeUrl = (code) => `${config.clientOrigin}/copy-code#${encodeURIComponent(code)}`;
+
 const handlers = {
   async "send-registration-code"({ userId, code }, job) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -67,6 +75,7 @@ const handlers = {
     const mail = registrationCodeEmail({
       code,
       expiresInMinutes: config.auth.registrationCodeTtlMinutes,
+      copyUrl: copyCodeUrl(code),
     });
 
     // Recipient only. The code is the credential — the root logger redacts a
@@ -93,6 +102,7 @@ const handlers = {
     const mail = loginCodeEmail({
       code,
       expiresInMinutes: config.auth.loginCodeTtlMinutes,
+      copyUrl: copyCodeUrl(code),
     });
 
     // Recipient only. The code is the credential — the root logger redacts a

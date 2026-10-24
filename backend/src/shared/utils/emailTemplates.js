@@ -97,6 +97,46 @@ const button = ({ href, label }) => `
   </table>`;
 
 /**
+ * A one-time code, as a block the reader can lift out of the mail in one move.
+ *
+ * NO EMAIL CLIENT RUNS JAVASCRIPT, so a true "copy to clipboard" button cannot
+ * exist inside a message. Two things stand in for it:
+ *
+ *   - The code sits in its own box with `user-select: all`, so a single tap or
+ *     click selects the whole code (not one digit) — then the phone's Copy
+ *     bubble or Ctrl/⌘+C. Clients that ignore the property still get a large,
+ *     isolated block that is easy to long-press.
+ *   - "Copy code" links to the app's `/copy-code` page, which does the copying
+ *     with the Clipboard API. The code rides in the URL FRAGMENT (`#284579`),
+ *     which browsers never send to a server — it reaches no access log, no
+ *     proxy and no `Referer` header, only the page that reads it.
+ *
+ * The digits are spaced with letter-spacing, never with spaces in the text:
+ * a selection must copy "284579", not "2 8 4 5 7 9". Mint button with dark
+ * ink — `brand-500` under `on-brand`, the same pairing as the app's primary
+ * button (white on mint fails contrast, DESIGN-SYSTEM.md).
+ */
+const codeBlock = ({ code, copyUrl }) => `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 8px 0;">
+    <tr>
+      <td align="center" style="background-color:#f4f5f7;border:1px solid #dfe1e6;border-radius:10px;padding:22px 16px;">
+        <span style="display:inline-block;font-size:34px;font-weight:700;letter-spacing:12px;margin-right:-12px;color:#172b4d;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:all;-webkit-user-select:all;">${escapeHtml(code)}</span>
+      </td>
+    </tr>
+  </table>
+  <p style="margin:0 0 20px 0;font-size:12px;color:#7a869a;text-align:center;">Tap the code to select it</p>
+  <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 28px auto;">
+    <tr>
+      <td style="background-color:#34c77b;border-radius:8px;">
+        <a href="${escapeHtml(copyUrl)}"
+           style="display:inline-block;padding:11px 26px;font-size:14px;font-weight:600;color:#06281a;text-decoration:none;">
+          Copy code
+        </a>
+      </td>
+    </tr>
+  </table>`;
+
+/**
  * Renders an expiry as a whole number of days for the copy.
  *
  * Rounded up: an invitation with 6.2 days left reads as "7 days", which is
@@ -158,13 +198,11 @@ const invitationEmail = ({ workspaceName, inviterName, inviteUrl, expiresAt }) =
 /**
  * Six-digit registration code — the mail behind `send-registration-code`.
  *
- * Same visual treatment as `loginCodeEmail` below (large monospace code,
- * subject carries it too) since it is the same shape of secret; the copy is
+ * Same visual treatment as `loginCodeEmail` below (`codeBlock`, subject
+ * carries the code too) since it is the same shape of secret; the copy is
  * "confirm your account" rather than "sign in."
  */
-const registrationCodeEmail = ({ code, expiresInMinutes }) => {
-  const safeCode = escapeHtml(code);
-
+const registrationCodeEmail = ({ code, expiresInMinutes, copyUrl }) => {
   const subject = `${code} is your ${BRAND} confirmation code`;
 
   const html = layout({
@@ -172,12 +210,10 @@ const registrationCodeEmail = ({ code, expiresInMinutes }) => {
     preheader: `${code} — expires in ${expiresInMinutes} minutes.`,
     bodyHtml: `
       <p style="margin:0;">Enter this code to finish creating your account.</p>
-      <p style="margin:28px 0;font-size:34px;font-weight:700;letter-spacing:10px;color:#172b4d;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">
-        ${safeCode}
-      </p>
-      <p style="margin:0;font-size:13px;color:#6b778c;">
-        The code expires in ${expiresInMinutes} minutes and can be used once. If
-        you did not create an account, you can ignore this email.
+      ${codeBlock({ code, copyUrl })}
+      <p style="margin:0;padding-top:20px;border-top:1px solid #ebecf0;font-size:13px;color:#6b778c;">
+        Expires in ${expiresInMinutes} minutes and works once. Didn't create an
+        account? You can ignore this email.
       </p>`,
   });
 
@@ -198,9 +234,7 @@ const registrationCodeEmail = ({ code, expiresInMinutes }) => {
  * it appears in the subject line too: on a phone the notification alone is
  * often enough, which is the whole ergonomic argument for codes over passwords.
  */
-const loginCodeEmail = ({ code, expiresInMinutes }) => {
-  const safeCode = escapeHtml(code);
-
+const loginCodeEmail = ({ code, expiresInMinutes, copyUrl }) => {
   const subject = `${code} is your ${BRAND} sign-in code`;
 
   const html = layout({
@@ -208,10 +242,8 @@ const loginCodeEmail = ({ code, expiresInMinutes }) => {
     preheader: `${code} — expires in ${expiresInMinutes} minutes.`,
     bodyHtml: `
       <p style="margin:0;">Enter this code to finish signing in.</p>
-      <p style="margin:28px 0;font-size:34px;font-weight:700;letter-spacing:10px;color:#172b4d;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">
-        ${safeCode}
-      </p>
-      <p style="margin:0;font-size:13px;color:#6b778c;">
+      ${codeBlock({ code, copyUrl })}
+      <p style="margin:0;padding-top:20px;border-top:1px solid #ebecf0;font-size:13px;color:#6b778c;">
         The code expires in ${expiresInMinutes} minutes and can be used once. If
         you did not try to sign in, someone else has your address — you can
         ignore this email, and no one can sign in without the code.
