@@ -161,7 +161,7 @@ const config = {
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       callbackUrl:
-        process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/v1/auth/google/callback',
+        process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5001/api/v1/auth/google/callback',
       get isConfigured() {
         return Boolean(this.clientId && this.clientSecret);
       },
@@ -170,7 +170,7 @@ const config = {
       clientId: process.env.GITHUB_CLIENT_ID || '',
       clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
       callbackUrl:
-        process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/v1/auth/github/callback',
+        process.env.GITHUB_CALLBACK_URL || 'http://localhost:5001/api/v1/auth/github/callback',
       get isConfigured() {
         return Boolean(this.clientId && this.clientSecret);
       },

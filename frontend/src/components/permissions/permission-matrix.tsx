@@ -18,7 +18,7 @@ import type { PermissionGroup, RoleDefinition } from "@/types/permissions";
  * READ-ONLY, ALL OF IT. See `permission-cell.tsx`: against the real API a
  * per-cell toggle is a PATCH of the whole permissions array, so twelve taps
  * would be twelve writes that can each fail on their own. Editing happens in
- * the role dialog, which sends the set once. The table ships no JavaScript.
+ * the role editor, which sends the set once. The table ships no JavaScript.
  *
  * `Table` brings its own `overflow-x-auto`, which is what keeps five columns
  * from taking the page sideways at 360px.

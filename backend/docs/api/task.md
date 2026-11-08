@@ -286,7 +286,7 @@ Resolved by `shared/middlewares/project.js` and `shared/middlewares/task.js`.
 | 1 | Not a member of the project's workspace → **404**, never 403. Same for a deleted task or project, or an id that never existed. |
 | 2 | Workspace OWNER/ADMIN (`PROJECT_MANAGE_ANY`) → may do everything below. |
 | 3 | Read (any `GET`) → any workspace member. |
-| 4 | **Contribute** — create, update, move, delete a task (singly or in bulk); post or edit a comment → project owner or **any** `ProjectMember` (MANAGER *or* COLLABORATOR). |
+| 4 | **Contribute** — create, update, move, delete a task (singly or in bulk); post or edit a comment → project owner, **any** `ProjectMember` (MANAGER *or* COLLABORATOR), or a workspace role holding `tasks.work` (every MEMBER by default). |
 | 5 | **Write** — create, rename, delete a task property; create, edit, reorder, delete a status → project owner or MANAGER (`requireProjectWrite`). Moving a *task* to another status is step 4. |
 | 6 | Delete a comment → its author, or anyone who passes step 5. Edit a comment → its author only. |
 
@@ -299,8 +299,9 @@ move one to Done is not collaborating. So task rows sit one tier below the
 project, exactly as project property *values* sit below the workspace's
 property *schema*.
 
-A workspace MEMBER who is not on the project stays read-only, as they are for
-the project itself.
+A workspace MEMBER who is not on the project contributes through `tasks.work`,
+which the MEMBER tier holds by default (docs/api/role.md). A custom role without
+it stays read-only on projects it is not on, as it is for the project itself.
 
 **Why comment delete is a flag, not a gate.** Whether a caller may delete a
 comment depends on who wrote it, which no middleware has loaded.

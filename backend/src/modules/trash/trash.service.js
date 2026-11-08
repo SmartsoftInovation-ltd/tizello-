@@ -50,9 +50,14 @@ const forbidden = () =>
 const canManageProject = (project, membership, userId) =>
   membershipCan(membership, PERMISSIONS.PROJECT_MANAGE_ANY) || project.ownerId === userId;
 
-/** The above, plus anyone with a `ProjectMember` row. Mirrors `requireProjectContribute`. */
+/**
+ * The above, plus TASK_WORK_ANY or a `ProjectMember` row. Mirrors
+ * `requireProjectContribute` (`canContribute` in shared/services/project-access.js).
+ */
 const canContribute = (project, membership, userId) =>
-  canManageProject(project, membership, userId) || (project.members?.length ?? 0) > 0;
+  canManageProject(project, membership, userId) ||
+  membershipCan(membership, PERMISSIONS.TASK_WORK_ANY) ||
+  (project.members?.length ?? 0) > 0;
 
 /**
  * Everything the caller could put back, newest deletion first.

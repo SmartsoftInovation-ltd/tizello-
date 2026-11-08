@@ -70,7 +70,14 @@ const findWorkspacesForUser = async (userId, { page, limit, includeArchived }) =
   const [rows, total] = await Promise.all([
     prisma.workspace.findMany({
       where,
-      include: { memberships: { where: { userId } } },
+      /* The custom role rides along so `permissionsFor` resolves the
+         membership's real grant, not the tier's default. */
+      include: {
+        memberships: {
+          where: { userId },
+          include: { customRole: { select: { id: true, name: true, permissions: true, baseRole: true } } },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,

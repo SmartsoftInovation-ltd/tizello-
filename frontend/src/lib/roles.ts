@@ -1,4 +1,4 @@
-import type { WorkspaceRole } from "@/types/workspace";
+import type { Workspace, WorkspaceRole } from "@/types/workspace";
 
 /**
  * The human name for a role. Lives in `lib/` rather than beside `RoleBadge`
@@ -67,4 +67,38 @@ export function canRemoveMember(role: WorkspaceRole): boolean {
  */
 export function canManageRoles(role: WorkspaceRole): boolean {
   return role === "OWNER" || role === "ADMIN";
+}
+
+/*
+ * Permission ids the frontend gates on, by name — a typo here is a compile
+ * error rather than a check that silently fails open. Mirrors `PERMISSIONS` in
+ * `backend/src/shared/constants/roles.js`.
+ */
+export const PERMISSION = {
+  TASK_WORK_ANY: "tasks.work",
+} as const;
+export type PermissionId = (typeof PERMISSION)[keyof typeof PERMISSION];
+
+/**
+ * The tier defaults, for a workspace payload that carries no `permissions`
+ * (a fixture, or a response from an API older than the field). Mirrors
+ * `ROLE_PERMISSIONS` for the ids above only.
+ */
+const TIER_DEFAULTS: Record<WorkspaceRole, readonly PermissionId[]> = {
+  OWNER: [PERMISSION.TASK_WORK_ANY],
+  ADMIN: [PERMISSION.TASK_WORK_ANY],
+  MEMBER: [PERMISSION.TASK_WORK_ANY],
+};
+
+/**
+ * Does the current user hold `permission` in this workspace? Reads the API's
+ * resolved grant (`workspace.permissions`), so a custom role's switches are
+ * honoured; falls back to the tier only when the payload has none.
+ */
+export function hasWorkspacePermission(
+  workspace: Pick<Workspace, "role" | "permissions">,
+  permission: PermissionId,
+): boolean {
+  const granted = workspace.permissions ?? TIER_DEFAULTS[workspace.role] ?? [];
+  return workspace.role === "OWNER" || granted.includes(permission);
 }

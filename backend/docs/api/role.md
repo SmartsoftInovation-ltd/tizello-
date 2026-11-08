@@ -55,6 +55,7 @@ not check.
 | projects | `projects.view` | the project list |
 | projects | `projects.create` | `POST .../projects` |
 | projects | `projects.manage` | the workspace-admin escape hatch — `project.js`, `task.js`, `trash.service.js` |
+| tasks | `tasks.work` | the CONTRIBUTE tier on every project — `canContribute` in `project-access.js`, `trash.service.js` |
 | roles | `roles.manage` | every write in this module |
 
 **Every row is enforced somewhere, and a test pins it.** The catalog is served
@@ -72,20 +73,30 @@ state: `GET /workspaces/:id` had `loadMembership` and no permission check, so
 membership alone silently answered the question the grid claimed to ask. That
 route now requires it.
 
-**Tasks are deliberately absent.** Who may touch a task is decided by the
-PROJECT role ladder (`ProjectRole` in the schema, `shared/middlewares/task.js`);
-a workspace role only opens the door through `projects.manage`. Rows here for
-"create task" or "move task" would be switches that gate nothing, which is
-worse than not offering them.
+**Tasks are one row, `tasks.work`.** Who may touch a task is decided by the
+PROJECT ladder (`shared/services/project-access.js`): the project owner, a
+`MANAGER` or a `COLLABORATOR` contributes; anyone else is read-only. `tasks.work`
+is the single workspace-level switch that ladder reads — it widens the
+CONTRIBUTE tier (create, edit, move and delete tasks; comment) to every project
+in the workspace without adding the person to each one. Separate rows for
+"create task" and "move task" would gate nothing extra.
 
-**What the sprint board, backlog and trash are gated by, since they have no
-rows here.** Every write on a task or a sprint funnels through the PROJECT
-ladder in `shared/middlewares/project.js` and `task.js`: the project's owner, a
-project `MANAGER`, or a workspace role holding `projects.manage`. Trash is the
-same ladder, resolved per row in `trash.service.js`. So a workspace role grants
-board access exactly one way — `projects.manage`, which grants it for *every*
-project — and finer access is a `ProjectMember` row, which is the project's own
-members screen rather than this one.
+It is granted to ADMIN and **MEMBER by default**. It used to be absent, which
+left a plain member able to see every sprint board and unable to move a single
+card on any project they had not been added to — the reported bug, not a
+policy. A workspace that wants per-project access defines a custom role without
+it; such a member falls back to the old rule.
+
+**What `tasks.work` does not grant.** The project's own record, its task
+columns and statuses, and its sprints (create, start, complete, delete) stay
+behind `requireProjectWrite`: project owner, `MANAGER`, or `projects.manage`.
+Moving a task *into* or *out of* a sprint is a task write and is covered.
+
+**Custom roles are honoured on project, task and sprint routes.**
+`projectWithAccess` now loads the membership's `customRole`, the same select as
+`loadMembership`. Before, it loaded the bare row, so `membershipCan` fell back
+to the tier's default and a custom role's `projects.manage` (or lack of it) was
+ignored on every route behind `loadProject`, `loadTask` and `loadSprint`.
 
 **The ids changed shape in this release** — `workspace:update` became
 `workspace.edit`, and so on for all eleven. They are product-facing now because

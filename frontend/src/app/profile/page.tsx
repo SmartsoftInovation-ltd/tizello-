@@ -1,7 +1,6 @@
 import { PageTop } from "@/components/layout/page-top";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { ProfileCard } from "@/components/profile/profile-card";
 import { ProfileFacts } from "@/components/profile/profile-facts";
 import { ProfileForm } from "@/components/profile/profile-form";
@@ -59,9 +58,7 @@ export default async function ProfilePage() {
   return (
     <main className="w-full px-4 pb-8 sm:px-6">
       <PageTop>
-        <Breadcrumb />
-
-        <header className="mt-4">
+        <header>
           <h1 className="text-xl font-semibold tracking-tight text-text">
             Your profile
           </h1>

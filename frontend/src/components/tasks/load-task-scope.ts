@@ -53,7 +53,7 @@ export async function loadTaskScope({
       statuses,
       sprints,
       canManageProperties: canWriteProject(workspace.role, project.viewerRole),
-      canContribute: canContributeToProject(workspace.role, project.viewerRole),
+      canContribute: canContributeToProject(workspace, project.viewerRole),
     },
   };
 }

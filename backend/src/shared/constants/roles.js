@@ -49,6 +49,13 @@ const PERMISSIONS = {
   // without letting anyone mint capabilities needs to grant one and not the
   // other.
   ROLE_MANAGE: 'roles.manage',
+  // Work the TASKS of every project in the workspace — create, edit, move
+  // across the backlog, sprint planning and the sprint board — without being
+  // added to each project first. It widens the CONTRIBUTE tier
+  // (`canContribute` in shared/services/project-access.js) and nothing else:
+  // editing the project itself, its columns and its sprints stays with the
+  // project's owner and managers (`canWrite`), or PROJECT_MANAGE_ANY.
+  TASK_WORK_ANY: 'tasks.work',
 };
 
 // The catalog the roles screen draws, grouped the way it groups them. Served
@@ -64,12 +71,12 @@ const PERMISSIONS = {
 // instead (`workspace.routes.js`), because "may read this workspace" is a real
 // capability that membership alone was silently answering.
 //
-// TASKS ARE ABSENT, and that is the honest answer rather than an omission.
-// Who may touch a task is decided by the PROJECT role ladder
-// (shared/middlewares/task.js, ProjectRole in the schema) — a workspace role
-// only opens the door via PROJECT_MANAGE_ANY. Rows here for "create task" or
-// "move task" would be five switches that gate nothing, which is worse than
-// not offering them.
+// TASKS are one row, not five. Who may touch a task is decided by the PROJECT
+// ladder (shared/services/project-access.js): project owner, MANAGER and
+// COLLABORATOR contribute; everyone else is read-only. TASK_WORK_ANY is the one
+// workspace-level switch that ladder reads, so a workspace can let its members
+// move cards on any project without adding each person to each project. Rows
+// for "create task" / "move task" separately would gate nothing extra.
 const PERMISSION_CATALOG = [
   {
     area: 'workspace',
@@ -98,6 +105,11 @@ const PERMISSION_CATALOG = [
       { id: PERMISSIONS.PROJECT_CREATE, label: 'Create project' },
       { id: PERMISSIONS.PROJECT_MANAGE_ANY, label: 'Manage any project' },
     ],
+  },
+  {
+    area: 'tasks',
+    label: 'Tasks & sprints',
+    actions: [{ id: PERMISSIONS.TASK_WORK_ANY, label: 'Work on tasks in any project' }],
   },
   {
     area: 'roles',
@@ -137,6 +149,7 @@ const ROLE_PERMISSIONS = {
     PERMISSIONS.PROJECT_VIEW,
     PERMISSIONS.PROJECT_CREATE,
     PERMISSIONS.PROJECT_MANAGE_ANY,
+    PERMISSIONS.TASK_WORK_ANY,
     // An admin runs the workspace day to day, and defining a role is part of
     // that. Assigning one (MEMBER_ROLE_UPDATE) stays with the owner: authoring
     // a capability is not the same as handing it to somebody.
@@ -146,11 +159,17 @@ const ROLE_PERMISSIONS = {
   // oversight: "only admins may start a project" is a workflow decision no
   // module should make unilaterally. Reversing it is deleting one line here,
   // which is the entire reason this table is written out per role.
+  //
+  // TASK_WORK_ANY for a MEMBER is the same kind of default: every project is
+  // visible workspace-wide, and a member who can see the sprint board but not
+  // move a card on it is a bug report, not a policy. A workspace that wants
+  // per-project access makes a custom role without it.
   [ROLES.MEMBER]: [
     PERMISSIONS.WORKSPACE_VIEW,
     PERMISSIONS.MEMBER_VIEW,
     PERMISSIONS.PROJECT_VIEW,
     PERMISSIONS.PROJECT_CREATE,
+    PERMISSIONS.TASK_WORK_ANY,
   ],
 };
 

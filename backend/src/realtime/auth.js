@@ -5,7 +5,7 @@
  * AUTH IS THE COOKIE, not a token in the handshake payload. The access token
  * is `httpOnly` precisely so page JavaScript cannot read it; a socket that
  * asked the client to hand one over would undo that. Cookies ignore PORT, so
- * the browser attaches `tizello_access` to `localhost:5000` even though it was
+ * the browser attaches `tizello_access` to `localhost:5001` even though it was
  * stored against `localhost:3000` — in production the two hosts differ and
  * `COOKIE_DOMAIN` is what keeps this working. `credentials: true` in the CORS
  * options (see `index.js`) is the other half; without it the browser sends

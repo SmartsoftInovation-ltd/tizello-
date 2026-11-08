@@ -81,14 +81,20 @@ describe('canContribute — mirrors requireProjectContribute', () => {
     assert.equal(canContribute(project(), membership(ROLES.MEMBER), OWNER_ID), true);
   });
 
-  it('refuses a workspace MEMBER who is not on the project — read-only stays read-only', () => {
-    assert.equal(canContribute(project([]), membership(ROLES.MEMBER), OTHER_ID), false);
+  it('lets a default workspace MEMBER who is not on the project contribute — tasks.work', () => {
+    assert.equal(canContribute(project([]), membership(ROLES.MEMBER), OTHER_ID), true);
+  });
+
+  it('refuses a custom role without tasks.work who is not on the project — read-only stays read-only', () => {
+    const viewer = { role: ROLES.MEMBER, customRole: { permissions: ['projects.view'] } };
+    assert.equal(canContribute(project([]), viewer, OTHER_ID), false);
   });
 
   it('treats a missing members array as no membership rather than throwing', () => {
     // `findDeletedTask` always selects `members`, but a caller passing a row
     // shaped some other way must be denied, not crash.
-    assert.equal(canContribute({ id: 'p', ownerId: OWNER_ID }, membership(ROLES.MEMBER), OTHER_ID), false);
+    const viewer = { role: ROLES.MEMBER, customRole: { permissions: [] } };
+    assert.equal(canContribute({ id: 'p', ownerId: OWNER_ID }, viewer, OTHER_ID), false);
   });
 });
 

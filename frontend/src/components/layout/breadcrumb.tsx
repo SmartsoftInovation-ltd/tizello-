@@ -7,9 +7,10 @@ import { ChevronRightIcon } from "@/components/ui/table-icons";
 import { pageTitleFor } from "@/lib/page-title";
 
 /*
- * The page trail, rendered in the CONTENT column — not in the content strip,
- * which keeps a plain page label (`page-label.tsx`) instead. A breadcrumb in
- * both places is the same route drawn twice.
+ * A page trail rendered in the CONTENT column, for the one page that uses it
+ * as its heading (`/workspaces`). Every other page's trail is the content
+ * strip's (`strip-breadcrumb.tsx`); a second one in the column would be the
+ * same route drawn twice.
  *
  * Two crumbs, never a full segment-by-segment trail. The middle segments of
  * these routes are ids (`/workspaces/cmtr4i04q…/members`), and humanising a
@@ -29,13 +30,22 @@ import { pageTitleFor } from "@/lib/page-title";
  *
  * `label` overrides the name derived from the path, for the one case the URL
  * cannot express: `?archived=1` is a different screen with the same pathname.
+ *
+ * `trail` adds named, linked crumbs between Home and the current page, for a
+ * page that lives under a module (`Roles & permissions › Create a role`). The
+ * caller names them, so an id segment never becomes a crumb.
  */
+const CRUMB_LINK =
+  "min-w-0 truncate rounded-xs text-text-subtle transition-colors duration-100 ease-standard hover:text-text";
+
 export function Breadcrumb({
   heading = false,
   label: override,
+  trail = [],
 }: {
   heading?: boolean;
   label?: string;
+  trail?: readonly { label: string; href: string }[];
 } = {}) {
   const pathname = usePathname();
   const label = override ?? pageTitleFor(pathname);
@@ -57,6 +67,15 @@ export function Breadcrumb({
             <HomeIcon className="size-4" />
           </Link>
         </li>
+
+        {trail.map((crumb) => (
+          <li key={crumb.href} className="flex min-w-0 items-center gap-1.5">
+            <ChevronRightIcon aria-hidden className="size-3.5 shrink-0 text-text-subtle" />
+            <Link href={crumb.href} className={CRUMB_LINK}>
+              {crumb.label}
+            </Link>
+          </li>
+        ))}
 
         <li className="flex min-w-0 items-center gap-1.5">
           <ChevronRightIcon aria-hidden className="size-3.5 shrink-0 text-text-subtle" />

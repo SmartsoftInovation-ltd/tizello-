@@ -46,10 +46,11 @@ import { PERMISSIONS, membershipCan } from '../constants/roles.js';
 const projectAccessFlags = ({ project, membership, projectMember, userId }) => {
   const escalated = membershipCan(membership, PERMISSIONS.PROJECT_MANAGE_ANY);
   const owns = project.ownerId === userId;
+  const worksAnyTask = membershipCan(membership, PERMISSIONS.TASK_WORK_ANY);
 
   return {
     projectRole: owns ? 'OWNER' : (projectMember?.role ?? null),
-    canContribute: escalated || owns || Boolean(projectMember),
+    canContribute: escalated || owns || worksAnyTask || Boolean(projectMember),
     canWrite: escalated || owns || projectMember?.role === 'MANAGER',
   };
 };
@@ -68,8 +69,8 @@ const projectAccessFlags = ({ project, membership, projectMember, userId }) => {
  *   membership     the caller's Membership in the project's workspace
  *   projectMember  their ProjectMember row, or null
  *   projectRole    OWNER / MANAGER / COLLABORATOR / null — for the DTO
- *   canContribute  may write task rows and chat messages: escalated, owner, or
- *                  anyone with a ProjectMember row
+ *   canContribute  may write task rows and chat messages: escalated, owner,
+ *                  TASK_WORK_ANY, or anyone with a ProjectMember row
  *   canWrite       may manage the project itself: escalated, owner, or MANAGER
  *
  * The two flags are computed here rather than by each caller so the two
@@ -81,15 +82,27 @@ const projectAccessFlags = ({ project, membership, projectMember, userId }) => {
  * in ONE query (with `relationJoins` on, see schema.prisma). It used to be two
  * sequential round trips, because the workspace membership was looked up by
  * the project's `workspaceId` after the project came back; reaching it through
- * `project.workspace.memberships` needs no second trip. The membership is the
- * bare row, exactly what the old `findUnique` returned.
+ * `project.workspace.memberships` needs no second trip.
+ *
+ * The membership carries its CUSTOM ROLE, the same select `loadMembership`
+ * uses. Without it `membershipCan` silently falls back to the tier's default
+ * grant, so a custom role's switches were ignored on every project, task and
+ * sprint route.
  *
  * Shared by `resolveProjectAccess` (below), `loadSprint` and `loadTask`.
  */
 const projectWithAccess = (userId) => ({
   include: {
     members: { where: { userId } },
-    workspace: { select: { memberships: { where: { userId }, take: 1 } } },
+    workspace: {
+      select: {
+        memberships: {
+          where: { userId },
+          take: 1,
+          include: { customRole: { select: { id: true, name: true, permissions: true, baseRole: true } } },
+        },
+      },
+    },
   },
 });
 

@@ -1,7 +1,7 @@
 /*
- * The name a route goes by in the chrome — read by both the content strip's
- * page label and the breadcrumb, so those two can never disagree about what
- * the current page is called.
+ * The name a route goes by in the chrome — read by the in-column
+ * breadcrumb (`breadcrumb.tsx`). The content strip builds its own trail from
+ * the URL in `page-trail.ts`.
  *
  * Known routes take the name the nav uses. A dynamic segment has no entry and
  * is humanised from the slug instead: "atlas-robotics" reads as "Atlas

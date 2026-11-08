@@ -27,6 +27,7 @@ type ApiWorkspace = {
   color: string | null;
   isArchived: boolean;
   role: Workspace["role"];
+  permissions?: readonly string[];
   createdAt: string;
   updatedAt: string;
 };

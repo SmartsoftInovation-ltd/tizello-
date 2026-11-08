@@ -6,7 +6,7 @@ import type { RoleDefinition, RoleInput } from "@/types/permissions";
 
 /*
  * Every workspace-role write. Thin by rule: call a plain function from
- * `lib/roles.ts`, revalidate, return a code the dialog renders.
+ * `lib/roles.ts`, revalidate, return a code the role editor renders.
  *
  * **The rules are not re-implemented here.** That a built-in cannot be edited,
  * that a role cannot grant more than its author holds, that a role in use

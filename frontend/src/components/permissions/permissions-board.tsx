@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MemberRoleList } from "@/components/permissions/member-role-list";
 import { PermissionMatrix } from "@/components/permissions/permission-matrix";
 import { RoleCards } from "@/components/permissions/role-cards";
-import { RoleDialog } from "@/components/permissions/role-dialog";
 import { useRoles } from "@/components/permissions/use-roles";
-import type { PermissionGroup, RoleDefinition, RoleInput } from "@/types/permissions";
+import { editRoleHref, newRoleHref } from "@/lib/role-paths";
+import type { PermissionGroup, RoleDefinition } from "@/types/permissions";
 import type { WorkspaceMember, WorkspaceRole } from "@/types/workspace";
 
 /*
@@ -15,16 +15,10 @@ import type { WorkspaceMember, WorkspaceRole } from "@/types/workspace";
  * have to be kept in sync. The page above stays a Server Component and hands
  * the fetched lists down as plain props.
  *
- * `editing` is `undefined` when the dialog is shut, `null` when it is open to
- * create, and a role when it is open to edit — one piece of state rather than
- * an open flag that can disagree with a target.
- *
- * THE DIALOG CLOSES ON SUCCESS, NOT ON SUBMIT. A write can be refused by the
- * server — a duplicate name, or a permission the author does not hold — and
- * closing optimistically would drop the draft while a toast explained a form
- * the reader can no longer see. `useRoles` takes an `onSuccess` callback for
- * exactly this, so the close is a consequence of the write landing rather than
- * an effect watching two flags fall.
+ * CREATING AND EDITING A ROLE ARE PAGES, not a dialog here
+ * (`settings/permissions/roles/new` and `.../roles/[roleId]`, `RoleForm`). The
+ * editor outgrew a modal once every permission carried an explanation; the
+ * cards below only navigate to it.
  */
 export function PermissionsBoard({
   groups,
@@ -45,35 +39,17 @@ export function PermissionsBoard({
   canManageRoles: boolean;
   workspaceId: string;
 }) {
-  const {
-    roles,
-    assignments,
-    memberCounts,
-    error,
-    clearError,
-    isPending,
-    createRole,
-    updateRole,
-    deleteRole,
-    assignRole,
-  } = useRoles(serverRoles, members, workspaceId);
-
-  const [editing, setEditing] = useState<RoleDefinition | null | undefined>();
+  const router = useRouter();
+  const { roles, assignments, memberCounts, deleteRole, assignRole } = useRoles(
+    serverRoles,
+    members,
+    workspaceId,
+  );
 
   const actionCount = groups.reduce(
     (total, group) => total + group.actions.length,
     0,
   );
-
-  function closeDialog() {
-    clearError();
-    setEditing(undefined);
-  }
-
-  function submitRole(input: RoleInput) {
-    if (editing) updateRole(editing.id, input, closeDialog);
-    else createRole(input, closeDialog);
-  }
 
   return (
     <>
@@ -83,8 +59,8 @@ export function PermissionsBoard({
         memberCounts={memberCounts}
         actionCount={actionCount}
         canManage={canManageRoles}
-        onCreate={() => setEditing(null)}
-        onEdit={(role) => setEditing(role)}
+        onCreate={() => router.push(newRoleHref(workspaceId))}
+        onEdit={(role: RoleDefinition) => router.push(editRoleHref(workspaceId, role.id))}
         onDelete={deleteRole}
       />
 
@@ -99,19 +75,6 @@ export function PermissionsBoard({
         onAssign={assignRole}
       />
 
-      {/* Mounted only while open, so the draft inside starts from `editing`
-          without an effect copying props into state. */}
-      {editing !== undefined && (
-        <RoleDialog
-          open
-          onOpenChange={closeDialog}
-          role={editing}
-          groups={groups}
-          error={error}
-          pending={isPending}
-          onSubmit={submitRole}
-        />
-      )}
     </>
   );
 }

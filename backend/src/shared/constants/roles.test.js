@@ -58,14 +58,15 @@ describe('ROLE_PERMISSIONS — the grant table', () => {
     }
   });
 
-  it('gives MEMBER read access plus PROJECT_CREATE, and nothing that writes the workspace', () => {
-    // PROJECT_CREATE for a plain MEMBER is the documented deliberate default.
-    // It is pinned here so that reversing it is a conscious edit to two files
-    // rather than an accident in one.
+  it('gives MEMBER read access plus PROJECT_CREATE and TASK_WORK_ANY, and nothing that writes the workspace', () => {
+    // PROJECT_CREATE and TASK_WORK_ANY for a plain MEMBER are documented
+    // deliberate defaults. They are pinned here so that reversing either is a
+    // conscious edit to two files rather than an accident in one.
     assert.deepEqual([...ROLE_PERMISSIONS[ROLES.MEMBER]].sort(), [
       PERMISSIONS.MEMBER_VIEW,
       PERMISSIONS.PROJECT_CREATE,
       PERMISSIONS.PROJECT_VIEW,
+      PERMISSIONS.TASK_WORK_ANY,
       PERMISSIONS.WORKSPACE_VIEW,
     ].sort());
   });

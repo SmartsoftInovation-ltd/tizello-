@@ -14,7 +14,7 @@
 import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
-import { ROLES } from '../../shared/constants/roles.js';
+import { ROLES, permissionsFor } from '../../shared/constants/roles.js';
 import repository from './workspace.repository.js';
 import dto from './workspace.dto.js';
 
@@ -39,7 +39,7 @@ const createWorkspace = async ({ name, description, icon, color }, user) => {
     ownerId: user.id,
   });
 
-  return dto.toWorkspace(workspace, ROLES.OWNER);
+  return dto.toWorkspace(workspace, ROLES.OWNER, permissionsFor({ role: ROLES.OWNER }));
 };
 
 /** `GET /workspaces`. Scoped to the caller's own memberships by the join in the repository. */
@@ -50,7 +50,10 @@ const listMyWorkspaces = async (userId, { page, limit, includeArchived }) => {
     includeArchived,
   });
 
-  const workspaces = rows.map((row) => dto.toWorkspace(row, row.memberships[0]?.role ?? null));
+  const workspaces = rows.map((row) => {
+    const membership = row.memberships[0] ?? null;
+    return dto.toWorkspace(row, membership?.role ?? null, permissionsFor(membership));
+  });
 
   return { workspaces, page, limit, total };
 };
@@ -61,7 +64,7 @@ const getWorkspace = async (workspaceId, membership) => {
 
   if (!workspace) throw notFound();
 
-  return dto.toWorkspace(workspace, membership.role);
+  return dto.toWorkspace(workspace, membership.role, permissionsFor(membership));
 };
 
 /** `PATCH /workspaces/:id`. Validator already rejected an empty `patch`. */
@@ -71,7 +74,7 @@ const updateWorkspace = async (workspaceId, patch, membership) => {
 
   const updated = await repository.updateWorkspace(workspaceId, patch);
 
-  return dto.toWorkspace(updated, membership.role);
+  return dto.toWorkspace(updated, membership.role, permissionsFor(membership));
 };
 
 /** `PATCH /workspaces/:id/archive`. */
@@ -81,7 +84,7 @@ const setArchived = async (workspaceId, isArchived, membership) => {
 
   const updated = await repository.setArchived(workspaceId, isArchived);
 
-  return dto.toWorkspace(updated, membership.role);
+  return dto.toWorkspace(updated, membership.role, permissionsFor(membership));
 };
 
 /** `DELETE /workspaces/:id`. No return value — the controller sends `data: null`. */

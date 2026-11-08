@@ -17,7 +17,7 @@ import type { RoleDefinition } from "@/types/permissions";
  * button on those, which made sense while the grid was `useState` over a
  * fixture. Against the real API each tap would be its own `PATCH` of the whole
  * permissions array — twelve requests to describe one role, each able to fail
- * on its own and leave the grid half-written. The dialog sends the set once,
+ * on its own and leave the grid half-written. The role editor sends the set once,
  * and this table is what the answer looks like afterwards. It ships no
  * JavaScript now, which is the other half of the gain.
  */

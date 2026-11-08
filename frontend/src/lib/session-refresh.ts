@@ -23,7 +23,7 @@ import { ACCESS_COOKIE, REFRESH_COOKIE } from "@/lib/session-cookie";
  * `apiCallWithRefresh` is left as the fallback it was meant to be.
  */
 
-export const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:5000/api/v1";
+export const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:5001/api/v1";
 
 /** Renew this long before expiry, so a render that starts just before it cannot straddle it. */
 const EXPIRY_MARGIN_MS = 60_000;

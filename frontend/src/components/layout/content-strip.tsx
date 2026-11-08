@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { PageLabel } from "@/components/layout/page-label";
+import { StripBreadcrumb } from "@/components/layout/strip-breadcrumb";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { MobileSidebarTrigger } from "@/components/layout/sidebar-buttons";
 
 /**
- * The slim strip above the page. The page label on the left, behind the one
+ * The slim strip above the page. The breadcrumb trail on the left, behind the one
  * control that puts the sidebar back: the hamburger, below `md`.
  *
  * There is no expand button here any more. It existed because collapsing HID
@@ -24,11 +24,11 @@ import { MobileSidebarTrigger } from "@/components/layout/sidebar-buttons";
 export function ContentStrip() {
   return (
     /* `px-4 sm:px-6` mirrors every `<main>` under this shell, so the strip's
-       page label and the page's own heading sit on one vertical line rather
+       breadcrumb and the page's own heading sit on one vertical line rather
        than 4px apart. */
     <div className="flex h-topbar shrink-0 items-center gap-2 border-b border-border px-4 sm:px-6">
       <MobileSidebarTrigger />
-      <PageLabel />
+      <StripBreadcrumb />
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
         <ThemeToggle />

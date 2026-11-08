@@ -52,7 +52,7 @@ export type RoleDefinition = {
   memberCount?: number;
 };
 
-/** What the create and edit dialogs send. */
+/** What the role editor sends on create and edit. */
 export type RoleInput = {
   name: string;
   baseRole: RoleTier;

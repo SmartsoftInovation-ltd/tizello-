@@ -13,10 +13,15 @@
  * in this workspace, stamped on per response so a client knows what it may
  * do without a second call.
  *
+ * `permissions` rides beside it for the same reason: it is the membership's
+ * EFFECTIVE grant (`permissionsFor` — custom role, else the tier's default),
+ * so the frontend draws controls from what the API will actually allow rather
+ * than re-deriving it from the tier and ignoring every custom role.
+ *
  * See docs/api/workspace.md
  */
 
-const toWorkspace = (row, role) => ({
+const toWorkspace = (row, role, permissions = []) => ({
   id: row.id,
   name: row.name,
   slug: row.slug,
@@ -25,6 +30,7 @@ const toWorkspace = (row, role) => ({
   color: row.color,
   isArchived: row.isArchived,
   role,
+  permissions,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });

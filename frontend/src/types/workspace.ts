@@ -62,6 +62,12 @@ export type Workspace = {
   isArchived: boolean;
   /** The CURRENT user's role in this workspace, not the workspace's own. */
   role: WorkspaceRole;
+  /**
+   * The CURRENT user's effective permission ids (`tasks.work`, …) — their
+   * custom role's grant, else the tier's default. Optional because a fixture
+   * workspace has none; `hasWorkspacePermission` falls back to the tier then.
+   */
+  permissions?: readonly string[];
   createdAt: string;
   updatedAt: string;
 
