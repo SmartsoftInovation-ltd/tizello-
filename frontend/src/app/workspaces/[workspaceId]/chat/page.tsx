@@ -47,6 +47,7 @@ export default async function WorkspaceChatPage({
     <ChatScreen
       workspaceId={workspaceId}
       workspaceName={workspace.name}
+      workspaceLook={{ icon: workspace.icon, imageUrl: workspace.imageUrl, color: workspace.color }}
       viewer={{
         id: user.id,
         name: profile?.name ?? user.name,

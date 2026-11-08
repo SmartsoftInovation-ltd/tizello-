@@ -1,6 +1,7 @@
 "use client";
 
 import { ChatAvatar } from "@/components/chat/chat-avatar";
+import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar";
 import { ChatHeaderActions } from "@/components/chat/chat-header-actions";
 import type { ChatPresence } from "@/types/chat";
 
@@ -15,13 +16,18 @@ import type { ChatPresence } from "@/types/chat";
 /** Beyond this the faces stop being recognisable and start being a wall. */
 const FACES = 5;
 
+/** How the workspace draws itself — its uploaded image, emoji icon or colour. */
+export type ChatWorkspaceLook = { icon: string | null; imageUrl?: string | null; color: string | null };
+
 export function ChatHeader({
   workspaceName,
+  workspaceLook,
   presence,
   viewerId,
   status,
 }: {
   workspaceName: string;
+  workspaceLook?: ChatWorkspaceLook;
   presence: ChatPresence[];
   viewerId: string | null;
   /** The line under the name: who is typing, or who is here. */
@@ -32,15 +38,16 @@ export function ChatHeader({
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2.5">
       <div className="flex min-w-0 items-center gap-3">
-        {/* The workspace\u2019s own disc, the way a chat names the room it is.
-            `brand-100` rather than a hashed hue: this one is not a person to
-            tell apart from other people, it is the place. */}
-        <span
-          aria-hidden="true"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-800"
-        >
-          {workspaceName.charAt(0).toUpperCase()}
-        </span>
+        {/* The workspace's own avatar — its uploaded image, else its emoji
+            icon, else initials — the same `WorkspaceAvatar` the sidebar and
+            cards draw, so the room looks like the workspace it belongs to. */}
+        <WorkspaceAvatar
+          name={workspaceName}
+          icon={workspaceLook?.icon}
+          imageUrl={workspaceLook?.imageUrl}
+          color={workspaceLook?.color}
+          label={workspaceName}
+        />
 
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 truncate text-sm font-semibold text-text">

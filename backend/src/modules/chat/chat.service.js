@@ -117,6 +117,26 @@ const getUnreadCount = async (userId, workspaceId) => {
  */
 const getUnreadSummary = (userId) => repository.findUnreadSummary(userId);
 
+/**
+ * The messages icon's list: unread grouped by sender (`findUnreadBySender`),
+ * shaped for the client. The preview is trimmed here — the icon never needs
+ * a whole message, and a long one would ship every time the shell refreshes.
+ */
+const getUnreadBySender = async (userId) => {
+  const rows = await repository.findUnreadBySender(userId);
+  return rows.map((row) => ({
+    workspaceId: row.workspaceId,
+    workspaceName: row.workspaceName,
+    workspaceIcon: row.workspaceIcon,
+    sender: row.senderId
+      ? { id: row.senderId, name: row.senderName, email: row.senderEmail, avatarUrl: row.senderAvatarUrl }
+      : null,
+    count: row.count,
+    lastAt: row.lastAt,
+    preview: (row.lastContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 140),
+  }));
+};
+
 /** Who a new message in this workspace should nudge: every member but the sender. */
 const recipientsOf = (workspaceId, senderId) => repository.findMemberIds(workspaceId, senderId);
 
@@ -245,6 +265,7 @@ export default {
   listMessages,
   getUnreadCount,
   getUnreadSummary,
+  getUnreadBySender,
   recipientsOf,
   markRead,
   sendMessage,

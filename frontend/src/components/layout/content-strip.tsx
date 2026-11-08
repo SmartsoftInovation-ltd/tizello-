@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { MessagesButton } from "@/components/chat/messages-button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { StripBreadcrumb } from "@/components/layout/strip-breadcrumb";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -35,6 +36,9 @@ export function ContentStrip() {
         {/* Its own boundary, not the account menu's: the bell makes a request
             of its own, and sharing one `Suspense` would hold the avatar behind
             the notification fetch on every page in the shell. */}
+        <Suspense fallback={<div className="size-8 animate-pulse rounded-sm bg-surface-sunken" />}>
+          <MessagesButton />
+        </Suspense>
         <Suspense fallback={<div className="size-8 animate-pulse rounded-sm bg-surface-sunken" />}>
           <NotificationBell />
         </Suspense>

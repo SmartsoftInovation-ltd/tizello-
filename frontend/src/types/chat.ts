@@ -70,6 +70,19 @@ export type ChatPage = {
 /** Who is currently connected to a channel, deduplicated by person. */
 export type ChatPresence = ChatSender;
 
+/** One person's unread messages in one workspace — the messages icon's rows. */
+export type ChatUnreadSender = {
+  workspaceId: string;
+  workspaceName: string;
+  workspaceIcon: string | null;
+  /** Null for a message whose author's account is gone. */
+  sender: { id: string; name: string | null; email: string; avatarUrl: string | null } | null;
+  count: number;
+  lastAt: string;
+  /** The newest message's text, trimmed to 140 characters by the API. */
+  preview: string;
+};
+
 /** A workspace with unread chat, for the bell — `GET /chat/unread`. */
 export type ChatUnread = {
   workspaceId: string;

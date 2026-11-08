@@ -151,6 +151,36 @@ const findUnreadSummary = async (userId) => {
   return rows;
 };
 
+/**
+ * Unread chat grouped by WHO wrote it, newest first: one row per sender per
+ * workspace with how many messages, the latest one's text, and when. The
+ * messages icon lists these, so "two people messaged you" reads as two rows.
+ *
+ * Same unread rule as `findUnreadSummary` — after the reader's watermark, not
+ * their own, not deleted. `array_agg … [1]` picks the newest content per group
+ * in the same pass rather than a second query per row. Capped at 20 senders.
+ */
+const findUnreadBySender = (userId) =>
+  prisma.$queryRaw`
+    SELECT m."workspaceId", w.name AS "workspaceName", w.icon AS "workspaceIcon",
+      m."senderId", u.name AS "senderName", u.email AS "senderEmail", u."avatarUrl" AS "senderAvatarUrl",
+      COUNT(m.id)::int AS count,
+      MAX(m."createdAt") AS "lastAt",
+      (array_agg(m.content ORDER BY m."createdAt" DESC))[1] AS "lastContent"
+    FROM memberships ms
+    JOIN workspaces w ON w.id = ms."workspaceId" AND w."deletedAt" IS NULL
+    LEFT JOIN message_reads r ON r."workspaceId" = w.id AND r."userId" = ${userId}
+    JOIN messages m ON m."workspaceId" = w.id
+      AND m."deletedAt" IS NULL
+      AND (m."senderId" IS NULL OR m."senderId" <> ${userId})
+      AND (r."lastReadAt" IS NULL OR m."createdAt" > r."lastReadAt")
+    LEFT JOIN users u ON u.id = m."senderId"
+    WHERE ms."userId" = ${userId}
+    GROUP BY m."workspaceId", w.name, w.icon, m."senderId", u.name, u.email, u."avatarUrl"
+    ORDER BY "lastAt" DESC
+    LIMIT 20
+  `;
+
 /** Everyone in the workspace but `exceptUserId` — who a new message is news to. */
 const findMemberIds = async (workspaceId, exceptUserId) => {
   const rows = await prisma.membership.findMany({
@@ -185,6 +215,7 @@ export default {
   countUnread,
   findUserSummary,
   findUnreadSummary,
+  findUnreadBySender,
   findMemberIds,
   findReadState,
   upsertRead,

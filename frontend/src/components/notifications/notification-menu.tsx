@@ -16,7 +16,6 @@ import {
 import { BellIcon } from "@/components/ui/nav-icons";
 import { cn } from "@/lib/cn";
 import { plural } from "@/lib/plural";
-import type { ChatUnread } from "@/types/chat";
 import type { AppNotification } from "@/types/notification";
 
 /*
@@ -44,20 +43,15 @@ const BADGE =
 export function NotificationMenu({
   notifications,
   unreadCount,
-  chatUnread,
 }: {
   notifications: AppNotification[];
   unreadCount: number;
-  /** Workspaces with unread chat. Each is a row that opens that chat. */
-  chatUnread: ChatUnread[];
 }) {
   const [isPending, startTransition] = useTransition();
 
-  /* The badge counts both: an unread message is as much "something new" as a
-     task assignment. "Mark all read" still means notifications only — chat is
-     read by opening it, which moves the channel's watermark. */
-  const chatCount = chatUnread.reduce((sum, row) => sum + row.count, 0);
-  const badgeCount = unreadCount + chatCount;
+  /* Notifications only. Chat has its own icon beside this one
+     (`chat/messages-menu.tsx`), so a message is never counted twice. */
+  const badgeCount = unreadCount;
 
   /* Realtime. The socket only calls `router.refresh()`, so everything below
      keeps reading the same server-rendered props it did before — see
@@ -121,33 +115,10 @@ export function NotificationMenu({
           )}
         </div>
 
-        {chatUnread.length > 0 && (
-          <div className="border-b border-border p-1">
-            {chatUnread.map((row) => (
-              <DropdownMenuItem
-                key={row.workspaceId}
-                href={`/workspaces/${encodeURIComponent(row.workspaceId)}/chat`}
-                icon={
-                  <span aria-hidden="true" className="w-4 text-center">
-                    {row.icon ?? "💬"}
-                  </span>
-                }
-              >
-                <span className="font-medium text-text">
-                  {plural(row.count, "new message", "new messages")}
-                </span>{" "}
-                in {row.name}
-              </DropdownMenuItem>
-            ))}
-          </div>
-        )}
-
         {notifications.length === 0 ? (
-          chatUnread.length === 0 && (
-            <p className="px-3 py-8 text-center text-xs text-text-subtle">
-              Nothing yet. You will hear about tasks assigned to you.
-            </p>
-          )
+          <p className="px-3 py-8 text-center text-xs text-text-subtle">
+            Nothing yet. You will hear about tasks assigned to you.
+          </p>
         ) : (
           <ul className={cn("max-h-96 overflow-y-auto", isPending && "opacity-60")}>
             {notifications.map((notification) => (

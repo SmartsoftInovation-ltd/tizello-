@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { ChatComposer } from "@/components/chat/chat-composer";
-import { ChatHeader } from "@/components/chat/chat-header";
+import { ChatHeader, type ChatWorkspaceLook } from "@/components/chat/chat-header";
 import { ChatNotice } from "@/components/chat/chat-notice";
 import { ChatThread } from "@/components/chat/chat-thread";
 import { useChatSocket } from "@/components/chat/use-chat-socket";
@@ -33,10 +33,12 @@ import type { ChatSender } from "@/types/chat";
 export function ChatScreen({
   workspaceId,
   workspaceName,
+  workspaceLook,
   viewer,
 }: {
   workspaceId: string;
   workspaceName: string;
+  workspaceLook?: ChatWorkspaceLook;
   viewer: ChatSender | null;
 }) {
   const chat = useChatSocket(workspaceId, viewer);
@@ -63,6 +65,7 @@ export function ChatScreen({
     <section className="flex h-full min-h-0 flex-col">
       <ChatHeader
         workspaceName={workspaceName}
+        workspaceLook={workspaceLook}
         presence={chat.presence}
         viewerId={viewer?.id ?? null}
         status={status}

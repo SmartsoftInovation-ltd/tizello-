@@ -33,9 +33,14 @@ const unreadCount = async (req, res) => {
 };
 
 const unreadSummary = async (req, res) => {
-  const workspaces = await service.getUnreadSummary(req.user.id);
+  /* `senders` rides along: the messages icon lists who wrote, the counts
+     per workspace stay for every existing caller. */
+  const [workspaces, senders] = await Promise.all([
+    service.getUnreadSummary(req.user.id),
+    service.getUnreadBySender(req.user.id),
+  ]);
 
-  return ApiResponse.success(res, httpStatus.OK, 'Unread summary fetched', { workspaces });
+  return ApiResponse.success(res, httpStatus.OK, 'Unread summary fetched', { workspaces, senders });
 };
 
 const markRead = async (req, res) => {
