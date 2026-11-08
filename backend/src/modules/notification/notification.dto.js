@@ -28,6 +28,11 @@ const toNotification = (row) => ({
   actor: row.actor
     ? { id: row.actor.id, name: row.actor.name, email: row.actor.email }
     : null,
+  /* Who it is ABOUT — the assignee whose email failed. Null for every other
+     type, and once that account is gone (the resend is then impossible). */
+  subject: row.subject
+    ? { id: row.subject.id, name: row.subject.name, email: row.subject.email }
+    : null,
   createdAt: row.createdAt,
 });
 

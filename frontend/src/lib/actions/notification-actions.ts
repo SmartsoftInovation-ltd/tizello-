@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   markAllNotificationsRead,
   markNotificationRead,
+  resendAssignmentEmail,
 } from "@/lib/notifications";
 
 /*
@@ -32,6 +33,16 @@ export async function markNotificationReadAction(
 
 export async function markAllNotificationsReadAction(): Promise<NotificationActionResult> {
   const result = await markAllNotificationsRead();
+  if (!result.ok) return result;
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function resendAssignmentEmailAction(
+  notificationId: string,
+): Promise<NotificationActionResult> {
+  const result = await resendAssignmentEmail(notificationId);
   if (!result.ok) return result;
 
   revalidatePath("/", "layout");

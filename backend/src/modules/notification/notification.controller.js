@@ -51,4 +51,11 @@ const markAllRead = async (req, res) => {
   return ApiResponse.success(res, httpStatus.OK, 'Notifications read', { count });
 };
 
-export default { list, unreadCount, markRead, markAllRead };
+/** Queues the failed assignment email again — see `resendAssignmentEmail`. */
+const resendEmail = async (req, res) => {
+  await service.resendAssignmentEmail(req.user, req.params.notificationId);
+
+  return ApiResponse.success(res, httpStatus.ACCEPTED, 'Email queued', null);
+};
+
+export default { list, unreadCount, markRead, markAllRead, resendEmail };

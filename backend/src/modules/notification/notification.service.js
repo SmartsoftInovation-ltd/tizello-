@@ -18,7 +18,12 @@
 
 import repository from './notification.repository.js';
 import dto from './notification.dto.js';
-import { enqueueAssignmentEmail } from '../../queues/email.queue.js';
+import { ASSIGNMENT_EMAIL_ATTEMPTS, enqueueAssignmentEmail } from '../../queues/email.queue.js';
+import prisma from '../../config/db.js';
+import AppError from '../../shared/utils/AppError.js';
+import httpStatus from '../../shared/constants/httpStatus.js';
+import { AUTH_CODES } from '../../shared/constants/authCodes.js';
+import { resolveProjectAccess } from '../../shared/services/project-access.js';
 import { createLogger } from '../../config/logger.js';
 import { emitToUser } from '../../realtime/emit.js';
 
@@ -124,6 +129,7 @@ const notifyTaskAssigned = async ({ task, recipientIds, actor, projectName, spri
       enqueueAssignmentEmail({
         userId,
         taskId: task.id,
+        actorId: actor?.id ?? null,
         actorName,
         sprintName: sprintName ?? null,
         projectName: projectName ?? null,
@@ -139,4 +145,95 @@ const notifyTaskAssigned = async ({ task, recipientIds, actor, projectName, spri
   }
 };
 
-export default { list, unreadCount, markRead, markAllRead, notifyTaskAssigned };
+/**
+ * An assignment email failed all its retries (`email.worker.js`, on the final
+ * `failed` event). Tell the person who assigned it and the workspace's owners
+ * and admins — never the assignee, who is the one not receiving mail — with
+ * the assignee as the notification's SUBJECT so the row can offer a resend.
+ *
+ * Runs in the worker process, where `emitToUser` is a no-op; the bell picks
+ * the row up on its next fetch. Never throws: it is called from an event
+ * handler, where a rejection would be unhandled.
+ */
+const notifyAssignmentEmailFailed = async ({ userId, taskId, actorId }) => {
+  try {
+    const context = await repository.findAssignmentFailureContext({ taskId, userId });
+    if (!context) return;
+
+    const { task, user, adminIds } = context;
+    const recipients = [...new Set([actorId, ...adminIds])].filter((id) => id && id !== userId);
+    if (recipients.length === 0) return;
+
+    const key = `${task.project.key}-${task.number}`;
+    const who = user.name?.trim() || user.email;
+
+    await repository.createMany(
+      recipients.map((recipientId) => ({
+        userId: recipientId,
+        type: 'ASSIGNMENT_EMAIL_FAILED',
+        title: `Couldn't email ${who} about ${key}`,
+        body: `${user.email} — failed after ${ASSIGNMENT_EMAIL_ATTEMPTS} tries. Resend it from here.`,
+        actorId: actorId ?? null,
+        subjectUserId: user.id,
+        taskId: task.id,
+        projectName: task.project.name,
+        sprintName: task.sprint?.name ?? null,
+      }))
+    );
+
+    for (const recipientId of recipients) emitToUser(recipientId, 'notification:new', { unreadDelta: 1 });
+  } catch (error) {
+    log.error({ err: error, userId, taskId }, 'Failed to record assignment email failure');
+  }
+};
+
+/**
+ * `POST /notifications/:notificationId/resend-email` — queue the assignment
+ * email again for the one person a failure notification is about.
+ *
+ * Three checks, each a reason the resend would be wrong rather than merely
+ * useless: the notification is the reader's own and of the failure type; the
+ * reader may still work that task's project (they may have lost the role that
+ * got them the notification); and the subject is still assigned — re-emailing
+ * someone who was taken off the task would announce work they no longer have.
+ */
+const resendAssignmentEmail = async (reader, notificationId) => {
+  const notification = await repository.findOwnedWithTask(reader.id, notificationId);
+  if (!notification || notification.type !== 'ASSIGNMENT_EMAIL_FAILED' || !notification.taskId || !notification.subjectUserId) {
+    throw new AppError(httpStatus.NOT_FOUND, 'Notification not found', AUTH_CODES.NOT_FOUND);
+  }
+
+  const task = await prisma.task.findUnique({ where: { id: notification.taskId }, select: { id: true, projectId: true } });
+  const access = task ? await resolveProjectAccess(reader.id, task.projectId) : null;
+  if (!access?.canContribute) {
+    throw new AppError(httpStatus.FORBIDDEN, 'You do not have permission to perform this action', AUTH_CODES.FORBIDDEN);
+  }
+
+  if (!(await repository.isAssignee(task.id, notification.subjectUserId))) {
+    throw new AppError(httpStatus.CONFLICT, 'That person is no longer assigned to this task', AUTH_CODES.CONFLICT);
+  }
+
+  /* The access token carries no name, so the email's "assigned by" is read. */
+  const sender = await prisma.user.findUnique({ where: { id: reader.id }, select: { name: true, email: true } });
+
+  await enqueueAssignmentEmail({
+    userId: notification.subjectUserId,
+    taskId: task.id,
+    actorId: reader.id,
+    actorName: sender?.name?.trim() || sender?.email || 'Someone',
+    sprintName: notification.sprintName,
+    projectName: notification.projectName,
+  });
+
+  await repository.markRead(reader.id, notificationId);
+};
+
+export default {
+  list,
+  unreadCount,
+  markRead,
+  markAllRead,
+  notifyTaskAssigned,
+  notifyAssignmentEmailFailed,
+  resendAssignmentEmail,
+};

@@ -52,3 +52,17 @@ export async function markAllNotificationsRead(): Promise<NotificationResult<num
 
   return result.ok ? { ok: true, data: result.data.count } : { ok: false, code: result.code };
 }
+
+/**
+ * `POST /notifications/:id/resend-email` — queue a failed assignment email
+ * again for the one person the notification is about. `CONFLICT` when they
+ * are no longer on the task.
+ */
+export async function resendAssignmentEmail(notificationId: string): Promise<NotificationResult> {
+  const result = await apiCallWithRefresh<null>(
+    `/notifications/${encodeURIComponent(notificationId)}/resend-email`,
+    { method: "POST" },
+  );
+
+  return result.ok ? { ok: true, data: undefined } : { ok: false, code: result.code };
+}

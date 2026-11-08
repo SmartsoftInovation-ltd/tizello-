@@ -15,6 +15,7 @@
 import prisma from '../../config/db.js';
 
 const ACTOR = { select: { id: true, name: true, email: true } };
+const WITH_PEOPLE = { actor: ACTOR, subject: ACTOR };
 
 const findForUser = (userId, { limit, before, unreadOnly }) =>
   prisma.notification.findMany({
@@ -23,7 +24,7 @@ const findForUser = (userId, { limit, before, unreadOnly }) =>
       ...(unreadOnly ? { readAt: null } : {}),
       ...(before ? { createdAt: { lt: new Date(before) } } : {}),
     },
-    include: { actor: ACTOR },
+    include: WITH_PEOPLE,
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
@@ -56,14 +57,66 @@ const markAllRead = (userId) =>
 const findById = (userId, notificationId) =>
   prisma.notification.findFirst({
     where: { id: notificationId, userId },
-    include: { actor: ACTOR },
+    include: WITH_PEOPLE,
   });
 
 /* One insert for the whole fan-out. Assigning three people is one statement,
    not three round trips inside a loop. */
 const createMany = (rows) => prisma.notification.createMany({ data: rows });
 
+/**
+ * Everything the "email failed" notification says, in one read: the task with
+ * its key parts, project, sprint and workspace; the assignee whose email
+ * failed; and who in that workspace should hear about it (OWNER and ADMIN
+ * tiers — the people who run it).
+ */
+const findAssignmentFailureContext = async ({ taskId, userId }) => {
+  const [task, user] = await Promise.all([
+    prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        deletedAt: true,
+        project: { select: { key: true, name: true, workspaceId: true } },
+        sprint: { select: { name: true } },
+      },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } }),
+  ]);
+
+  if (!task || task.deletedAt || !user) return null;
+
+  const admins = await prisma.membership.findMany({
+    where: { workspaceId: task.project.workspaceId, role: { in: ['OWNER', 'ADMIN'] } },
+    select: { userId: true },
+  });
+
+  return { task, user, adminIds: admins.map((row) => row.userId) };
+};
+
+/** The reader's own notification, with what a resend needs. Null for anyone else's. */
+const findOwnedWithTask = (userId, notificationId) =>
+  prisma.notification.findFirst({
+    where: { id: notificationId, userId },
+    select: {
+      id: true,
+      type: true,
+      taskId: true,
+      subjectUserId: true,
+      projectName: true,
+      sprintName: true,
+    },
+  });
+
+const isAssignee = (taskId, userId) =>
+  prisma.taskAssignee.findUnique({ where: { taskId_userId: { taskId, userId } } });
+
 export default {
+  findAssignmentFailureContext,
+  findOwnedWithTask,
+  isAssignee,
   findForUser,
   countUnread,
   markRead,

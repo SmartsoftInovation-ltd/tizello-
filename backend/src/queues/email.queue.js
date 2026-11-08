@@ -62,14 +62,22 @@ const enqueuePasswordResetEmail = ({ userId, token }) =>
 // of what someone was told); the two differ because an email is read once and
 // a notification list is read for weeks.
 //
-// `attempts: 3`, not the queue's default 5. Nobody is blocked on this: a
-// missed assignment email is a courtesy lost, while five exponential retries
-// per recipient on a bulk assignment of forty tasks is a real load spike.
-const enqueueAssignmentEmail = ({ userId, taskId, actorName, sprintName, projectName }) =>
+// ONE JOB PER RECIPIENT, so the worker sends user by user and one bad
+// address never holds up the others on the same task.
+//
+// `attempts: 4` with exponential backoff, then the job is REMOVED
+// (`removeOnFail: true`) rather than parked in the failed set: the failure is
+// not lost, it becomes an `ASSIGNMENT_EMAIL_FAILED` notification to the
+// assigner and the workspace's owners/admins (see `email.worker.js`), who can
+// resend it to that one person. `actorId` rides along so the worker knows who
+// assigned it — the name alone cannot be notified.
+const ASSIGNMENT_EMAIL_ATTEMPTS = 4;
+
+const enqueueAssignmentEmail = ({ userId, taskId, actorId = null, actorName, sprintName, projectName }) =>
   emailQueue.add(
     'send-assignment',
-    { userId, taskId, actorName, sprintName, projectName },
-    { attempts: 3 }
+    { userId, taskId, actorId, actorName, sprintName, projectName },
+    { attempts: ASSIGNMENT_EMAIL_ATTEMPTS, backoff: { type: 'exponential', delay: 5000 }, removeOnFail: true }
   );
 
 export {
@@ -81,5 +89,6 @@ export {
   enqueueLoginCodeEmail,
   enqueuePasswordResetEmail,
   enqueueAssignmentEmail,
+  ASSIGNMENT_EMAIL_ATTEMPTS,
 };
 export default emailQueue;

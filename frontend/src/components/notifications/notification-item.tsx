@@ -1,5 +1,6 @@
 "use client";
 
+import { ResendEmailButton } from "@/components/notifications/resend-email-button";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/format-date";
 import type { AppNotification } from "@/types/notification";
@@ -18,9 +19,12 @@ import type { AppNotification } from "@/types/notification";
  * mismatch warning — and it goes stale on a tab nobody reloads.
  *
  * The unread mark is a dot AND a weight change, never colour alone.
+ *
+ * An `ASSIGNMENT_EMAIL_FAILED` row marks itself with a red dot and carries a
+ * "Resend email" button BESIDE the row button rather than inside it.
  */
 const ROW =
-  "flex w-full items-start gap-2.5 border-b border-border px-3 py-2.5 text-left transition-colors duration-100 ease-standard last:border-b-0 hover:bg-surface-hover";
+  "flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors duration-100 ease-standard hover:bg-surface-hover";
 
 export function NotificationItem({
   notification,
@@ -29,49 +33,69 @@ export function NotificationItem({
   notification: AppNotification;
   onRead: () => void;
 }) {
-  const { read, title, body, sprintName, projectName, createdAt } = notification;
+  const {
+    read,
+    title,
+    body,
+    sprintName,
+    projectName,
+    createdAt,
+    type,
+    subject,
+  } = notification;
+  const failed = type === "ASSIGNMENT_EMAIL_FAILED";
   /* The sprint is the answer this feature was built for, so it wins the one
      line of context a row has room for. The project is the fallback for
      backlog work, which belongs to no sprint. */
   const where = sprintName ?? projectName;
 
   return (
-    <button type="button" onClick={onRead} className={ROW}>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-1.5 size-1.5 shrink-0 rounded-full",
-          read ? "bg-transparent" : "bg-brand-500",
-        )}
-      />
-
-      <span className="min-w-0 flex-1">
+    <div className="border-b border-border last:border-b-0">
+      <button type="button" onClick={onRead} className={ROW}>
         <span
+          aria-hidden="true"
           className={cn(
-            "block text-xs text-text",
-            read ? "font-normal" : "font-semibold",
+            "mt-1.5 size-1.5 shrink-0 rounded-full",
+            read ? "bg-transparent" : failed ? "bg-danger" : "bg-brand-500",
           )}
-        >
-          {title}
-          {!read && <span className="sr-only"> (unread)</span>}
-        </span>
+        />
 
-        {body && (
-          <span className="mt-0.5 block truncate text-2xs text-text-muted">
-            {body}
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              "block text-xs text-text",
+              read ? "font-normal" : "font-semibold",
+            )}
+          >
+            {title}
+            {!read && <span className="sr-only"> (unread)</span>}
           </span>
-        )}
 
-        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-2xs text-text-subtle">
-          {where && (
-            <>
-              <span className="truncate">{where}</span>
-              <span aria-hidden="true">&middot;</span>
-            </>
+          {body && (
+            <span className="mt-0.5 block truncate text-2xs text-text-muted">
+              {body}
+            </span>
           )}
-          <span className="whitespace-nowrap">{formatDate(createdAt)}</span>
+
+          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-2xs text-text-subtle">
+            {where && (
+              <>
+                <span className="truncate">{where}</span>
+                <span aria-hidden="true">&middot;</span>
+              </>
+            )}
+            <span className="whitespace-nowrap">{formatDate(createdAt)}</span>
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+      {failed && subject && (
+        <div className="-mt-1.5 pb-2.5 pl-7">
+          <ResendEmailButton
+            notificationId={notification.id}
+            who={subject.name ?? subject.email}
+          />
+        </div>
+      )}
+    </div>
   );
 }

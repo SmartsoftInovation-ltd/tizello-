@@ -25,6 +25,7 @@ import prisma from "../config/db.js";
 import config from "../config/env.js";
 import { createLogger } from "../config/logger.js";
 import { sendMail } from "../shared/utils/mailer.js";
+import notificationService from "../modules/notification/notification.service.js";
 import {
   invitationEmail,
   registrationCodeEmail,
@@ -47,6 +48,10 @@ const log = createLogger("email-worker");
  * access log, proxy or `Referer` — only the `/copy-code` page that reads it.
  * See `codeBlock` in emailTemplates.js.
  */
+/** `IN_PROGRESS` → "In progress"; null stays null so the template drops the row. */
+const titleCase = (value) =>
+  value ? value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, " ") : null;
+
 const copyCodeUrl = (code) => `${config.appUrl}/copy-code#${encodeURIComponent(code)}`;
 
 const handlers = {
@@ -153,11 +158,12 @@ const handlers = {
     { userId, taskId, actorName, sprintName, projectName },
     job,
   ) {
+    /* Read at send time, not queue time: the task may have been renamed or
+       moved since it was assigned, and the email should describe it as it is
+       when it lands. The key is `project.key-number`, the same way
+       `task.dto.js` builds it. */
     const [user, task] = await Promise.all([
       prisma.user.findUnique({ where: { id: userId } }),
-      /* `key` is not a column — it is `${project.key}-${number}`, composed
-         wherever a task is rendered (`task.dto.js`). The project key is
-         immutable and the number never changes, so there is nothing to store. */
       prisma.task.findUnique({
         where: { id: taskId },
         select: {
@@ -166,7 +172,21 @@ const handlers = {
           title: true,
           deletedAt: true,
           projectId: true,
-          project: { select: { key: true } },
+          type: true,
+          priority: true,
+          storyPoints: true,
+          dueDate: true,
+          status: { select: { name: true } },
+          sprint: { select: { name: true } },
+          project: {
+            select: {
+              key: true,
+              name: true,
+              ownerId: true,
+              workspace: { select: { id: true, name: true } },
+              members: { where: { userId }, select: { role: true } },
+            },
+          },
         },
       }),
     ]);
@@ -179,14 +199,35 @@ const handlers = {
       return;
     }
 
+    const membership = await prisma.membership.findUnique({
+      where: { userId_workspaceId: { userId, workspaceId: task.project.workspace.id } },
+      select: { role: true, customRole: { select: { name: true } } },
+    });
+
+    const workspaceRole = membership?.customRole?.name ?? titleCase(membership?.role);
+    const projectRole =
+      task.project.ownerId === userId ? "Owner" : titleCase(task.project.members[0]?.role);
+    const sprint = task.sprint?.name ?? sprintName ?? null;
+
     const mail = taskAssignedEmail({
       name: user.name,
       actorName,
       taskKey: `${task.project?.key ?? ''}-${task.number}`,
       taskTitle: task.title,
-      projectName,
-      sprintName,
+      sprintName: sprint,
       taskUrl: `${config.appUrl}/board/backlog?project=${encodeURIComponent(task.projectId)}&task=${encodeURIComponent(task.id)}`,
+      details: [
+        ["Workspace", task.project.workspace.name],
+        ["Your role", [workspaceRole, projectRole && `${projectRole} on this project`].filter(Boolean).join(" · ")],
+        ["Project", task.project.name ?? projectName],
+        ["Sprint", sprint ?? "Backlog"],
+        ["Status", task.status?.name],
+        ["Type", titleCase(task.type)],
+        ["Priority", titleCase(task.priority)],
+        ["Story points", task.storyPoints],
+        ["Due", task.dueDate ? task.dueDate.toISOString().slice(0, 10) : null],
+        ["Assigned by", actorName],
+      ],
     });
 
     await sendMail({ to: user.email, ...mail });
@@ -325,6 +366,17 @@ emailWorker.on("failed", (job, error) => {
     },
     "Job failed",
   );
+
+  /* An assignment email that has used its LAST attempt is removed from the
+     queue (`removeOnFail` in email.queue.js), so this is the one moment to
+     record it: the assigner and the workspace's owners/admins get an
+     `ASSIGNMENT_EMAIL_FAILED` notification they can resend from. Earlier
+     attempts fall through — BullMQ will retry them. */
+  const final = job && job.attemptsMade >= (job.opts?.attempts ?? 1);
+  if (final && job.name === "send-assignment") {
+    const { userId, taskId, actorId } = job.data;
+    notificationService.notifyAssignmentEmailFailed({ userId, taskId, actorId });
+  }
 });
 
 export default emailWorker;

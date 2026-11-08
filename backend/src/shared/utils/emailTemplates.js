@@ -320,20 +320,33 @@ const passwordResetEmail = ({ name, resetUrl, expiresInHours }) => {
  * and the URL all call it, and a cuid in an email is a string nobody can act
  * on.
  */
-const taskAssignedEmail = ({ name, actorName, taskKey, taskTitle, projectName, sprintName, taskUrl }) => {
+const taskAssignedEmail = ({ name, actorName, taskKey, taskTitle, sprintName, taskUrl, details = [] }) => {
   const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi,';
   const actor = escapeHtml(actorName);
   const key = escapeHtml(taskKey);
   const title = escapeHtml(taskTitle);
-  const where = sprintName
-    ? `${escapeHtml(sprintName)}`
-    : projectName
-      ? `${escapeHtml(projectName)}`
-      : null;
+  /* `details` is `[label, value]` pairs — workspace, your role, project,
+     sprint, status, priority, type, points, due — built by the worker, with
+     empty values already dropped. A short table rather than prose: the reader
+     scans it for the one line they care about. */
+  const rows = details.filter(([, value]) => value !== null && value !== undefined && value !== '');
 
   const subject = sprintName
     ? `${actorName} assigned you ${taskKey} in ${sprintName}`
     : `${actorName} assigned you ${taskKey}`;
+
+  const table = rows.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:16px 0 0 0;width:100%;border-collapse:collapse;font-size:13px;">
+        ${rows
+          .map(
+            ([label, value]) => `<tr>
+              <td style="padding:6px 12px 6px 0;color:#6b778c;white-space:nowrap;border-bottom:1px solid #ebecf0;">${escapeHtml(label)}</td>
+              <td style="padding:6px 0;color:#172b4d;font-weight:600;border-bottom:1px solid #ebecf0;">${escapeHtml(String(value))}</td>
+            </tr>`
+          )
+          .join('')}
+      </table>`
+    : '';
 
   const html = layout({
     title: 'You have a new task',
@@ -345,7 +358,7 @@ const taskAssignedEmail = ({ name, actorName, taskKey, taskTitle, projectName, s
         <strong style="color:#172b4d;">${key}</strong>.
       </p>
       <p style="margin:16px 0 0 0;font-size:16px;color:#172b4d;">${title}</p>
-      ${where ? `<p style="margin:6px 0 0 0;font-size:13px;color:#6b778c;">In ${where}</p>` : ''}
+      ${table}
       ${button({ href: taskUrl, label: 'Open the task' })}
       <p style="margin:0;font-size:13px;color:#6b778c;">
         You are getting this because someone put you on this task in ${BRAND}.
@@ -357,8 +370,9 @@ const taskAssignedEmail = ({ name, actorName, taskKey, taskTitle, projectName, s
     '',
     `${actorName} assigned you ${taskKey}.`,
     taskTitle,
-    where ? `In ${sprintName ?? projectName}` : null,
     '',
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    rows.length ? '' : null,
     taskUrl,
   ]
     .filter((line) => line !== null)

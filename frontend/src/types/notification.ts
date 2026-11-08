@@ -10,7 +10,7 @@
  * after the task is renamed — which is why neither is recomputed from `taskId`.
  */
 
-export const NOTIFICATION_TYPES = ["TASK_ASSIGNED"] as const;
+export const NOTIFICATION_TYPES = ["TASK_ASSIGNED", "ASSIGNMENT_EMAIL_FAILED"] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export type AppNotification = {
@@ -26,6 +26,8 @@ export type AppNotification = {
   /** The sprint the task sits in, when it sits in one. Null for backlog work. */
   sprintName: string | null;
   actor: { id: string; name: string | null; email: string } | null;
+  /** Who it is ABOUT — on `ASSIGNMENT_EMAIL_FAILED`, the assignee to resend to. */
+  subject: { id: string; name: string | null; email: string } | null;
   createdAt: string;
 };
 

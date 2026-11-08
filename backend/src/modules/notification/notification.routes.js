@@ -44,4 +44,12 @@ router.patch(
   asyncHandler(controller.markRead)
 );
 
+router.post(
+  '/:notificationId/resend-email',
+  apiLimiter,
+  authGuard,
+  validate(notificationParamsSchema, 'params'),
+  asyncHandler(controller.resendEmail)
+);
+
 export default router;

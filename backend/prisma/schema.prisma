@@ -74,6 +74,7 @@ model User {
   createdRoles        WorkspaceRole[]     @relation("WorkspaceRoleCreatedBy")
   notifications       Notification[]      @relation("NotificationRecipient")
   actedNotifications  Notification[]      @relation("NotificationActor")
+  aboutNotifications  Notification[]      @relation("NotificationSubject")
   // Chat. SetNull on the message side, Cascade on the watermark: what somebody
   // said outlives their account, where they had read up to does not.
   messages            Message[]           @relation("MessageSender")
@@ -719,6 +720,9 @@ model Task {
 // the review this enum exists to force.
 enum NotificationType {
   TASK_ASSIGNED
+  // An assignment email that failed every retry. Sent to the assigner and the
+  // workspace's owners/admins, carrying `subjectUserId` so they can resend it.
+  ASSIGNMENT_EMAIL_FAILED
 }
 
 // One row PER RECIPIENT, not one event with read receipts hanging off it.
@@ -748,6 +752,11 @@ model Notification {
   // the task.
   actorId     String?
   actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  // Who the notification is ABOUT, when that is neither the reader nor the
+  // actor: the assignee whose email failed. SetNull — the row still explains
+  // what happened after that account is gone; it just cannot be resent.
+  subjectUserId String?
+  subject       User?          @relation("NotificationSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
   // What it points at. Cascade, not SetNull: a notification whose task has
   // been deleted is a dead link in a list whose every row is a link, and
   // keeping it would mean every render has to handle a null target.
