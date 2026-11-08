@@ -31,7 +31,7 @@ export function AuthColumn({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`flex min-h-dvh flex-col px-6 py-8 sm:px-10 ${mirrored ? "auth-column-mirrored" : "auth-column"}`}>
+    <div className={`auth-fields flex min-h-dvh flex-col px-6 py-8 sm:px-10 ${mirrored ? "auth-column-mirrored" : "auth-column"}`}>
       <AuthLogo />
 
       <main className="flex flex-1 items-center py-10">

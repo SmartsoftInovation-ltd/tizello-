@@ -648,6 +648,28 @@
   );
 }
 
+/* Every text field in the auth form column is solid WHITE with dark ink, in
+   both themes — the form reads as paper on the panel's green or on the dark
+   surface, rather than inheriting the theme's field colour. Checkboxes and
+   radios are left alone. The password field's show/hide toggle sits inside
+   the input box, so its icon gets the same dark ink. */
+@utility auth-fields {
+  /* `:is`, not `:where`: the extra specificity is what beats the fields' own
+     `bg-surface` / `text-text` utilities, which sit in the same layer. */
+  & :is(input:not([type="checkbox"], [type="radio"], [type="file"]), textarea) {
+    background-color: #ffffff;
+    color: var(--color-ink-900);
+    border-color: color-mix(in oklab, var(--color-brand-500) 35%, var(--color-ink-300));
+    color-scheme: light;
+  }
+  & :where(input, textarea)::placeholder {
+    color: var(--color-ink-500);
+  }
+  & :is(input:not([type="checkbox"], [type="radio"], [type="file"]) ~ * button) {
+    color: var(--color-ink-700);
+  }
+}
+
 /* --------------------------------------------------------------------------
    AUTH ASIDE — the right panel of the split shell.
    See .claude/specs/authentication.md §5. Layer 1 (the gradient field) and the
