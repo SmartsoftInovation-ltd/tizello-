@@ -16,6 +16,8 @@ import {
 import { BellIcon } from "@/components/ui/nav-icons";
 import { cn } from "@/lib/cn";
 import { plural } from "@/lib/plural";
+import { ChatUnreadRow } from "@/components/chat/chat-unread-row";
+import type { ChatUnreadSender } from "@/types/chat";
 import type { AppNotification } from "@/types/notification";
 
 /*
@@ -34,24 +36,34 @@ import type { AppNotification } from "@/types/notification";
  * row dims rather than disappearing, because a row that vanished under the
  * pointer would take the next one with it.
  */
+/* The tile is always drawn — the same fill the hover used to add — so the bell
+   reads as a button at rest, not only under the pointer. */
 const TRIGGER =
-  "relative inline-flex size-8 items-center justify-center rounded-sm text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text";
+  "relative inline-flex size-8 items-center justify-center rounded-sm bg-surface-hover text-text transition-colors duration-100 ease-standard hover:bg-border";
 
+/* Red, not brand green: an unread count is a call for attention. Ink is
+   `text-inverse` (white on light red, dark on dark mode's lighter red) so the
+   digits stay readable in both themes. */
 const BADGE =
-  "absolute -top-0.5 -right-0.5 inline-flex min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-2xs font-semibold tabular-nums text-on-brand";
+  "absolute -top-1 -right-1 inline-flex min-w-4 items-center justify-center rounded-full bg-danger px-1 text-2xs font-semibold tabular-nums text-text-inverse ring-2 ring-surface";
 
 export function NotificationMenu({
   notifications,
   unreadCount,
+  chatSenders,
 }: {
   notifications: AppNotification[];
   unreadCount: number;
+  /** Unread chat grouped by who wrote — one row each, opening that chat. */
+  chatSenders: ChatUnreadSender[];
 }) {
   const [isPending, startTransition] = useTransition();
 
-  /* Notifications only. Chat has its own icon beside this one
-     (`chat/messages-menu.tsx`), so a message is never counted twice. */
-  const badgeCount = unreadCount;
+  /* The badge counts both: an unread message is as much "something new" as a
+     task assignment. "Mark all read" still means notifications only — chat is
+     read by opening it, which moves the channel's watermark. */
+  const chatCount = chatSenders.reduce((sum, row) => sum + row.count, 0);
+  const badgeCount = unreadCount + chatCount;
 
   /* Realtime. The socket only calls `router.refresh()`, so everything below
      keeps reading the same server-rendered props it did before — see
@@ -115,10 +127,27 @@ export function NotificationMenu({
           )}
         </div>
 
+        {chatSenders.length > 0 && (
+          <div className="border-b border-border">
+            <p className="px-3 pt-2 pb-1 text-2xs font-semibold tracking-widest text-text-subtle uppercase">
+              Messages · {chatCount}
+            </p>
+            <ul className="max-h-60 overflow-y-auto">
+              {chatSenders.map((row) => (
+                <li key={`${row.workspaceId}:${row.sender?.id ?? "gone"}`}>
+                  <ChatUnreadRow row={row} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {notifications.length === 0 ? (
-          <p className="px-3 py-8 text-center text-xs text-text-subtle">
-            Nothing yet. You will hear about tasks assigned to you.
-          </p>
+          chatSenders.length === 0 && (
+            <p className="px-3 py-8 text-center text-xs text-text-subtle">
+              Nothing yet. You will hear about tasks assigned to you.
+            </p>
+          )
         ) : (
           <ul className={cn("max-h-96 overflow-y-auto", isPending && "opacity-60")}>
             {notifications.map((notification) => (

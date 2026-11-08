@@ -1,4 +1,5 @@
 import { NotificationMenu } from "@/components/notifications/notification-menu";
+import { getChatInbox } from "@/lib/chat";
 import { getNotifications } from "@/lib/notifications";
 
 /**
@@ -25,13 +26,18 @@ import { getNotifications } from "@/lib/notifications";
  * page.
  */
 export async function NotificationBell() {
-  /* Notifications only — unread chat has its own icon (`MessagesButton`). */
-  const { notifications, unreadCount } = await getNotifications(15);
+  /* Unread chat rides on the same bell: one badge for "something new", and a
+     row per person who messaged, linking straight into that chat. */
+  const [{ notifications, unreadCount }, chatSenders] = await Promise.all([
+    getNotifications(15),
+    getChatInbox(),
+  ]);
 
   return (
     <NotificationMenu
       notifications={notifications}
       unreadCount={unreadCount}
+      chatSenders={chatSenders}
     />
   );
 }
