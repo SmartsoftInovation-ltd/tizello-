@@ -1,7 +1,8 @@
-import Link from "next/link";
+import { NoSprintEmpty } from "@/components/current-sprint/no-sprint-empty";
 import { AssigneeLoadChart } from "@/components/sprint-breakdown/assignee-load-chart";
 import { BreakdownChartNav } from "@/components/sprint-breakdown/breakdown-chart-nav";
 import { SprintGantt } from "@/components/sprint-breakdown/sprint-gantt";
+import { StatusShareBars } from "@/components/sprint-breakdown/status-share-bars";
 import { StatusShareDonut, StatusShareLegend } from "@/components/sprint-breakdown/status-share-donut";
 import { TaskProgressTable } from "@/components/sprint-breakdown/task-progress-table";
 import type { TaskScope } from "@/components/tasks/task-draft";
@@ -35,11 +36,7 @@ export function SprintBreakdownPanel({ tasks, scope, chart, projectId }: { tasks
 
   if (!sprint) {
     return (
-      <Empty title="No sprint is running">
-        <Link href={`/board/sprint-planning?project=${projectId}`} className="text-xs font-medium text-text-brand hover:underline">
-          Start one from sprint planning &rarr;
-        </Link>
-      </Empty>
+      <NoSprintEmpty planningHref={`/board/sprint-planning?project=${projectId}`} />
     );
   }
 
@@ -119,8 +116,11 @@ function Chart({
   const spoken = shares.filter((slice) => slice.count > 0).map((slice) => `${slice.name} ${slice.count} (${slice.percent}%)`);
 
   return (
-    <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-10">
-      <StatusShareDonut shares={shares} total={tasks.length} label={`Status share of ${tasks.length} tasks: ${spoken.join(", ")}.`} />
+    <div className="grid items-center gap-8 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="justify-self-center">
+        <StatusShareDonut shares={shares} total={tasks.length} label={`Status share of ${tasks.length} tasks: ${spoken.join(", ")}.`} />
+      </div>
+      <StatusShareBars shares={shares} label={`Tasks per status: ${spoken.join(", ")}.`} />
       <StatusShareLegend shares={shares} />
     </div>
   );

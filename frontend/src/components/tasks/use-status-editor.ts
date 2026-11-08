@@ -11,6 +11,7 @@ import {
   type TaskStatusFormState,
 } from "@/lib/actions/task-status-actions";
 import { applyOrder, sortStatuses } from "@/lib/task-status-order";
+import { LAST_COMPLETE_MESSAGE, losesLastComplete } from "@/lib/status-guard";
 import {
   taskErrorCopy,
   type StatusColor,
@@ -53,7 +54,16 @@ export function useStatusEditor(scope: TaskScope) {
     });
   }
 
+  /** Refuses, with a sentence and no request, a change that would leave no Complete status. */
+  function refuseIfLastComplete(after: readonly { group: TaskStatusGroup }[]): boolean {
+    if (!losesLastComplete(statuses, after)) return false;
+    setError(LAST_COMPLETE_MESSAGE);
+    toast.error(LAST_COMPLETE_MESSAGE);
+    return true;
+  }
+
   function reorder(order: { id: string; group: TaskStatusGroup }[]) {
+    if (refuseIfLastComplete(order)) return;
     const previous = statuses;
     setStatuses(applyOrder(statuses, order));
     run(
@@ -101,6 +111,7 @@ export function useStatusEditor(scope: TaskScope) {
   }
 
   function remove(status: TaskStatusOption, onDone: () => void) {
+    if (refuseIfLastComplete(statuses.filter((entry) => entry.id !== status.id))) return;
     run(
       () => deleteTaskStatusAction(workspaceId, projectId, status.id),
       () => {

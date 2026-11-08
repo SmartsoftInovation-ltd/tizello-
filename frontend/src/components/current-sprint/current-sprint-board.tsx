@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { NoSprintEmpty } from "@/components/current-sprint/no-sprint-empty";
 import { SprintBoardHeader } from "@/components/current-sprint/sprint-board-header";
 import { SprintBoardRail } from "@/components/current-sprint/sprint-board-rail";
 import { useSprintBoardDnd } from "@/components/current-sprint/use-sprint-board-dnd";
@@ -13,6 +13,7 @@ import type { TaskScope } from "@/components/tasks/task-draft";
 import { TaskStatusEditor } from "@/components/tasks/task-status-editor";
 import { activeSprint, sprintTasks } from "@/lib/current-sprint";
 import { pointsByGroup } from "@/lib/sprint-plan";
+import { workByStatus } from "@/lib/sprint-progress";
 import { activeFilterCount, matchesFilters, tagsIn } from "@/lib/task-filters";
 import type { Task } from "@/types/task";
 
@@ -55,15 +56,7 @@ export function CurrentSprintBoard({
   const dnd = useSprintBoardDnd({ tasks: sprint ? sprintTasks(tasks, sprint.id) : [], scope, visible });
 
   if (!sprint) {
-    return (
-      <div className="mt-6 rounded-lg border border-dashed border-border bg-panel px-4 py-12 text-center">
-        <p className="text-sm font-semibold text-text">No sprint is running</p>
-        <p className="mt-1 text-xs text-text-muted">Start a sprint on sprint planning and its board shows up here.</p>
-        <Link href={planningHref} className="mt-3 inline-block text-xs font-medium text-text-brand hover:underline">
-          Go to sprint planning &rarr;
-        </Link>
-      </div>
-    );
+    return <NoSprintEmpty planningHref={planningHref} />;
   }
 
   return (
@@ -72,6 +65,7 @@ export function CurrentSprintBoard({
         sprint={sprint}
         count={dnd.tasks.length}
         points={pointsByGroup(dnd.tasks)}
+        slices={workByStatus(dnd.tasks, scope.statuses)}
         today={scope.today}
         canManage={scope.canManageProperties}
         canContribute={scope.canContribute}

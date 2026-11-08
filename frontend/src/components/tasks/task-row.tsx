@@ -34,8 +34,9 @@ const ROW =
 
 /* Revealed by hover on a pointer, always present below `sm` where there is no
    hover, and on focus inside the row so the keyboard never chases a ghost. */
-const ACTIONS =
-  "shrink-0 opacity-100 transition-opacity duration-100 ease-standard sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100";
+/* Always visible, not revealed on hover: a ⋯ that only appears under the
+   pointer is a menu nobody finds, and on sprint planning it carries "Move to". */
+const ACTIONS = "shrink-0";
 
 export type TaskRowProps = {
   task: Task;

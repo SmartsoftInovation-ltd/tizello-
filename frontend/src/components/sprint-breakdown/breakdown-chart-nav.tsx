@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPendingLoader } from "@/components/ui/link-pending-loader";
 import { BREAKDOWN_CHARTS, BREAKDOWN_CHART_LABEL, breakdownHref, type BreakdownChart } from "@/lib/sprint-breakdown-view";
 
 /*
@@ -6,9 +7,13 @@ import { BREAKDOWN_CHARTS, BREAKDOWN_CHART_LABEL, breakdownHref, type BreakdownC
  * `SprintWorkflowNav` so every strip in the app reads as the same control.
  *
  * NAVIGATION, not a tabs widget: each option is a different URL, so these are
- * real `<a>`s in a `<nav>` with `aria-current`, and the strip ships no
- * JavaScript. A chart choice is then shareable and survives a reload, which a
+ * real `<a>`s in a `<nav>` with `aria-current`, and the strip ships only the
+ * pending loader. A chart choice is then shareable and survives a reload, which a
  * `useState` toggle would not manage.
+ *
+ * A tab change only changes `?chart=`, so the segment's `loading.tsx` never
+ * shows; `LinkPendingLoader` inside each link draws the page loader while the
+ * new chart is on its way (Workload and Timeline re-read on the server).
  *
  * The project rides along in every href — switching chart must not silently
  * drop you back to the first project in the workspace.
@@ -29,6 +34,7 @@ export function BreakdownChartNav({ current, projectId }: { current: BreakdownCh
               className={chart === current ? ACTIVE : IDLE}
             >
               {BREAKDOWN_CHART_LABEL[chart]}
+              <LinkPendingLoader label={`Loading ${BREAKDOWN_CHART_LABEL[chart].toLowerCase()}`} />
             </Link>
           </li>
         ))}

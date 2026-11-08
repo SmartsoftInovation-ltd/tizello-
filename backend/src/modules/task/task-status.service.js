@@ -87,6 +87,21 @@ const updateStatus = async (projectId, statusId, patch) => {
   }
 };
 
+/*
+ * A project always keeps at least one COMPLETE status. Completion and every
+ * sprint roll-up read a status's GROUP, so dragging the only Complete status
+ * in among the In Progress ones (which moves it into that group) left "Done"
+ * counting as in progress and every sprint stuck at 0% done. A reorder or a
+ * delete that would remove the last one is refused; a project that already
+ * has none is not blocked from anything else. Mirrored in the frontend's
+ * `lib/status-guard.ts`.
+ */
+const LAST_COMPLETE_MESSAGE =
+  'Keep at least one status in Complete — finished work needs a column to land in';
+
+const hasComplete = (statuses) => statuses.some((status) => status.group === 'COMPLETE');
+const losesLastComplete = (before, after) => hasComplete(before) && !hasComplete(after);
+
 /**
  * `PUT /order`. The FULL list, in display order, with each status's group.
  *
@@ -112,6 +127,8 @@ const reorderStatuses = async (projectId, entries) => {
     entries.every((entry) => known.has(entry.id));
   if (!complete) throw unprocessable('Send every status exactly once');
 
+  if (losesLastComplete(current, entries)) throw unprocessable(LAST_COMPLETE_MESSAGE);
+
   const nextInGroup = {};
   const positioned = entries.map(({ id, group }) => {
     nextInGroup[group] = (nextInGroup[group] ?? 0) + 1;
@@ -131,6 +148,9 @@ const deleteStatus = async (projectId, statusId) => {
   if (existing.isDefault) {
     throw unprocessable('Make another status the default before deleting this one');
   }
+
+  const remaining = (await repository.findStatusesForProject(projectId)).filter((status) => status.id !== statusId);
+  if (losesLastComplete([existing], remaining)) throw unprocessable(LAST_COMPLETE_MESSAGE);
 
   const replacement = await repository.findDefault(projectId);
   await repository.deleteStatus(statusId, replacement.id);

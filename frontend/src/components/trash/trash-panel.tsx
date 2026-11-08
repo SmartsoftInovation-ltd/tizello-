@@ -1,3 +1,4 @@
+import { TrashEmpty } from "@/components/trash/trash-empty";
 import { TrashRowActions } from "@/components/trash/trash-row-actions";
 import { TaskTypeIcon } from "@/components/tasks/task-type-icon";
 import { formatDeadline } from "@/lib/format-date";
@@ -19,12 +20,7 @@ export function TrashPanel({ trash }: { trash: Trash }) {
   const total = trash.projects.length + trash.tasks.length;
 
   if (total === 0) {
-    return (
-      <div className="mt-6 rounded-lg border border-dashed border-border bg-panel px-4 py-12 text-center">
-        <p className="text-sm font-semibold text-text">The trash is empty</p>
-        <p className="mt-1 text-xs text-text-muted">Deleted projects and tasks land here, and can be put back.</p>
-      </div>
-    );
+    return <TrashEmpty />;
   }
 
   return (

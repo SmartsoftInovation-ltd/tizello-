@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { useSprintBoardDnd } from "@/components/current-sprint/use-sprint-board-dnd";
 import type { TaskScope } from "@/components/tasks/task-draft";
 import { reorderTaskStatusesAction } from "@/lib/actions/task-status-actions";
+import { LAST_COMPLETE_MESSAGE, losesLastComplete } from "@/lib/status-guard";
 import { boardColumns } from "@/lib/current-sprint";
 import { applyOrder } from "@/lib/task-status-order";
 import { TASK_STATUS_GROUP_LABEL, TASK_STATUS_GROUPS, taskErrorCopy, type TaskStatusOption } from "@/types/task";
@@ -49,6 +50,10 @@ export function useColumnDnd({ scope, cards }: { scope: TaskScope; cards: Return
     const fits = (!left || rank(left.group) <= rank(self.group)) && (!right || rank(self.group) <= rank(right.group));
     const group = fits ? self.group : (left?.group ?? right.group);
     const order = moved.map((column) => ({ id: column.id, group: column.id === self.id ? group : column.group }));
+    if (losesLastComplete(columns, order)) {
+      toast.error(LAST_COMPLETE_MESSAGE);
+      return;
+    }
 
     startTransition(async () => {
       setColumns(applyOrder(moved, order));

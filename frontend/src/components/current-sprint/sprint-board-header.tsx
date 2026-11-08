@@ -7,6 +7,7 @@ import { FlagIcon, PencilIcon, PlusIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/format-date";
 import type { PointsByGroup } from "@/lib/sprint-plan";
 import type { ProjectSprint } from "@/types/project-sprint";
+import type { StatusSlice } from "@/lib/sprint-progress";
 
 /**
  * The running sprint as ONE card above its columns: identity and actions on
@@ -24,6 +25,7 @@ export function SprintBoardHeader({
   sprint,
   count,
   points,
+  slices,
   today,
   canManage,
   canContribute,
@@ -35,6 +37,8 @@ export function SprintBoardHeader({
   sprint: ProjectSprint;
   count: number;
   points: PointsByGroup;
+  /** Points per status, in board order — the work bar's segments. */
+  slices: StatusSlice[];
   today: string;
   canManage: boolean;
   canContribute: boolean;
@@ -93,7 +97,7 @@ export function SprintBoardHeader({
       </div>
 
       <div className="mt-3 border-t border-border pt-3">
-        <SprintProgress points={points} capacity={sprint.capacityPoints} startDate={sprint.startDate} endDate={sprint.endDate} today={today} />
+        <SprintProgress points={points} slices={slices} capacity={sprint.capacityPoints} startDate={sprint.startDate} endDate={sprint.endDate} today={today} />
       </div>
     </section>
   );
