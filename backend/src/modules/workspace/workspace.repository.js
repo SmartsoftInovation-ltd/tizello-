@@ -26,11 +26,11 @@ import { withUniqueSlug } from '../../shared/utils/slug.js';
  * retried attempt leaves an orphaned membership pointing at a workspace that
  * was never created.
  */
-const createWorkspaceWithOwner = ({ name, description, icon, color, ownerId }) =>
+const createWorkspaceWithOwner = ({ name, description, icon, imageUrl, color, ownerId }) =>
   withUniqueSlug(name, (slug) =>
     prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.create({
-        data: { name, slug, description, icon, color },
+        data: { name, slug, description, icon, imageUrl, color },
       });
 
       await tx.membership.create({

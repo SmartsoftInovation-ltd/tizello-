@@ -1,6 +1,7 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/cn";
 import { initials } from "@/lib/initials";
+import { avatarSrc } from "@/lib/profile-display";
 import type { WorkspaceAccent } from "@/types/workspace";
 
 /* Complete class strings, never `bg-label-${accent}`. The six label hues are
@@ -44,6 +45,7 @@ const SIZE = {
 export function WorkspaceAvatar({
   name,
   icon,
+  imageUrl,
   color,
   accent,
   size = "default",
@@ -52,12 +54,15 @@ export function WorkspaceAvatar({
 }: {
   name: string;
   icon?: string | null;
+  /** An uploaded picture — drawn over the fallback, which stays for a broken image. */
+  imageUrl?: string | null;
   color?: string | null;
   accent?: WorkspaceAccent;
   size?: keyof typeof SIZE;
   label?: string;
   className?: string;
 }) {
+  const src = avatarSrc(imageUrl ?? null);
   const tone = color ? undefined : accent ? ACCENT[accent] : "bg-surface-sunken text-text-muted";
 
   return (
@@ -72,6 +77,7 @@ export function WorkspaceAvatar({
         <span aria-hidden="true">{icon || initials(name)}</span>
         {label && <span className="sr-only">{label}</span>}
       </AvatarFallback>
+      {src && <AvatarImage src={src} alt="" />}
     </Avatar>
   );
 }

@@ -42,6 +42,7 @@ export function CreateWorkspaceDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [color, setColor] = useState("");
   const [nameError, setNameError] = useState<string | undefined>();
 
@@ -49,6 +50,7 @@ export function CreateWorkspaceDialog({
     setName("");
     setDescription("");
     setIcon("");
+    setImageUrl("");
     setColor("");
     setNameError(undefined);
   }
@@ -72,6 +74,7 @@ export function CreateWorkspaceDialog({
         name: trimmed,
         description: description.trim() || undefined,
         icon: icon || undefined,
+        imageUrl: imageUrl || undefined,
         color: color || undefined,
       });
 
@@ -105,6 +108,7 @@ export function CreateWorkspaceDialog({
             <WorkspaceAvatar
               name={name || "New workspace"}
               icon={icon}
+              imageUrl={imageUrl || null}
               color={color || null}
               size="lg"
               label="Preview"
@@ -139,8 +143,10 @@ export function CreateWorkspaceDialog({
 
           <WorkspaceAppearancePicker
             icon={icon}
+            imageUrl={imageUrl}
             color={color}
             onIconChange={setIcon}
+            onImageChange={setImageUrl}
             onColorChange={setColor}
           />
 

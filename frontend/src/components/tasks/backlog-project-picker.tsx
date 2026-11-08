@@ -25,7 +25,7 @@ import type { Workspace } from "@/types/workspace";
  * dropdown, because the list is long; that file says why.
  */
 export type PickerGroup = {
-  workspace: Pick<Workspace, "id" | "name" | "icon" | "color" | "accent">;
+  workspace: Pick<Workspace, "id" | "name" | "icon" | "imageUrl" | "color" | "accent">;
   projects: Pick<ProjectRecord, "id" | "key" | "name" | "icon" | "color">[];
 };
 

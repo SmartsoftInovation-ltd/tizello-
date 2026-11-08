@@ -1,8 +1,10 @@
-import Link from "next/link";
-import { MyTaskRow } from "@/components/my-tasks/my-task-row";
+import { MyTasksGroup } from "@/components/my-tasks/my-tasks-group";
+import { MyTasksEmpty } from "@/components/my-tasks/my-tasks-empty";
 import { MyTasksProgressBar } from "@/components/my-tasks/my-tasks-progress";
-import { assignedProgress, DUE_BUCKET_LABEL, filterByState, groupByDue, overdueCount } from "@/lib/my-tasks-groups";
-import { ASSIGNED_STATES, ASSIGNED_STATE_LABEL, type AssignedState, type AssignedTask } from "@/types/task";
+import { MyTasksTabs } from "@/components/my-tasks/my-tasks-tabs";
+import { ClockIcon } from "@/components/ui/icons";
+import { assignedProgress, filterByState, groupByDue, overdueCount } from "@/lib/my-tasks-groups";
+import type { AssignedState, AssignedTask } from "@/types/task";
 
 /*
  * "My tasks": everything assigned to the signed-in person, from every project
@@ -36,87 +38,35 @@ export function MyTasksPanel({ tasks, state, today }: { tasks: AssignedTask[]; s
     <div className="mt-4">
       <MyTasksProgressBar progress={progress} />
 
-      <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-        <p className="text-xs text-text-muted tabular-nums">
-          {shown.length} {shown.length === 1 ? "task" : "tasks"}
-          {/* The one number worth saying before the list — and only when it is
-              not zero, because "0 overdue" is a reassurance nobody asked for
-              taking up the same room as a warning. */}
-          {overdue > 0 && (
-            <>
-              {" · "}
-              <span className="font-semibold text-warning">{overdue} overdue</span>
-            </>
-          )}
-        </p>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <MyTasksTabs
+          state={state}
+          counts={{
+            open: filterByState(tasks, "open").length,
+            done: filterByState(tasks, "done").length,
+            all: tasks.length,
+          }}
+        />
 
-        <nav aria-label="Which tasks" className="flex items-center gap-1">
-          {ASSIGNED_STATES.map((option) => (
-            <Link
-              key={option}
-              href={option === "open" ? "/my-tasks" : `/my-tasks?state=${option}`}
-              aria-current={option === state ? "page" : undefined}
-              className={
-                option === state
-                  ? "rounded-sm bg-surface-hover px-2 py-1 text-xs font-semibold text-text"
-                  : "rounded-sm px-2 py-1 text-xs font-medium text-text-muted transition-colors duration-100 ease-standard hover:bg-surface-hover hover:text-text"
-              }
-            >
-              {ASSIGNED_STATE_LABEL[option]}
-            </Link>
-          ))}
-        </nav>
+        {/* The one number worth saying before the list — and only when it is
+            not zero: "0 overdue" is a reassurance nobody asked for. */}
+        {overdue > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-1 text-xs font-semibold text-warning tabular-nums">
+            <ClockIcon className="size-3.5" />
+            {overdue} overdue
+          </span>
+        )}
       </div>
 
       {groups.length === 0 ? (
-        <Empty state={state} />
+        <MyTasksEmpty state={state} />
       ) : (
-        <div className="mt-2">
+        <div className="mt-4 space-y-4">
           {groups.map((group) => (
-            <section key={group.bucket} className="mt-5 first:mt-2">
-              <h2 className="flex items-baseline gap-2 border-b border-border px-2 pb-1.5">
-                <span
-                  className={
-                    group.bucket === "overdue"
-                      ? "text-2xs font-semibold tracking-widest text-warning uppercase"
-                      : "text-2xs font-semibold tracking-widest text-text-subtle uppercase"
-                  }
-                >
-                  {DUE_BUCKET_LABEL[group.bucket]}
-                </span>
-                <span className="text-2xs text-text-subtle tabular-nums">{group.tasks.length}</span>
-              </h2>
-
-              <ul>
-                {group.tasks.map((task) => (
-                  <MyTaskRow key={task.id} task={task} today={today} />
-                ))}
-              </ul>
-            </section>
+            <MyTasksGroup key={group.bucket} bucket={group.bucket} tasks={group.tasks} today={today} />
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-/**
- * Three different empties, because they mean three different things: nothing
- * assigned, nothing finished yet, and nothing at all. One message for all
- * three would be wrong twice.
- */
-function Empty({ state }: { state: AssignedState }) {
-  const line =
-    state === "done"
-      ? "Nothing finished yet. Work you complete shows up here."
-      : state === "all"
-        ? "Nothing is assigned to you in any project you can see."
-        : "Nothing on your plate. Anything assigned to you lands here.";
-
-  return (
-    <div className="mt-6 rounded-lg border border-dashed border-border bg-panel px-4 py-12 text-center">
-      <p className="text-sm font-semibold text-text">All clear</p>
-      <p className="mt-1 text-xs text-text-muted">{line}</p>
     </div>
   );
 }

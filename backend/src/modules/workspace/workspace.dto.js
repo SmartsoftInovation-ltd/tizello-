@@ -27,6 +27,7 @@ const toWorkspace = (row, role, permissions = []) => ({
   slug: row.slug,
   description: row.description,
   icon: row.icon,
+  imageUrl: row.imageUrl ?? null,
   color: row.color,
   isArchived: row.isArchived,
   role,

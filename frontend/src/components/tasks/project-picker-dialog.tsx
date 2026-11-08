@@ -92,7 +92,7 @@ export function ProjectPickerDialog({
           {shown.map(({ workspace, projects }) => (
             <section key={workspace.id} aria-label={workspace.name} className="pt-1.5">
               <div className="flex items-center gap-2 px-2 pb-1">
-                <WorkspaceAvatar name={workspace.name} icon={workspace.icon} color={workspace.color} accent={workspace.accent} size="sm" />
+                <WorkspaceAvatar name={workspace.name} icon={workspace.icon} imageUrl={workspace.imageUrl} color={workspace.color} accent={workspace.accent} size="sm" />
                 <span className="min-w-0 truncate text-2xs font-semibold tracking-widest text-text-subtle uppercase">{workspace.name}</span>
               </div>
 

@@ -106,6 +106,10 @@ model Workspace {
   // image pipeline, and it renders everywhere a workspace name does without
   // a network request.
   icon        String?
+  // An uploaded picture (`/uploads/<uuid>.<ext>`, written by POST /uploads).
+  // Wins over `icon` wherever the workspace is drawn; null falls back to the
+  // emoji, then to initials.
+  imageUrl    String?
   // Hex string for avatar/theme accents, e.g. "#6366f1". Free text at this
   // layer; the frontend constrains it to a swatch.
   color       String?

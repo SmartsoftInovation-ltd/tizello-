@@ -27,6 +27,7 @@ export function WorkspaceCard({ workspace }: { workspace: Workspace }) {
     name,
     slug,
     icon,
+    imageUrl,
     color,
     memberCount,
     role,
@@ -46,6 +47,7 @@ export function WorkspaceCard({ workspace }: { workspace: Workspace }) {
           <WorkspaceAvatar
             name={name}
             icon={icon}
+            imageUrl={imageUrl}
             color={color}
             accent={accent}
           />

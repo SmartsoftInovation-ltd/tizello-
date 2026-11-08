@@ -71,6 +71,7 @@ export function WorkspaceSwitcher({
           <WorkspaceAvatar
             name={active.name}
             icon={active.icon}
+            imageUrl={active.imageUrl}
             color={active.color}
             accent={active.accent}
             size="sm"
@@ -103,6 +104,7 @@ export function WorkspaceSwitcher({
               <WorkspaceAvatar
                 name={workspace.name}
                 icon={workspace.icon}
+                imageUrl={workspace.imageUrl}
                 color={workspace.color}
                 accent={workspace.accent}
                 size="sm"

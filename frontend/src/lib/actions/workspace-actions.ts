@@ -53,6 +53,7 @@ export async function createWorkspaceAction(input: {
   name: string;
   description?: string;
   icon?: string;
+  imageUrl?: string;
   color?: string;
 }): Promise<WorkspaceFormState> {
   const name = input.name.trim();
@@ -67,6 +68,7 @@ export async function createWorkspaceAction(input: {
     name,
     ...(description ? { description } : {}),
     ...(input.icon ? { icon: input.icon } : {}),
+    ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
     ...(input.color ? { color: input.color } : {}),
   });
 
@@ -97,6 +99,7 @@ export async function updateWorkspaceAction(
     name?: string;
     description?: string | null;
     icon?: string | null;
+    imageUrl?: string | null;
     color?: string | null;
   },
 ): Promise<WorkspaceFormState> {
@@ -118,6 +121,7 @@ export async function updateWorkspaceAction(
   }
 
   if (patch.icon !== undefined) next.icon = patch.icon || null;
+  if (patch.imageUrl !== undefined) next.imageUrl = patch.imageUrl || null;
   if (patch.color !== undefined) next.color = patch.color || null;
 
   if (Object.keys(next).length === 0) return { done: true };

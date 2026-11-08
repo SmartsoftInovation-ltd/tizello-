@@ -57,6 +57,8 @@ export type Workspace = {
   description: string | null;
   /** A single emoji, or null — never an uploaded image. */
   icon: string | null;
+  /** An uploaded picture (`/uploads/<uuid>.png`). Wins over `icon`; absent on fixtures. */
+  imageUrl?: string | null;
   /** Hex string, e.g. "#6366f1", or null. */
   color: string | null;
   isArchived: boolean;

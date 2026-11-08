@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { CheckIcon } from "@/components/ui/icons";
+import { WorkspaceImageField } from "@/components/workspace/workspace-image-field";
 import { EmojiPickerPopover } from "@/components/workspace/emoji-picker-popover";
 import { ShuffleIcon } from "@/components/workspace/workspace-appearance-icons";
 import {
@@ -19,13 +20,18 @@ import {
  */
 export function WorkspaceAppearancePicker({
   icon,
+  imageUrl,
   color,
   onIconChange,
+  onImageChange,
   onColorChange,
 }: {
   icon: string;
+  /** The uploaded picture's path, or "" for none. It wins over the icon. */
+  imageUrl: string;
   color: string;
   onIconChange: (icon: string) => void;
+  onImageChange: (imageUrl: string) => void;
   onColorChange: (color: string) => void;
 }) {
   const custom = isCustomColor(color);
@@ -33,6 +39,8 @@ export function WorkspaceAppearancePicker({
 
   return (
     <>
+      <WorkspaceImageField imageUrl={imageUrl} onChange={onImageChange} />
+
       <fieldset className="mt-5">
         <legend className="text-xs font-semibold text-text-muted">Icon</legend>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

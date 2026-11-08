@@ -15,6 +15,13 @@ import Joi from 'joi';
 const name = Joi.string().trim().min(2).max(80);
 const description = Joi.string().trim().max(500).allow(null);
 const icon = Joi.string().trim().max(8).allow(null);
+// Same rule as a profile photo (user.validator.js): only a path this server
+// wrote through POST /uploads, and only an image — never an arbitrary URL.
+const imageUrl = Joi.string()
+  .trim()
+  .pattern(/^\/uploads\/[0-9a-f-]{36}\.(png|jpg|webp|gif)$/i)
+  .message('Upload the image through this app before saving it')
+  .allow(null);
 const color = Joi.string()
   .pattern(/^#[0-9a-fA-F]{6}$/)
   .allow(null);
@@ -23,6 +30,7 @@ const createWorkspaceSchema = Joi.object({
   name: name.required(),
   description: description.optional(),
   icon: icon.optional(),
+  imageUrl: imageUrl.optional(),
   color: color.optional(),
 });
 
@@ -32,6 +40,7 @@ const updateWorkspaceSchema = Joi.object({
   name: name.optional(),
   description: description.optional(),
   icon: icon.optional(),
+  imageUrl: imageUrl.optional(),
   color: color.optional(),
   settings: Joi.object().unknown(true).optional(),
 })

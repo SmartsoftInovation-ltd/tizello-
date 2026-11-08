@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { RoleBadge } from "@/components/workspace/role-badge";
 import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar";
@@ -27,17 +26,12 @@ export function WorkspaceDetailHeader({
 }) {
   return (
     <header>
-      <Link
-        href="/workspaces"
-        className="inline-block rounded-xs text-2xs font-medium text-text-subtle transition-colors duration-100 ease-standard hover:text-text-muted"
-      >
-        ← All workspaces
-      </Link>
-
-      <div className="mt-2 flex items-start gap-3">
+      {/* No back link: the content strip's breadcrumb (Home › Overview) is the way out. */}
+      <div className="flex items-start gap-3">
         <WorkspaceAvatar
           name={workspace.name}
           icon={workspace.icon}
+          imageUrl={workspace.imageUrl}
           color={workspace.color}
           accent={workspace.accent}
           size="lg"

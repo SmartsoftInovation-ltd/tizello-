@@ -24,6 +24,7 @@ type ApiWorkspace = {
   slug: string;
   description: string | null;
   icon: string | null;
+  imageUrl?: string | null;
   color: string | null;
   isArchived: boolean;
   role: Workspace["role"];
@@ -109,6 +110,7 @@ export async function createWorkspace(input: {
   name: string;
   description?: string;
   icon?: string;
+  imageUrl?: string;
   color?: string;
 }): Promise<ActionResult<Workspace>> {
   const result = await apiCallWithRefresh<{ workspace: ApiWorkspace }>("/workspaces", {
@@ -130,7 +132,7 @@ export async function createWorkspace(input: {
 /** `PATCH /workspaces/:id`. Caller is responsible for sending only changed fields — the API rejects an empty body. */
 export async function updateWorkspace(
   workspaceId: string,
-  patch: { name?: string; description?: string | null; icon?: string | null; color?: string | null },
+  patch: { name?: string; description?: string | null; icon?: string | null; imageUrl?: string | null; color?: string | null },
 ): Promise<ActionResult<Workspace>> {
   const result = await apiCallWithRefresh<{ workspace: ApiWorkspace }>(
     `/workspaces/${encodeURIComponent(workspaceId)}`,

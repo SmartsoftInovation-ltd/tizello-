@@ -31,11 +31,12 @@ const notFound = () =>
   new AppError(httpStatus.NOT_FOUND, 'Workspace not found', AUTH_CODES.NOT_FOUND);
 
 /** `POST /workspaces`. No permission check — there is no workspace yet to scope one to. */
-const createWorkspace = async ({ name, description, icon, color }, user) => {
+const createWorkspace = async ({ name, description, icon, imageUrl, color }, user) => {
   const workspace = await repository.createWorkspaceWithOwner({
     name,
     description: description ?? null,
     icon: icon ?? null,
+    imageUrl: imageUrl ?? null,
     color: color ?? null,
     ownerId: user.id,
   });

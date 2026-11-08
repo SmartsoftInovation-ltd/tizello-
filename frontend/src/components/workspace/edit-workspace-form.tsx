@@ -38,6 +38,7 @@ export function EditWorkspaceForm({
   const [name, setName] = useState(workspace.name);
   const [description, setDescription] = useState(workspace.description ?? "");
   const [icon, setIcon] = useState(workspace.icon ?? "");
+  const [imageUrl, setImageUrl] = useState(workspace.imageUrl ?? "");
   const [color, setColor] = useState(workspace.color ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -54,6 +55,7 @@ export function EditWorkspaceForm({
         ? { description: nextDescription }
         : {}),
       ...(icon !== (workspace.icon ?? "") ? { icon } : {}),
+      ...(imageUrl !== (workspace.imageUrl ?? "") ? { imageUrl } : {}),
       ...(color !== (workspace.color ?? "") ? { color } : {}),
     };
   }
@@ -104,6 +106,7 @@ export function EditWorkspaceForm({
           <WorkspaceAvatar
             name={name || workspace.name}
             icon={icon}
+            imageUrl={imageUrl || null}
             color={color || null}
             size="lg"
             label="Preview"
@@ -139,8 +142,10 @@ export function EditWorkspaceForm({
 
         <WorkspaceAppearancePicker
           icon={icon}
+          imageUrl={imageUrl}
           color={color}
           onIconChange={setIcon}
+          onImageChange={setImageUrl}
           onColorChange={setColor}
         />
 

@@ -64,6 +64,7 @@ export function WorkspaceSwitchMenu({
               <WorkspaceAvatar
                 name={workspace.name}
                 icon={workspace.icon}
+                imageUrl={workspace.imageUrl}
                 color={workspace.color}
                 accent={workspace.accent}
                 size="sm"

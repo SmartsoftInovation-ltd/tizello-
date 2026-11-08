@@ -24,13 +24,13 @@ import type { Workspace } from "@/types/workspace";
  * mismatch.
  */
 export function WorkspaceListRow({ workspace }: { workspace: Workspace }) {
-  const { id, name, slug, description, icon, color, role, isArchived } = workspace;
+  const { id, name, slug, description, icon, imageUrl, color, role, isArchived } = workspace;
 
   return (
     <TableRow className="hover:bg-surface-hover">
       <TableCell className="relative max-w-xs">
         <div className="flex items-center gap-2.5">
-          <WorkspaceAvatar name={name} icon={icon} color={color} size="sm" />
+          <WorkspaceAvatar name={name} icon={icon} imageUrl={imageUrl} color={color} size="sm" />
           <div className="min-w-0">
             <Link
               href={`/workspaces/${id}`}
