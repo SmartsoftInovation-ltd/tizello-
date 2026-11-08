@@ -1,3 +1,4 @@
+import { ActiveSprintsPanel } from "@/components/workspace/dashboard/active-sprints-panel";
 import { OverviewStats } from "@/components/workspace/dashboard/overview-stats";
 import { ProjectsStatusChart } from "@/components/workspace/dashboard/projects-status-chart";
 import { TaskProgressChart } from "@/components/workspace/dashboard/task-progress-chart";
@@ -21,7 +22,10 @@ import type { WorkspaceOverview } from "@/lib/workspace-overview";
 export function WorkspaceDashboard({ overview }: { overview: WorkspaceOverview }) {
   return (
     <section aria-label="Overview" className="mb-8 overflow-hidden rounded-lg border border-border bg-surface">
-      <OverviewStats totals={overview.totals} />
+      <OverviewStats
+        totals={overview.totals}
+        projectsWithSprint={new Set(overview.activeSprints.map((sprint) => sprint.projectId)).size}
+      />
 
       <div className="grid gap-px bg-border lg:grid-cols-[3fr_2fr]">
         <div className="bg-surface">
@@ -30,6 +34,10 @@ export function WorkspaceDashboard({ overview }: { overview: WorkspaceOverview }
         <div className="bg-surface">
           <ProjectsStatusChart counts={overview.projectsByStatus} />
         </div>
+      </div>
+
+      <div className="border-t border-border">
+        <ActiveSprintsPanel sprints={overview.activeSprints} />
       </div>
 
       <TaskProgressTable rows={overview.workspaces} />

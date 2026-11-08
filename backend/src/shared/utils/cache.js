@@ -54,6 +54,10 @@ const CACHE_NS = Object.freeze({
   // is the PROJECT: roll-ups are computed from tasks, so task and status
   // writes bump it too, not just sprint writes. docs/api/sprint.md §Caching.
   SPRINTS: 'sprints',
+  // The `/workspaces` dashboard, per USER (it spans every workspace they are
+  // in). Not version-bumped — no single write knows every reader whose totals
+  // it moves — so it lives on a short TTL instead. See workspace.service.js.
+  OVERVIEW: 'overview',
 });
 
 const versionKey = (namespace, scopeId) => `cache:v:${namespace}:${scopeId}`;

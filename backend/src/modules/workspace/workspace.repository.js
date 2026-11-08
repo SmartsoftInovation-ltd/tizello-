@@ -118,7 +118,7 @@ const softDeleteWorkspace = (id) =>
  * Complete-group status — the same reading `lib/task-delay.ts` uses.
  */
 const findOverviewForUser = async (userId) => {
-  const [workspaces, projects, tasks] = await Promise.all([
+  const [workspaces, projects, tasks, sprints] = await Promise.all([
     prisma.$queryRaw`
       SELECT w.id, w.name, w.icon, w.color,
         (SELECT COUNT(*)::int FROM memberships m2 WHERE m2."workspaceId" = w.id) AS members,
@@ -150,9 +150,29 @@ const findOverviewForUser = async (userId) => {
       WHERE t."deletedAt" IS NULL AND t."parentId" IS NULL
       GROUP BY p."workspaceId", so."group"
     `,
+    /* Every RUNNING sprint, one row per project (a project runs at most one),
+       with its top-level task count and how many are in a Complete-group
+       status — the dashboard's "sprints by project" list. Soonest end first:
+       the sprint closest to its deadline is the one worth a glance. */
+    prisma.$queryRaw`
+      SELECT s.id, s.name, s."endDate",
+        p.id AS "projectId", p.name AS "projectName", p.key AS "projectKey",
+        w.id AS "workspaceId", w.name AS "workspaceName",
+        COUNT(t.id)::int AS total,
+        COUNT(t.id) FILTER (WHERE so."group" = 'COMPLETE')::int AS done
+      FROM sprints s
+      JOIN projects p ON p.id = s."projectId" AND p."deletedAt" IS NULL AND p."isArchived" = false
+      JOIN workspaces w ON w.id = p."workspaceId" AND w."deletedAt" IS NULL AND w."isArchived" = false
+      JOIN memberships ms ON ms."workspaceId" = w.id AND ms."userId" = ${userId}
+      LEFT JOIN tasks t ON t."sprintId" = s.id AND t."deletedAt" IS NULL AND t."parentId" IS NULL
+      LEFT JOIN task_status_options so ON so.id = t."statusId"
+      WHERE s.state = 'ACTIVE'
+      GROUP BY s.id, p.id, w.id
+      ORDER BY s."endDate" ASC NULLS LAST, p.name ASC
+    `,
   ]);
 
-  return { workspaces, projects, tasks };
+  return { workspaces, projects, tasks, sprints };
 };
 
 export default {

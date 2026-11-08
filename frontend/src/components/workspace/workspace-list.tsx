@@ -6,6 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ArchivedEmpty } from "@/components/workspace/archived-empty";
 import { WorkspaceListRow } from "@/components/workspace/workspace-list-row";
 import type { Workspace } from "@/types/workspace";
 
@@ -16,9 +17,9 @@ import type { Workspace } from "@/types/workspace";
  * not an action, and a "create" row that scrolls away with the data is a worse
  * affordance than the button the page header already carries in this view.
  *
- * The empty state is the table's own row rather than a separate component. A
- * table with a header and no body reads as broken, and the two ways to arrive
- * here — no workspaces at all, or none archived — need different sentences.
+ * With no workspaces at all, the empty state is the table's own row. With none
+ * ARCHIVED it is `ArchivedEmpty`, drawn instead of the table — the same
+ * component the grid uses, so both views say the same thing.
  */
 export function WorkspaceList({
   workspaces,
@@ -27,6 +28,8 @@ export function WorkspaceList({
   workspaces: Workspace[];
   archived: boolean;
 }) {
+  if (archived && workspaces.length === 0) return <ArchivedEmpty view="list" />;
+
   return (
     <section className="mt-4 rounded-md border border-border bg-surface">
       <h2 className="sr-only">Your workspaces</h2>
@@ -49,9 +52,7 @@ export function WorkspaceList({
           {workspaces.length === 0 ? (
             <TableRow className="border-b-0">
               <TableCell colSpan={6} className="px-3 py-8 text-center text-sm text-text-muted">
-                {archived
-                  ? "Nothing archived. Archived workspaces show up here."
-                  : "No workspaces yet. Create one to get started."}
+                No workspaces yet. Create one to get started.
               </TableCell>
             </TableRow>
           ) : (

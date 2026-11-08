@@ -34,11 +34,28 @@ export type WorkspaceOverview = {
     activeSprints: number;
   };
   projectsByStatus: Record<ProjectStatus, number>;
+  /** Every running sprint, one per project, soonest end first. */
+  activeSprints: OverviewSprint[];
   workspaces: WorkspaceOverviewRow[];
+};
+
+export type OverviewSprint = {
+  id: string;
+  name: string;
+  endDate: string | null;
+  projectId: string;
+  projectName: string;
+  projectKey: string;
+  workspaceId: string;
+  workspaceName: string;
+  /** Top-level tasks in the sprint, and how many sit in a Complete-group status. */
+  total: number;
+  done: number;
 };
 
 export async function getWorkspaceOverview(): Promise<WorkspaceOverview | null> {
   const result = await apiCallWithRefresh<WorkspaceOverview>("/workspaces/overview");
 
-  return result.ok ? result.data : null;
+  /* `activeSprints` defaulted: a response cached before the field existed (60s TTL) has none. */
+  return result.ok ? { ...result.data, activeSprints: result.data.activeSprints ?? [] } : null;
 }

@@ -51,7 +51,7 @@ const zeroStatuses = () => Object.fromEntries(PROJECT_STATUSES.map((status) => [
  * so the client never has to guess whether a missing key means "none" or
  * "not sent".
  */
-const toOverview = ({ workspaces, projects, tasks }) => {
+const toOverview = ({ workspaces, projects, tasks, sprints = [] }) => {
   const rows = workspaces.map((w) => ({
     id: w.id,
     name: w.name,
@@ -92,6 +92,18 @@ const toOverview = ({ workspaces, projects, tasks }) => {
       activeSprints: sum((row) => row.activeSprints),
     },
     projectsByStatus,
+    activeSprints: sprints.map((sprint) => ({
+      id: sprint.id,
+      name: sprint.name,
+      endDate: sprint.endDate,
+      projectId: sprint.projectId,
+      projectName: sprint.projectName,
+      projectKey: sprint.projectKey,
+      workspaceId: sprint.workspaceId,
+      workspaceName: sprint.workspaceName,
+      total: sprint.total,
+      done: sprint.done,
+    })),
     workspaces: rows.map((row) => ({
       ...row,
       projectCount: Object.values(row.projects).reduce((a, b) => a + b, 0),

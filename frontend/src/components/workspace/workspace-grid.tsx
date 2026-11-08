@@ -1,6 +1,7 @@
 import { CreateWorkspaceCard } from "@/components/workspace/create-workspace-card";
 import { WorkspaceCard } from "@/components/workspace/workspace-card";
 import type { Workspace } from "@/types/workspace";
+import { ArchivedEmpty } from "@/components/workspace/archived-empty";
 
 /**
  * Feature 2's box view. One column at 360px, two from `sm`, three from `lg`.
@@ -18,17 +19,7 @@ export function WorkspaceGrid({
   workspaces: Workspace[];
   archived?: boolean;
 }) {
-  if (archived && workspaces.length === 0) {
-    return (
-      <section className="mt-4 rounded-md border border-dashed border-border px-6 py-12 text-center">
-        <h2 className="text-sm font-semibold text-text">Nothing archived</h2>
-        <p className="mt-1 text-sm text-text-muted">
-          Archiving a workspace hides it from your list without deleting
-          anything. Archived ones show up here.
-        </p>
-      </section>
-    );
-  }
+  if (archived && workspaces.length === 0) return <ArchivedEmpty view="grid" />;
 
   return (
     <section className="mt-4">

@@ -15,6 +15,7 @@ import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
 import { ROLES, permissionsFor } from '../../shared/constants/roles.js';
+import { CACHE_NS, remember } from '../../shared/utils/cache.js';
 import repository from './workspace.repository.js';
 import dto from './workspace.dto.js';
 
@@ -95,8 +96,26 @@ const deleteWorkspace = async (workspaceId, membership) => {
   await repository.softDeleteWorkspace(workspaceId);
 };
 
-/** `GET /workspaces/overview`. Scoped to the caller's memberships by the joins in the repository. */
-const getOverview = async (userId) => dto.toOverview(await repository.findOverviewForUser(userId));
+/**
+ * `GET /workspaces/overview`. Scoped to the caller's memberships by the joins
+ * in the repository.
+ *
+ * CACHED FOR 60 SECONDS per user (`cache:overview:<userId>`). Four aggregate
+ * queries across every workspace the caller is in, on the page they land on
+ * after sign-in, against a remote database — the most expensive read in the
+ * app. It is a dashboard of totals, so a minute of staleness is the trade:
+ * versioned invalidation would need every task, sprint and project write to
+ * know every member of the workspace it touched.
+ */
+const OVERVIEW_TTL_SECONDS = 60;
+
+const getOverview = async (userId) => {
+  const { value } = await remember(
+    { namespace: CACHE_NS.OVERVIEW, scopeId: userId, ttl: OVERVIEW_TTL_SECONDS },
+    async () => dto.toOverview(await repository.findOverviewForUser(userId))
+  );
+  return value;
+};
 
 export default {
   getOverview,

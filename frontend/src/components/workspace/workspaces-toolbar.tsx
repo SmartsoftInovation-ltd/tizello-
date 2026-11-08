@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkPendingLoader } from "@/components/ui/link-pending-loader";
 import {
   WORKSPACE_VIEW_LABEL,
   WORKSPACE_VIEW_SUMMARY,
@@ -61,6 +62,7 @@ export function WorkspacesToolbar({
                   className={current ? VIEW_ACTIVE : VIEW_IDLE}
                 >
                   {WORKSPACE_VIEW_LABEL[value]}
+                  <LinkPendingLoader label="Loading workspaces" />
                 </Link>
               </li>
             );
@@ -78,6 +80,7 @@ export function WorkspacesToolbar({
               className={archived ? VIEW_ACTIVE : VIEW_IDLE}
             >
               Archived
+              <LinkPendingLoader label="Loading archived workspaces" />
             </Link>
           </li>
         </ul>
@@ -92,6 +95,7 @@ export function WorkspacesToolbar({
           className={archived ? FILTER_ACTIVE : FILTER_IDLE}
         >
           {archived ? "Showing archived" : "Show archived"}
+          <LinkPendingLoader label="Loading workspaces" />
         </Link>
       </div>
     </div>
