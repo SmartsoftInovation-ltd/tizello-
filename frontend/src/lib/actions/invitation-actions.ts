@@ -34,6 +34,7 @@ export async function inviteMemberAction(input: {
   workspaceId: string;
   email: string;
   role: InvitableRole;
+  roleId?: string | null;
 }): Promise<ActionResult> {
   const email = normaliseEmail(input.email);
 

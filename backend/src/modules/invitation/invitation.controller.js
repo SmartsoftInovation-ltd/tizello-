@@ -14,7 +14,9 @@ const create = async (req, res) => {
     workspaceId: req.params.workspaceId,
     email: req.body.email,
     role: req.body.role,
+    roleId: req.body.roleId ?? null,
     invitedById: req.user.id,
+    inviterMembership: req.membership,
   });
 
   return ApiResponse.success(res, httpStatus.CREATED, 'Invitation sent', result);

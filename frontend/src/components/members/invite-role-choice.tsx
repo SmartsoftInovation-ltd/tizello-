@@ -1,62 +1,86 @@
 "use client";
 
-import { INVITABLE_ROLES, type InvitableRole } from "@/types/workspace";
+import { cn } from "@/lib/cn";
+import type { RoleDefinition } from "@/types/permissions";
 
 /*
- * A segmented control built on real radios rather than a div-with-onClick:
- * grouping, arrow-key navigation, Home/End and the announcement of "2 of 2"
- * all come from the browser, and there is no roving tabindex to get wrong.
+ * Which role the invitee joins with: EVERY role the workspace has — the
+ * built-in Admin and Member, and each role it defined itself — as a list of
+ * radio rows, each with a line saying what it is.
  *
- * The input is `sr-only`, so the base layer's focus ring would land on a
- * hidden box. `peer-focus-visible` forwards that same 2px ring to the visible
- * segment — the one focus treatment, relocated, not a second one.
+ * Owner is absent on purpose: ownership is transferred, never invited. The
+ * API also refuses a role that grants more than the inviter holds, so a role
+ * listed here can still come back 403 for someone with a narrow grant — the
+ * server is the control, this is the menu.
  */
-const SEGMENT =
-  "cursor-pointer rounded-xs px-2.5 py-1 text-xs font-medium text-text-muted transition-colors duration-100 ease-standard peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus peer-checked:bg-brand-500 peer-checked:font-semibold peer-checked:text-on-brand hover:bg-surface-hover hover:text-text peer-checked:hover:bg-brand-500 peer-checked:hover:text-on-brand";
-
-const COPY: Record<InvitableRole, { label: string; hint: string }> = {
-  ADMIN: {
-    label: "Admin",
-    hint: "Can invite people, change roles and manage every project.",
-  },
-  MEMBER: {
-    label: "Member",
-    hint: "Can work on projects, but not change who has access.",
-  },
+const BUILT_IN_HINT: Record<string, string> = {
+  ADMIN: "Can invite people, change roles and manage every project.",
+  MEMBER: "Can work on projects, but not change who has access.",
 };
+
+const hintFor = (role: RoleDefinition) =>
+  role.builtIn
+    ? BUILT_IN_HINT[role.baseRole] ?? ""
+    : `Custom role · ${role.permissions.length} ${role.permissions.length === 1 ? "permission" : "permissions"} · ${
+        role.baseRole === "ADMIN" ? "Admin" : "Member"
+      } level`;
+
+/** The roles an invitation may carry: everything but Owner, built-ins first. */
+export function invitableRoles(roles: RoleDefinition[]): RoleDefinition[] {
+  return roles
+    .filter((role) => role.baseRole !== "OWNER")
+    .sort((a, b) => Number(b.builtIn) - Number(a.builtIn));
+}
 
 export function InviteRoleChoice({
   name,
+  roles,
   value,
   onChange,
 }: {
-  /** The radio group's form name, so the three parts share one selection. */
+  /** The radio group's form name. */
   name: string;
-  value: InvitableRole;
-  onChange: (role: InvitableRole) => void;
+  roles: RoleDefinition[];
+  /** The selected role's id. */
+  value: string;
+  onChange: (role: RoleDefinition) => void;
 }) {
   return (
     <fieldset>
       <legend className="text-xs font-semibold text-text-muted">Role</legend>
 
-      <div className="mt-1 inline-flex rounded-sm border border-border bg-surface p-0.5">
-        {INVITABLE_ROLES.map((role) => (
-          <label key={role} className="inline-flex">
-            <input
-              type="radio"
-              name={name}
-              value={role}
-              checked={value === role}
-              onChange={() => onChange(role)}
-              className="peer sr-only"
-            />
-            <span className={SEGMENT}>{COPY[role].label}</span>
-          </label>
-        ))}
+      <div className="mt-1.5 max-h-60 space-y-1.5 overflow-y-auto pr-0.5">
+        {roles.map((role) => {
+          const checked = role.id === value;
+          return (
+            <label
+              key={role.id}
+              className={cn(
+                "flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2 transition-colors duration-100 ease-standard",
+                checked ? "border-brand-500 bg-brand-subtle" : "border-border hover:bg-surface-hover",
+              )}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={role.id}
+                checked={checked}
+                onChange={() => onChange(role)}
+                className="mt-0.5 size-4 shrink-0 accent-brand-500"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-text">
+                  {role.name}
+                  {!role.builtIn && (
+                    <span className="rounded-full bg-chip px-1.5 text-2xs font-semibold text-text-subtle">Custom</span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-xs text-text-subtle">{hintFor(role)}</span>
+              </span>
+            </label>
+          );
+        })}
       </div>
-
-      {/* Owner is absent on purpose: ownership is transferred, never invited. */}
-      <p className="mt-1.5 text-2xs text-text-subtle">{COPY[value].hint}</p>
     </fieldset>
   );
 }

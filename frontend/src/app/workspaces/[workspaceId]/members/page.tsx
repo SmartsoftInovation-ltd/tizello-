@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { getWorkspace } from "@/lib/workspaces";
 import { getPendingInvitations } from "@/lib/invites";
 import { getMembers } from "@/lib/members";
+import { getRoles } from "@/lib/workspace-roles";
 
 export async function generateMetadata({
   params,
@@ -42,10 +43,12 @@ export default async function MembersPage({
      "You", and it is now also what locks that row's controls (you cannot change
      your own role, and leaving is a different endpoint), so a wrong id is a
      wrong lock rather than just a wrong label. */
-  const [members, invitations, user] = await Promise.all([
+  const [members, invitations, user, roles] = await Promise.all([
     getMembers(workspaceId),
     getPendingInvitations(workspaceId),
     getSession(),
+    /* Every role — built-in and workspace-defined — for the invite dialog. */
+    getRoles(workspaceId),
   ]);
 
   return (
@@ -63,6 +66,7 @@ export default async function MembersPage({
         viewerRole={workspace.role}
         workspaceId={workspaceId}
         workspaceName={workspace.name}
+        roles={roles}
       />
     </main>
   );

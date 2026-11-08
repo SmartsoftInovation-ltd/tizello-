@@ -22,7 +22,8 @@
 import AppError from '../../shared/utils/AppError.js';
 import httpStatus from '../../shared/constants/httpStatus.js';
 import { AUTH_CODES } from '../../shared/constants/authCodes.js';
-import { ROLES } from '../../shared/constants/roles.js';
+import { ROLES, permissionsFor } from '../../shared/constants/roles.js';
+import roleService from '../role/role.service.js';
 import config from '../../config/env.js';
 import prisma from '../../config/db.js';
 import { mintOpaqueToken, hashToken } from '../../shared/utils/tokens.js';
@@ -47,7 +48,29 @@ const notFound = () =>
  * service reachable from a worker or a script must not depend on an HTTP-layer
  * validator having run.
  */
-const createInvitation = async ({ workspaceId, email, role, invitedById }) => {
+const createInvitation = async ({ workspaceId, email, role, roleId = null, invitedById, inviterMembership }) => {
+  /* A workspace-defined role, when one was named. Its `baseRole` is the rung
+     the invitee joins on — the same two-column rule `member.service`'s
+     changeRole applies, so an accepted invite and a later role change agree.
+     An unknown id is the role module's 404. */
+  const custom = roleId ? await roleService.findAssignable(workspaceId, roleId) : null;
+  if (custom) role = custom.baseRole;
+
+  /* No escalation by invitation: the role cannot grant a permission the
+     inviter does not hold — the same ceiling `resolveGrant` puts on authoring
+     a role. Without it, anyone with `members.invite` could hand a new account
+     a role more powerful than their own. */
+  if (custom && inviterMembership) {
+    const ceiling = permissionsFor(inviterMembership);
+    if (custom.permissions.some((id) => !ceiling.includes(id))) {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        'You cannot invite someone with a role that has more permissions than yours',
+        AUTH_CODES.FORBIDDEN
+      );
+    }
+  }
+
   if (role === ROLES.OWNER) {
     throw new AppError(
       httpStatus.UNPROCESSABLE_ENTITY,
@@ -83,6 +106,7 @@ const createInvitation = async ({ workspaceId, email, role, invitedById }) => {
     email,
     workspaceId,
     role,
+    roleId: custom?.id ?? null,
     invitedById,
     tokenHash: hashToken(token),
     expiresAt: expiryFromNow(),
@@ -95,7 +119,7 @@ const createInvitation = async ({ workspaceId, email, role, invitedById }) => {
 
   const withInviter = await prisma.invitation.findUnique({
     where: { id: invitation.id },
-    include: { invitedBy: true },
+    include: { invitedBy: true, customRole: { select: { name: true } } },
   });
 
   return { invitation: dto.toInvitation(withInviter) };
@@ -258,7 +282,7 @@ const acceptInvitation = async ({ token, userId }) => {
     }
 
     const membership = await repository.createMembership(
-      { userId, workspaceId: locked.workspaceId, role: locked.role },
+      { userId, workspaceId: locked.workspaceId, role: locked.role, roleId: locked.roleId ?? null },
       tx
     );
 
@@ -317,7 +341,7 @@ const applyInviteTokenOnRegister = async ({ token, user }, tx) => {
     if (invitation.email !== user.email) return false;
 
     await repository.createMembership(
-      { userId: user.id, workspaceId: invitation.workspaceId, role: invitation.role },
+      { userId: user.id, workspaceId: invitation.workspaceId, role: invitation.role, roleId: invitation.roleId ?? null },
       tx
     );
 

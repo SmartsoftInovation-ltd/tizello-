@@ -15,6 +15,7 @@ import { useMemberMutations } from "@/components/members/use-member-mutations";
 import { inviteErrorCopy } from "@/lib/invite-error-copy";
 import { sortInvitations } from "@/lib/invite-sort";
 import { toast } from "sonner";
+import type { RoleDefinition } from "@/types/permissions";
 import type {
   InvitableRole,
   PendingInvitation,
@@ -50,6 +51,7 @@ export function MembersPanel({
   viewerRole,
   workspaceId,
   workspaceName,
+  roles,
 }: {
   members: WorkspaceMember[];
   invitations: PendingInvitation[];
@@ -58,6 +60,8 @@ export function MembersPanel({
   viewerRole: WorkspaceRole;
   workspaceId: string;
   workspaceName: string;
+  /** Every role in the workspace — what the invite dialog offers. */
+  roles: RoleDefinition[];
 }) {
   const [tab, setTab] = useState("members");
   const [invites, setInvites] = useState(invitations);
@@ -88,9 +92,9 @@ export function MembersPanel({
      worse than a half-second wait. `new Date()` is safe here: this runs in an
      event handler, never during a render the server also performed, so there is
      nothing for hydration to disagree with. */
-  function invite(email: string, role: InvitableRole) {
+  function invite(email: string, role: InvitableRole, roleId: string | null) {
     startTransition(async () => {
-      const result = await inviteMemberAction({ workspaceId, email, role });
+      const result = await inviteMemberAction({ workspaceId, email, role, roleId });
 
       if (!result.ok) {
         toast.error(inviteErrorCopy(result.code));
@@ -104,6 +108,7 @@ export function MembersPanel({
             id: crypto.randomUUID(),
             email,
             role,
+            roleName: roles.find((entry) => entry.id === roleId && !entry.builtIn)?.name ?? null,
             invitedAt: new Date().toISOString(),
             status: "PENDING",
           },
@@ -170,6 +175,7 @@ export function MembersPanel({
         onOpenChange={setInviteOpen}
         workspaceName={workspaceName}
         pending={isPending}
+        roles={roles}
         onInvite={invite}
       />
 

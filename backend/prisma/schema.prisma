@@ -215,6 +215,7 @@ model WorkspaceRole {
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   User?        @relation("WorkspaceRoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   memberships Membership[]
+  invitations Invitation[]
 
   // Two roles with one name in a workspace would make the cards unreadable and
   // the audit trail ambiguous.
@@ -224,15 +225,20 @@ model WorkspaceRole {
 }
 
 model Invitation {
-  id           String    @id @default(cuid())
+  id           String         @id @default(cuid())
   email        String
   workspaceId  String
-  role         Role      @default(MEMBER)
+  role         Role           @default(MEMBER)
+  // The workspace-defined role the invitee will hold (null = the tier's
+  // default grant). `role` above is its rung. SetNull: a role deleted while the
+  // invite is pending degrades to the tier rather than breaking the accept.
+  roleId       String?
+  customRole   WorkspaceRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
   // The SHA-256 of the token, never the token. A leaked database dump of raw
   // invitation tokens is a set of working links into every workspace; a dump
   // of hashes is not. The raw value exists only in the email and in the job
   // payload that sent it.
-  tokenHash    String    @unique
+  tokenHash    String         @unique
   invitedById  String
   expiresAt    DateTime
   // The four terminal states are timestamps, not a status column, because
@@ -242,7 +248,7 @@ model Invitation {
   acceptedById String?
   declinedAt   DateTime?
   revokedAt    DateTime?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime       @default(now())
 
   workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   invitedBy  User      @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
@@ -744,36 +750,36 @@ enum NotificationType {
 //
 // See docs/api/notification.md
 model Notification {
-  id          String           @id @default(cuid())
+  id            String           @id @default(cuid())
   // Who is being told.
-  userId      String
-  user        User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
-  type        NotificationType
-  title       String
-  body        String?
+  userId        String
+  user          User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  type          NotificationType
+  title         String
+  body          String?
   // Who did the thing. Null when the actor's account is gone — the
   // notification survives them, because it still explains why the reader has
   // the task.
-  actorId     String?
-  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actorId       String?
+  actor         User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
   // Who the notification is ABOUT, when that is neither the reader nor the
   // actor: the assignee whose email failed. SetNull — the row still explains
   // what happened after that account is gone; it just cannot be resent.
   subjectUserId String?
-  subject       User?          @relation("NotificationSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subject       User?            @relation("NotificationSubject", fields: [subjectUserId], references: [id], onDelete: SetNull)
   // What it points at. Cascade, not SetNull: a notification whose task has
   // been deleted is a dead link in a list whose every row is a link, and
   // keeping it would mean every render has to handle a null target.
-  taskId      String?
-  task        Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId        String?
+  task          Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   // Denormalized so the bell can render a line of context without joining
   // through task → project → workspace on every row.
-  projectName String?
-  sprintName  String?
+  projectName   String?
+  sprintName    String?
   // Null until read. A nullable timestamp rather than a boolean: "when" is
   // strictly more information than "whether", and the boolean is derivable.
-  readAt      DateTime?
-  createdAt   DateTime         @default(now())
+  readAt        DateTime?
+  createdAt     DateTime         @default(now())
 
   // The unread badge, and the list itself, are both (userId, …) — one index
   // per access path rather than one wide one, because the badge never reads

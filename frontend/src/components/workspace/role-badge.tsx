@@ -7,10 +7,11 @@ import type { WorkspaceRole } from "@/types/workspace";
  * tint — an "Member" chip on every other card would be noise, so it renders
  * quietly in the default variant.
  */
-export function RoleBadge({ role }: { role: WorkspaceRole }) {
+/** `name` shows a workspace-defined role's own name in place of the tier label. */
+export function RoleBadge({ role, name }: { role: WorkspaceRole; name?: string | null }) {
   return (
     <Badge variant={role === "OWNER" ? "brand" : "default"}>
-      {ROLE_LABEL[role]}
+      {name ?? ROLE_LABEL[role]}
     </Badge>
   );
 }

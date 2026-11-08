@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { InviteRoleChoice } from "@/components/members/invite-role-choice";
+import { InviteRoleChoice, invitableRoles } from "@/components/members/invite-role-choice";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/ui/text-field";
 import { normaliseEmail, validateEmail } from "@/lib/validation/auth";
+import type { RoleDefinition } from "@/types/permissions";
 import type { InvitableRole } from "@/types/workspace";
 
 /*
@@ -35,6 +36,7 @@ export function InviteMemberDialog({
   onOpenChange,
   workspaceName,
   pending = false,
+  roles,
   onInvite,
 }: {
   open: boolean;
@@ -42,16 +44,23 @@ export function InviteMemberDialog({
   workspaceName: string;
   /** True while the parent's action is in flight. */
   pending?: boolean;
-  onInvite: (email: string, role: InvitableRole) => void;
+  /** Every role in the workspace; Owner is filtered out here. */
+  roles: RoleDefinition[];
+  /** `roleId` is the chosen role row, or null for a bare tier. */
+  onInvite: (email: string, role: InvitableRole, roleId: string | null) => void;
 }) {
   const titleId = useId();
   const roleName = useId();
-  const [role, setRole] = useState<InvitableRole>("MEMBER");
+  const options = invitableRoles(roles);
+  /* The built-in Member row is the default, as before. */
+  const fallback = options.find((option) => option.builtIn && option.baseRole === "MEMBER") ?? options[0];
+  const [roleId, setRoleId] = useState<string>(fallback?.id ?? "");
+  const chosen = options.find((option) => option.id === roleId) ?? fallback;
   const [error, setError] = useState<string | undefined>();
 
   function close() {
     setError(undefined);
-    setRole("MEMBER");
+    setRoleId(fallback?.id ?? "");
     onOpenChange(false);
   }
 
@@ -69,7 +78,9 @@ export function InviteMemberDialog({
       return;
     }
 
-    onInvite(normaliseEmail(email), role);
+    /* No roles loaded (the list failed) falls back to a plain Member invite. */
+    const tier: InvitableRole = chosen?.baseRole === "ADMIN" ? "ADMIN" : "MEMBER";
+    onInvite(normaliseEmail(email), tier, chosen?.id ?? null);
     form.reset();
     close();
   }
@@ -100,7 +111,9 @@ export function InviteMemberDialog({
               onValueChange={() => setError(undefined)}
             />
 
-            <InviteRoleChoice name={roleName} value={role} onChange={setRole} />
+            {options.length > 0 && (
+              <InviteRoleChoice name={roleName} roles={options} value={chosen?.id ?? ""} onChange={(role) => setRoleId(role.id)} />
+            )}
           </div>
 
           <DialogFooter className="mt-5">

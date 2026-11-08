@@ -28,6 +28,8 @@ type ApiInvitation = {
   id: string;
   email: string;
   role: InvitableRole;
+  roleId?: string | null;
+  roleName?: string | null;
   status: "PENDING";
   invitedByName: string | null;
   expiresAt: string;
@@ -50,6 +52,7 @@ export async function getPendingInvitations(
       id: row.id,
       email: row.email,
       role: row.role,
+      roleName: row.roleName ?? null,
       /* The list type calls it `invitedAt`; the API calls it `createdAt`. Same
          instant, and both are ISO 8601 UTC strings so they cross the RSC
          boundary and format identically on server and client. */
@@ -80,10 +83,15 @@ export async function createInvitation(input: {
   workspaceId: string;
   email: string;
   role: InvitableRole;
+  /** A workspace role row; its `baseRole` must match `role`. */
+  roleId?: string | null;
 }): Promise<{ ok: true } | { ok: false; code: string }> {
   const result = await apiCallWithRefresh(
     `/workspaces/${encodeURIComponent(input.workspaceId)}/invitations`,
-    { method: "POST", body: { email: input.email, role: input.role } },
+    {
+      method: "POST",
+      body: { email: input.email, role: input.role, ...(input.roleId ? { roleId: input.roleId } : {}) },
+    },
   );
 
   return result.ok ? { ok: true } : { ok: false, code: result.code };

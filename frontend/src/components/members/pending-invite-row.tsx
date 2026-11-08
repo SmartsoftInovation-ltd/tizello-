@@ -32,7 +32,7 @@ export function PendingInviteRow({
   onResend: () => void;
   onCancel: () => void;
 }) {
-  const { email, role, invitedAt } = invitation;
+  const { email, role, roleName, invitedAt } = invitation;
 
   return (
     <div className={ROW}>
@@ -55,7 +55,7 @@ export function PendingInviteRow({
           <ClockIcon className="size-3 shrink-0 text-warning" />
           Pending
         </Badge>
-        <RoleBadge role={role} />
+        <RoleBadge role={role} name={roleName} />
 
         {/* Named for the invitee: "Resend" alone is three identical buttons. */}
         <Button

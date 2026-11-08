@@ -23,7 +23,7 @@ const findById = (id, tx = prisma) => tx.invitation.findUnique({ where: { id } }
 const findByTokenHash = (tokenHash, tx = prisma) =>
   tx.invitation.findUnique({
     where: { tokenHash },
-    include: { workspace: true, invitedBy: true },
+    include: { workspace: true, invitedBy: true, customRole: { select: { name: true } } },
   });
 
 /**
@@ -59,7 +59,7 @@ const listPending = (workspaceId, tx = prisma) =>
       revokedAt: null,
       expiresAt: { gt: new Date() },
     },
-    include: { invitedBy: true },
+    include: { invitedBy: true, customRole: { select: { name: true } } },
     orderBy: { createdAt: 'desc' },
   });
 

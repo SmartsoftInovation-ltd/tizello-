@@ -160,6 +160,8 @@ export type PendingInvitation = {
   id: string;
   email: string;
   role: InvitableRole;
+  /** The workspace-defined role they will join with, when one was chosen. */
+  roleName?: string | null;
   invitedAt: string;
   /** One value today. Declined and expired invitations are a later screen. */
   status: "PENDING";
@@ -172,6 +174,7 @@ export type WorkspaceInvitation = {
   workspaceName: string;
   invitedByName: string;
   role: InvitableRole;
+  roleName?: string | null;
 };
 
 /**

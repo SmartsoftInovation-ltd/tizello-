@@ -43,6 +43,8 @@ const toInvitation = (row) => ({
   id: row.id,
   email: row.email,
   role: row.role,
+  roleId: row.roleId ?? null,
+  roleName: row.customRole?.name ?? null,
   status: statusOf(row),
   invitedByName: row.invitedBy?.name ?? null,
   expiresAt: row.expiresAt,
@@ -66,6 +68,9 @@ const toPublicInvitation = (row, token) => ({
   workspaceName: row.workspace.name,
   invitedByName: row.invitedBy?.name ?? null,
   role: row.role,
+  // The role's display name only — never its permission list, which this
+  // unauthenticated shape must not disclose.
+  roleName: row.customRole?.name ?? null,
 });
 
 export default { toInvitation, toPublicInvitation, statusOf, STATUS };

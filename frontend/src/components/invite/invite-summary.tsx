@@ -36,7 +36,7 @@ export function InviteSummary({
       <div className="flex items-center justify-between gap-4">
         <dt className="shrink-0 text-xs text-text-subtle">Your role</dt>
         <dd className="min-w-0">
-          <RoleBadge role={invitation.role} />
+          <RoleBadge role={invitation.role} name={invitation.roleName} />
         </dd>
       </div>
     </dl>

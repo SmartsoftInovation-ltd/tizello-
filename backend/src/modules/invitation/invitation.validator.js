@@ -21,6 +21,9 @@ const createInvitationSchema = Joi.object({
   // OWNER is absent by construction rather than rejected by a rule — a closed
   // list cannot be widened by a typo.
   role: Joi.string().valid(ROLES.ADMIN, ROLES.MEMBER).default(ROLES.MEMBER),
+  // A workspace-defined role to join with. When present its `baseRole` sets
+  // the rung and `role` is ignored — see invitation.service.js.
+  roleId: Joi.string().max(64).allow(null).optional(),
 });
 
 const workspaceParamsSchema = Joi.object({
