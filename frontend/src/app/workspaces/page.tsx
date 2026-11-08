@@ -10,7 +10,6 @@ import { WorkspacesToolbar } from "@/components/workspace/workspaces-toolbar";
 import { getSession } from "@/lib/auth";
 import { getWorkspaceOverview } from "@/lib/workspace-overview";
 import { getWorkspaces } from "@/lib/workspaces";
-import { plural } from "@/lib/plural";
 import { WELCOME_PARAM } from "@/lib/session-cookie";
 import { parseArchivedFilter, parseWorkspaceView } from "@/lib/workspace-view";
 
@@ -60,7 +59,7 @@ export default async function WorkspacesPage({ searchParams }: PageProps<"/works
             {archived ? "Archived workspaces" : "Workspaces"}
           </h1>
           <p className="mt-1.5 text-sm text-text-muted">
-            {user.name} · {plural(workspaces.length, "workspace", "workspaces")}
+            {archived ? "Workspaces you have archived." : `Welcome to your workspaces, ${user.name}.`}
           </p>
         </header>
 
