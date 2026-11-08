@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthAside } from "@/components/auth/auth-aside";
 import { AuthColumn } from "@/components/auth/auth-column";
+import { SignUpSteps } from "@/components/auth/sign-up-steps";
 import { AuthDivider } from "@/components/auth/auth-divider";
 import { AuthFooter } from "@/components/auth/auth-footer";
 import { SignUpForm } from "@/components/auth/sign-up-form";
@@ -32,6 +33,8 @@ export default async function SignUpPage({ searchParams }: PageProps<"/sign-up">
       <AuthColumn
         heading="Sign up for Tizello"
         sub="Free forever for your first 10 boards."
+        top={<SignUpSteps />}
+        mirrored
       >
         <SignUpForm inviteToken={inviteToken} />
         <AuthDivider label="or continue with" />

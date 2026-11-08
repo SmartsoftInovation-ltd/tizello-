@@ -46,10 +46,13 @@ const FEATURES = {
 };
 
 export function AuthAside({ variant }: { variant: AuthAsideVariant }) {
+  /* Sign-up mirrors the shell — panel left, form right — so the two screens
+     differ at a glance, not only in their headings. */
+  const mirrored = variant === "sign-up";
   const { tag, title } = COPY[variant];
 
   return (
-    <aside className="auth-field relative hidden overflow-y-auto lg:flex lg:items-center">
+    <aside className={`auth-field relative hidden overflow-y-auto lg:flex lg:items-center${mirrored ? " lg:order-first" : ""}`}>
       <div className="auth-noise pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <InkOrbitFeatures

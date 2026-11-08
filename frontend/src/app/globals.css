@@ -619,6 +619,36 @@
 }
 
 /* --------------------------------------------------------------------------
+   AUTH COLUMN — the form half of the split shell, tinted to match the panel.
+   Light: brand-50 mint. Dark: surface pulled toward brand-950, so it reads as
+   the panel's deep green rather than near-black. A soft brand glow sits on the
+   edge that meets the panel (right by default, left when mirrored).
+   -------------------------------------------------------------------------- */
+@utility auth-column {
+  background-color: light-dark(
+    var(--color-brand-50),
+    color-mix(in oklab, var(--color-brand-950) 72%, var(--color-surface))
+  );
+  background-image: radial-gradient(
+    80% 70% at 100% 50%,
+    color-mix(in oklab, var(--color-brand-500) 14%, transparent),
+    transparent 70%
+  );
+}
+
+@utility auth-column-mirrored {
+  background-color: light-dark(
+    var(--color-brand-50),
+    color-mix(in oklab, var(--color-brand-950) 72%, var(--color-surface))
+  );
+  background-image: radial-gradient(
+    80% 70% at 0% 50%,
+    color-mix(in oklab, var(--color-brand-500) 14%, transparent),
+    transparent 70%
+  );
+}
+
+/* --------------------------------------------------------------------------
    AUTH ASIDE — the right panel of the split shell.
    See .claude/specs/authentication.md §5. Layer 1 (the gradient field) and the
    noise overlay live here rather than in the component so no hex, and no
